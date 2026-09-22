@@ -19,7 +19,7 @@
 
 設計上の要点は 3 つです。第一に **プライバシーは fail-closed** です。ワールドに出してよい情報の上限 (アクセスレベル: 自分のプライベートワールドなら 1.0、公開ワールドなら 0.25) を宣言し、上限を超える資料やセル、機密度が数値で取れないものは出しません。クラウド LLM に渡す機密度もさらに天井 (0.5) を設けています。第二に **監視は待たない** ことです。ResoniteLink の応答待ちは ScheduledTask やコールバックの中では成立しないため、ガジェットの監視は 1 本の tick が「送るだけ」「次の tick で照合」の 2 相で回り、LLM の提案コードが頼むガジェットの組み立ても予約して tick が待たずに組みます。第三に **FrontEnd を守る** ことです。常駐 Dynamic でポーリングせず、SocketListen のコールバックからは FrontEnd を触りません。
 
-外部ツールのうち **resoloop** (orange3134 氏、AGPL-3.0) と **Flux SDK** (Papaltine、AGPL-3.0) はライセンスが異なるため本リポジトリには含めていません。3D 生成は [ResoLoop](https://github.com/transreal/ResoLoop) パッケージの setup.md に従って resoloop を導入すると使えます。ProtoFlux 生成に使うノードカタログと言語リファレンスも、利用者が自分の Resonite と公式ドキュメントから作ります ([setup.md](ResoniteRealtime_info/docs/setup.md) 5 節)。
+外部ツールのうち **resoloop** (orange3134 氏、AGPL-3.0) と **Flux SDK** (Papaltine、AGPL-3.0) はライセンスが異なるため本リポジトリには含めていません。3D 生成は [ResoLoop](https://github.com/transreal/ResoLoop) パッケージの setup.md に従って resoloop を導入すると使えます。ProtoFlux 生成に使うノードカタログと言語リファレンスも、利用者が自分の Resonite と公式ドキュメントから作ります ([setup.md](setup.md) 5 節)。
 
 ## 詳細説明
 
@@ -59,7 +59,7 @@
    ResoniteRealtimeLinkConnect[];            (* ポートは自動検出 (netsh の http.sys 登録一覧)。明示なら [port] *)
    ```
 
-詳細 (L1 ブリッジオブジェクトの作り方、含めていない参照データの作り方、トラブルシューティング) は [setup.md](ResoniteRealtime_info/docs/setup.md) を参照してください。
+詳細 (L1 ブリッジオブジェクトの作り方、含めていない参照データの作り方、トラブルシューティング) は [setup.md](setup.md) を参照してください。
 
 ### クイックスタート
 
@@ -85,18 +85,18 @@ ResoniteGraphics3D[Plot3D[Sin[x y], {x, 0, 3}, {y, 0, 3}]]   (* 掴めるメッ�
 
 ### ドキュメント一覧
 
-- [api.md](ResoniteRealtime_info/docs/api.md) — オプションを含む API リファレンス
-- [setup.md](ResoniteRealtime_info/docs/setup.md) — セットアップ手順書 (外部ツールと参照データの用意を含む)
-- [user_manual.md](ResoniteRealtime_info/docs/user_manual.md) — ユーザーマニュアル
-- [example.md](ResoniteRealtime_info/docs/examples/example.md) — 使用例集
-- [tablet.md](ResoniteRealtime_info/docs/tablet.md) — タブレット (ClaudeEval / 承認 / 予約した組み立て / 3D 生成 / PDF ビューア) の仕組みと実機メモ
-- [chat-gadget.md](ResoniteRealtime_info/docs/chat-gadget.md) — Chat ガジェット
-- [protoflux-gadget.md](ResoniteRealtime_info/docs/protoflux-gadget.md) — ProtoFlux ガジェット (グラフ記述の配置と検証、カタログの作り方)
-- [protoflux-llm-generation-proposal.md](ResoniteRealtime_info/docs/protoflux-llm-generation-proposal.md) — ProtoFlux 生成の方式検討
-- [in-world-bridge-setup.md](ResoniteRealtime_info/docs/in-world-bridge-setup.md) — L1 ブリッジオブジェクトの作り方と ResoniteLink の有効化
-- [resonitelink-notes.md](ResoniteRealtime_info/docs/resonitelink-notes.md) — ResoniteLink の実機メモ
-- [tablet_claudeeval_spec_v0_1.md](ResoniteRealtime_info/design/tablet_claudeeval_spec_v0_1.md) — タブレットの設計仕様と実装記録 (resoloop 統合仕様の続き。統合仕様の正本は [ResoLoop](https://github.com/transreal/ResoLoop) 側)
-- [110-resonite-tablet.md](ResoniteRealtime_info/directives/110-resonite-tablet.md) — ClaudeEval 向けの規則 (Claude Directives 用の写し)
+- [api.md](api.md) — オプションを含む API リファレンス
+- [setup.md](setup.md) — セットアップ手順書 (外部ツールと参照データの用意を含む)
+- [user_manual.md](user_manual.md) — ユーザーマニュアル
+- [example.md](examples/example.md) — 使用例集
+- [tablet.md](tablet.md) — タブレット (ClaudeEval / 承認 / 予約した組み立て / 3D 生成 / PDF ビューア) の仕組みと実機メモ
+- [chat-gadget.md](chat-gadget.md) — Chat ガジェット
+- [protoflux-gadget.md](protoflux-gadget.md) — ProtoFlux ガジェット (グラフ記述の配置と検証、カタログの作り方)
+- [protoflux-llm-generation-proposal.md](protoflux-llm-generation-proposal.md) — ProtoFlux 生成の方式検討
+- [in-world-bridge-setup.md](in-world-bridge-setup.md) — L1 ブリッジオブジェクトの作り方と ResoniteLink の有効化
+- [resonitelink-notes.md](resonitelink-notes.md) — ResoniteLink の実機メモ
+- [tablet_claudeeval_spec_v0_1.md](../design/tablet_claudeeval_spec_v0_1.md) — タブレットの設計仕様と実装記録 (resoloop 統合仕様の続き。統合仕様の正本は [ResoLoop](https://github.com/transreal/ResoLoop) 側)
+- [110-resonite-tablet.md](../directives/110-resonite-tablet.md) — ClaudeEval 向けの規則 (Claude Directives 用の写し)
 
 ## 使用例・デモ
 
