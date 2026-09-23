@@ -614,13 +614,16 @@ Options[ResoniteRealtime`ResoniteRealtimeLinkConnect] = {"Host" -> "localhost", 
    ResoniteLink は http.sys (HttpListener) で HTTP://LOCALHOST:<port>/ を登録する。登録一覧は
    `netsh http show servicestate view=requestq` で取れ、要求キューごとに所有プロセス (Resonite の場合
    Renderite.Host.exe / Resonite.exe) と登録 URL が並ぶ (2026-09-22 実測、port 8403)。UDP の announce を
-   聞く resoloop discover (12 秒) より速く、依存も無い。 *)
+   聞く resoloop discover (12 秒) より速く、依存も無い。
+   **netsh の見出しは Windows の表示言語で変わる** (日本語版は「要求キュー名:」「イメージ:」) ので、
+   見出し語では拾わない: (1) キューの切れ目は字下げの無い行、(2) プロセスは ASCII の exe パス、
+   という字面だけで判定する (2026-09-23、日本語 Windows で英語見出し前提の旧実装が候補 0 になっていた)。 *)
 iParseNetshHttp[out_String] :=
   Module[{blocks},
-    blocks = StringSplit[out, RegularExpression["(?m)^Request queue name:"]];
+    blocks = StringSplit[out, RegularExpression["(?m)^(?=[^\\s])"]];
     Flatten @ Map[
       Function[b,
-        With[{procs = StringCases[b, RegularExpression["(?m)image:\\s*(.+?)\\s*$"] :> "$1"],
+        With[{procs = StringCases[b, RegularExpression["[\\p{L}]:[\\\\/][^\\r\\n]*?\\.exe"]],
               ports = DeleteDuplicates @ StringCases[b, RegularExpression["(?i)HTTPS?://(?:LOCALHOST|127\\.0\\.0\\.1|\\+|\\*):(\\d+)/"] :> ToExpression["$1"]]},
           If[AnyTrue[procs, StringContainsQ[#, "Resonite" | "Renderite", IgnoreCase -> True] &],
             Map[<|"Port" -> #, "URL" -> "ws://localhost:" <> ToString[#] <> "/",
@@ -638,7 +641,8 @@ iDiscoverResoLoop[] :=
   Module[{f, r},
     If[Names["ResoLoop`ResoLoopDiscover"] === {}, Return[{}]];
     f = Symbol["ResoLoop`ResoLoopDiscover"];
-    If[Length[DownValues[f]] === 0, Return[{}]];
+    (* DownValues は HoldAll。Module 変数のまま渡すと f 自身を見て常に 0 になるので Evaluate が要る *)
+    If[Length[DownValues[Evaluate[f]]] === 0, Return[{}]];
     r = Quiet @ Check[f[], $Failed];
     If[!ListQ[r], Return[{}]];
     Map[With[{url = Lookup[#, "url", ""]},
@@ -927,6 +931,7 @@ Print["
   ResoniteFluxChat[spec] / ResoniteFluxCell[] → ProtoFlux (ProtoGraph) を生成して出す
   ResoniteTablet[]                     → ワールド内タブレット (ClaudeEval / 承認 / スクロール出力 / ビューア)
   ResoniteShowObject[uri|row|file|expr] / ResoniteListGadget[rows] → SourceVault オブジェクトと一覧をワールドへ
+  ResoniteColorToggleBox[{Red, Blue}]  → クリックで色が切り替わる箱 (提案コード 1 つで作れる部品)
 "];
 
 (* ノートブックのセッションでは常駐監視を自動で始める (インベントリから出したタブレットの「接続」で使えるように)。

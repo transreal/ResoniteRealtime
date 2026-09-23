@@ -27,8 +27,9 @@
 
    ResoniteAccessLevel[] (chat 側): オーナーのワールドなら Private 1.0 / Contacts 0.5 /
    ContactsPlus, Public 0.25。オーナーでなければ一律 0.25 ($ResoniteWorldOwner)。
-   - 表示: 機密度 (NBCellExprPrivacyLevel / 行・オブジェクトの PrivacyLevel) がこれを超えるものは
-     出さない。数値が取れないものは fail-closed で出さない。
+   - 表示: 機密度 (NBCellExprPrivacyLevel / 行・オブジェクトの PrivacyLevel) がこれ**以上**のものは
+     出さない (上限と等しいものも出さない。2026-09-23 指示)。数値が取れないものは fail-closed
+     (1.0 扱い) で出さない。
    - LLM に渡す AccessLevel: Min[表示上限, 0.5] (クラウドモデルに 0.5 を超えるデータは渡さない)。
      "Model" にローカルモデルを指定したときだけ表示上限と同じにする。
 
@@ -91,7 +92,7 @@ ResoniteRealtime`ResoniteShowObject::usage =
   "ResoniteShowObject[x] は SourceVault のオブジェクトをワールド内 (タブレットのビューア / 出力欄) に出す一般 API。\n" <>
   "x: sv:// URI | SourceVault の行 (Kind/URI/File/Title ...) | ファイルパス (pdf/png/jpg/mp4/txt/md/nb) | Image/Graphics |\n" <>
   "   行リスト {<|...|>, ...} (-> ResoniteListGadget) | 文字列 (出力欄)。\n" <>
-  "機密度が表示上限 (ResoniteAccessLevel[]) を超えるもの・機密度が数値で取れないものは出さない (Failure[\"PrivacyExceeded\"])。\n" <>
+  "機密度が表示上限 (ResoniteAccessLevel[]) 以上のもの・機密度が数値で取れないものは出さない (Failure[\"PrivacyExceeded\"])。\n" <>
   "PDF はページ送り (タブレットの ◀ ▶)。オプション: \"Title\", \"MaxPages\" -> 200, \"PageSize\" -> 1200。\n" <>
   "戻り値: <|\"Kind\", \"Pages\", \"Title\", ...|> か Failure。";
 ResoniteRealtime`ResoniteViewer::usage =
@@ -129,6 +130,15 @@ ResoniteRealtime`ResonitePDFViewerRemove::usage =
 ResoniteRealtime`ResoniteVideoBoard::usage =
   "ResoniteVideoBoard[urlOrFile] は動画を映す板 (VideoTextureProvider + AudioOutput) をワールドに作る。\n" <>
   "オプションは ResoniteRealtimeBoard と同じ。戻り値: ID の Association。(2026-09-22: 再生開始の挙動は実機未確認)";
+ResoniteRealtime`ResoniteColorToggleBox::usage =
+  "ResoniteColorToggleBox[{c1, c2}] はクリック (レーザー / タッチ) するたびに色が c1 <-> c2 と切り替わる箱をワールドに作る\n" <>
+  "(BoxMesh + UnlitMaterial + MeshRenderer + BoxCollider + TouchButton + BooleanValueDriver<colorX> (TargetField -> TintColor) +\n" <>
+  "ButtonToggle (-> driver の State)。ProtoFlux 不要)。ResoniteColorToggleBox[] は {Red, Blue}。\n" <>
+  "非同期文脈 (LLM の提案コードの実行中 / ScheduledTask) では組み立てを予約して <|\"Deferred\" -> True, ...|> を返す (成功)。\n" <>
+  "オプション: \"Shape\" -> \"Box\" | \"Sphere\", \"Size\" -> 0.2 (m), \"Placement\" -> \"User\" | \"World\", \"Distance\" -> 1.0,\n" <>
+  "  \"Height\" -> Automatic, \"Position\" -> {0, 1.2, 1.0}, \"Parent\" -> \"Root\", \"Offset\" -> {-0.55, -0.1, -0.2} (タブレットの子になるとき),\n" <>
+  "  \"Name\" -> \"Mathematica Toggle Box\", \"Grabbable\" -> True, \"ButtonComponent\" -> \"TouchButton\"。\n" <>
+  "戻り値: <|\"Root\", \"Mesh\", \"Material\", \"Driver\", \"Colors\", ...|> か Failure。";
 ResoniteRealtime`$ResoniteTabletTurnRunner::usage =
   "$ResoniteTabletTurnRunner にFunction[{prompt, notebook}] を置くと、Eval がノートブックのセル評価の代わりにそれを呼ぶ (テスト用)。既定 None。";
 ResoniteRealtime`$ResoniteTabletMaxChars::usage = "$ResoniteTabletMaxChars は出力欄に出す最大文字数 (既定 6000)。";
@@ -174,7 +184,8 @@ Begin["`Private`"];
 Scan[Quiet[Clear[#]] &,
   Join[Names["ResoniteRealtime`ResoniteTablet*"], Names["ResoniteRealtime`ResoniteViewer*"],
     Names["ResoniteRealtime`ResoniteListGadget*"], Names["ResoniteRealtime`ResonitePDFViewer*"],
-    {"ResoniteRealtime`ResoniteShowObject", "ResoniteRealtime`ResoniteVideoBoard"}]];
+    {"ResoniteRealtime`ResoniteShowObject", "ResoniteRealtime`ResoniteVideoBoard",
+     "ResoniteRealtime`ResoniteColorToggleBox"}]];
 
 (* ---- 状態 (再ロードで壊さない) ---- *)
 If[!AssociationQ[$itState],
@@ -252,6 +263,7 @@ ResoniteRealtime`ResoniteTabletDeferred[] := $itDeferred;
 If[!ValueQ[ResoniteRealtime`$ResoniteTabletBuildMode], ResoniteRealtime`$ResoniteTabletBuildMode = Automatic];
 If[!AssociationQ[$itBuilds], $itBuilds = <||>];
 $itWireLater = None;
+$itWireRounds = None;   (* 2026-09-23: 参照を持つコンポーネントを巡 (getSlot 1 回ごと) に分けて足す。{round1Items, round2Items, ...} *)
 $itBuildRoot = None;
 $itFrontOffset = 0.35;
 itAsyncBuildQ[] := ListQ[$itWireLater];
@@ -290,19 +302,20 @@ itBuildFinish[id_String, status_String, result_] :=
       ": 失敗 " <> ToString[If[FailureQ[result], result["MessageTemplate"], result]]]]];
 
 itBuildSend[id_String, b_Association] :=
-  Module[{res, wires, root, sent},
-    {res, wires, root} = Block[{$iLinkWaitDefault = False, $itWireLater = {}, $itBuildRoot = None},
-      {Quiet @ Check[b["Sender"][], $Failed], $itWireLater, $itBuildRoot}];
+  Module[{res, wires, rounds, root, sent},
+    {res, wires, rounds, root} = Block[{$iLinkWaitDefault = False, $itWireLater = {}, $itWireRounds = {}, $itBuildRoot = None},
+      {Quiet @ Check[b["Sender"][], $Failed], $itWireLater, $itWireRounds, $itBuildRoot}];
     If[StringQ[root], $itBuilds[id, "Root"] = root];
     If[!AssociationQ[res] || !StringQ[Lookup[res, "Root", None]],
       Return[itBuildFinish[id, "Failed", res]]];
-    If[wires === {}, Return[itBuildFinish[id, "Done", res]]];
+    If[!ListQ[rounds], rounds = {}];
+    If[wires === {} && rounds === {}, Return[itBuildFinish[id, "Done", res]]];
     sent = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[res["Root"], "Depth" -> -1,
       "IncludeComponentData" -> True, "Wait" -> False], $Failed];
     If[!AssociationQ[sent] || !StringQ[Lookup[sent, "MessageId", None]],
       Return[itBuildFinish[id, "Failed", iFailure["GetSlot", "結線用の getSlot を送れませんでした。"]]]];
-    $itBuilds[id] = Join[b, <|"Phase" -> "Wire", "Result" -> res, "Wires" -> wires, "Root" -> res["Root"],
-      "MessageId" -> sent["MessageId"], "Sent" -> iNow[], "Tries" -> 1|>]];
+    $itBuilds[id] = Join[b, <|"Phase" -> "Wire", "Round" -> 1, "Result" -> res, "Wires" -> wires, "Rounds" -> rounds,
+      "Root" -> res["Root"], "MessageId" -> sent["MessageId"], "Sent" -> iNow[], "Tries" -> 1|>]];
 
 (* 失敗して消したガジェットを台帳からも外す *)
 itForgetGadget[root_String] :=
@@ -311,20 +324,37 @@ itForgetGadget[root_String] :=
    With[{v = itViewer[]}, If[AssociationQ[v] && Lookup[Lookup[v, "Board", <||>], "Slot", None] === root,
      $itState["Viewer"] = None]]);
 
+(* Wire 相 (2026-09-23 に「巡」を導入): 1 巡目はボタン (Button + ValueField<bool>) への ButtonToggle 結線と Rounds[[1]]、
+   2 巡目以降は Rounds[[n]] (前の巡で足したコンポーネントのメンバ ID を、もう 1 回の getSlot で取ってから足す。
+   例: 色トグル箱 = 1 巡目 BooleanValueDriver (TargetField -> 材質の TintColor)、2 巡目 ButtonToggle (-> その State))。
+   どれか 1 つでもメンバ ID が取れなければ失敗 (組みかけは消す)。 *)
 itBuildWire[id_String, b_Association] :=
-  Module[{res = icPollReply[b["MessageId"]], missing = 0, sent},
+  Module[{res = icPollReply[b["MessageId"]], missing = 0, sent, round = Lookup[b, "Round", 1],
+          rounds = Replace[Lookup[b, "Rounds", {}], Except[_List] -> {}], items},
     Which[
       AssociationQ[res],
         Block[{$iLinkWaitDefault = False},
-          Do[With[{comp = icFindComponent[res, w["ValueField"]]},
-              With[{fieldId = If[AssociationQ[comp], Lookup[Lookup[Lookup[comp, "members", <||>], "Value", <||>], "id", None], None]},
+          If[round === 1,
+            Do[With[{fieldId = itMemberIdFromReply[res, w["ValueField"], "Value"]},
                 If[StringQ[fieldId],
                   Quiet @ Check[icComp[w["Slot"], $icFE <> "ButtonToggle",
                     <|"TargetValue" -> ResoniteRealtime`ResoniteRealtimeRef[fieldId]|>], Null],
-                  missing++]]],
-            {w, b["Wires"]}]];
-        itBuildFinish[id, If[missing === 0, "Done", "Failed"],
-          If[missing === 0, b["Result"], iFailure["NoMemberId", ToString[missing] <> " 個のボタンのメンバ ID が取れませんでした。"]]],
+                  missing++]],
+              {w, Replace[Lookup[b, "Wires", {}], Except[_List] -> {}]}]];
+          items = If[round <= Length[rounds], rounds[[round]], {}];
+          Do[If[!TrueQ[itWireItem[res, item]], missing++], {item, items}]];
+        Which[
+          missing > 0,
+            itBuildFinish[id, "Failed", iFailure["NoMemberId",
+              ToString[missing] <> " 個の結線でメンバ ID が取れませんでした (" <> ToString[round] <> " 巡目)。"]],
+          round < Length[rounds],
+            (* 次の巡: いま足したコンポーネントのメンバ ID を取りに行く *)
+            sent = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[b["Result"]["Root"], "Depth" -> -1,
+              "IncludeComponentData" -> True, "Wait" -> False], $Failed];
+            If[!AssociationQ[sent] || !StringQ[Lookup[sent, "MessageId", None]],
+              itBuildFinish[id, "Failed", iFailure["GetSlot", "結線用の getSlot を送れませんでした。"]],
+              $itBuilds[id] = Join[b, <|"Round" -> round + 1, "MessageId" -> sent["MessageId"], "Sent" -> iNow[], "Tries" -> 1|>]],
+          True, itBuildFinish[id, "Done", b["Result"]]],
       iNow[] - b["Sent"] > 10 && b["Tries"] < 3,
         sent = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[b["Result"]["Root"], "Depth" -> -1,
           "IncludeComponentData" -> True, "Wait" -> False], $Failed];
@@ -338,9 +368,39 @@ itProcessBuilds[] :=
   KeyValueMap[Function[{id, b},
     Switch[b["Phase"], "Send", itBuildSend[id, b], "Wire", itBuildWire[id, b], _, Null]], $itBuilds];
 
+(* getSlot (Depth -1, IncludeComponentData) の応答からコンポーネントのメンバ (フィールド) の ID を拾う *)
+itMemberIdFromReply[res_, compId_String, member_String] :=
+  With[{comp = icFindComponent[res, compId]},
+    If[AssociationQ[comp], Lookup[Lookup[Lookup[comp, "members", <||>], member, <||>], "id", None], None]];
+itMemberIdFromReply[___] := None;
+
+(* <|"TargetField" -> {compId, "TintColor"}, ...|> を <|"TargetField" -> reference, ...|> に解決する。1 つでも取れなければ None *)
+itResolveRefs[res_, refs_Association] :=
+  Module[{out = <||>, id},
+    Do[
+      id = itMemberIdFromReply[res, refs[k][[1]], refs[k][[2]]];
+      If[!StringQ[id], Return[None, Module]];
+      out[k] = ResoniteRealtime`ResoniteRealtimeRef[id],
+      {k, Keys[refs]}];
+    out];
+itResolveRefs[___] := None;
+
+(* 巡の 1 項目: <|"Action" -> "Add" | "Update", "Slot", "Type", "Id" (Add、省略可), "Component" (Update),
+   "Members" -> <|...|>, "Refs" -> <|member -> {compId, member}|>|>。参照を解決してから送る (待たない)。 *)
+itWireItem[res_, item_Association] :=
+  Module[{refs = itResolveRefs[res, Replace[Lookup[item, "Refs", <||>], Except[_Association] -> <||>]], members},
+    If[!AssociationQ[refs], Return[False]];
+    members = Join[Replace[Lookup[item, "Members", <||>], Except[_Association] -> <||>], refs];
+    Switch[Lookup[item, "Action", "Add"],
+      "Add", Quiet @ Check[(icComp[item["Slot"], item["Type"], members, Lookup[item, "Id", Automatic]]; True), False],
+      "Update", Quiet @ Check[(ResoniteRealtime`ResoniteRealtimeUpdateComponent[item["Component"], members]; True), False],
+      _, False]];
+itWireItem[___] := False;
+
 (* カーネル再起動などで台帳を失ったガジェットの残骸を、名前でワールドから消す *)
 Options[ResoniteRealtime`ResoniteTabletCleanup] = {
-  "Names" -> {"Mathematica Tablet", "SourceVault List", "PDF Viewer", "Mathematica Viewer", "Mathematica Video", "Mathematica Chat"},
+  "Names" -> {"Mathematica Tablet", "SourceVault List", "PDF Viewer", "Mathematica Viewer", "Mathematica Video", "Mathematica Chat",
+    "Mathematica Toggle Box"},
   "Prefixes" -> {"Mathematica Tablet"}};
 
 ResoniteRealtime`ResoniteTabletCleanup[opts : OptionsPattern[]] :=
@@ -385,7 +445,7 @@ itLinkQ[] := StringQ[$iState["Link"]];
 itAccessLevel[] := N @ ResoniteRealtime`ResoniteAccessLevel[];
 
 itAccessLabel[] :=
-  "PL<=" <> ToString[NumberForm[itAccessLevel[], {3, 2}]] <> " " <>
+  "PL<" <> ToString[NumberForm[itAccessLevel[], {3, 2}]] <> " " <>
   If[TrueQ[ResoniteRealtime`$ResoniteWorldOwner], icAccessName[], "guest"];
 
 itFmt[x_] := ToString[NumberForm[N[x], {3, 2}]];
@@ -397,10 +457,12 @@ itTruncate[s_String] := itTruncate[s, ResoniteRealtime`$ResoniteTabletMaxChars];
 (* 機密度が数値で取れなければ fail-closed (1.0 扱い) *)
 itPL[pl_] := If[NumericQ[pl] && 0 <= pl <= 1, N[pl], 1.0];
 
-itAllowedQ[pl_] := itPL[pl] <= itAccessLevel[] + 10^-9;
+(* 表示上限は「未満」。上限と等しい機密度は出さない (2026-09-23 指示)。
+   これで fail-closed (機密度不明 = 1.0) が上限 1.0 の Private ワールドでも効く。 *)
+itAllowedQ[pl_] := itPL[pl] < itAccessLevel[] - 10^-9;
 
 itHiddenNote[pl_] :=
-  "[非表示: 機密度 " <> itFmt[itPL[pl]] <> " > 表示上限 " <> itFmt[itAccessLevel[]] <> "]";
+  "[非表示: 機密度 " <> itFmt[itPL[pl]] <> " >= 表示上限 " <> itFmt[itAccessLevel[]] <> "]";
 
 (* UIX Text の幅見積り (単位 = キャンバス単位)。ASCII 0.55 em、それ以外 1.0 em *)
 itLineWidth[line_String, fs_] :=
@@ -1104,9 +1166,9 @@ ResoniteRealtime`ResoniteShowObject[x_, opts : OptionsPattern[]] :=
     icTag];
 
 itRefuse[pl_, what_String] :=
-  (itSetStatus["表示不可: " <> what <> " の機密度 " <> itFmt[itPL[pl]] <> " > 表示上限 " <> itFmt[itAccessLevel[]]];
+  (itSetStatus["表示不可: " <> what <> " の機密度 " <> itFmt[itPL[pl]] <> " >= 表示上限 " <> itFmt[itAccessLevel[]]];
    Throw[iFailure["PrivacyExceeded",
-     what <> " の機密度 " <> itFmt[itPL[pl]] <> " が表示上限 " <> itFmt[itAccessLevel[]] <> " を超えています。"], icTag]);
+     what <> " の機密度 " <> itFmt[itPL[pl]] <> " が表示上限 " <> itFmt[itAccessLevel[]] <> " 以上です。"], icTag]);
 
 itGate[pl_, what_String] := If[!itAllowedQ[pl], itRefuse[pl, what]];
 
@@ -1459,6 +1521,93 @@ itListOpen[root_String, i_Integer] :=
     r];
 
 (* ============================================================
+   クリックで色が切り替わる箱 (ResoniteColorToggleBox)
+
+   2026-09-23: 「クリックしたら赤と青の色が変わる Box を生成して」がタブレットから通らなかった
+   (LLM が状態確認の式を提案 → 承認 → 続きの応答を 10 分待つ → ...) ので、提案コード 1 つで作れる部品にする。
+   構成 (すべて L2、ProtoFlux 不要。型とフィールドは FrooxEngine.dll の反射で確認、2026-09-23):
+     <Name>   Grabbable, AI_GeneratedContent, BoxMesh|SphereMesh, UnlitMaterial (TintColor: Sync<colorX> = c1), MeshRenderer,
+              BoxCollider|SphereCollider, TouchButton (IButton + ITouchable。レーザー / 手で押せる),
+              BooleanValueDriver<colorX> (State: Sync<bool> = False, TargetField: FieldDrive<colorX> -> 材質の TintColor,
+                TrueValue = c2, FalseValue = c1),
+              ButtonToggle (TargetValue: SyncRef<IField<bool>> -> BooleanValueDriver.State)
+   注意: BooleanValueDriver.State は **参照ではなく bool 値** (初版は ValueField への参照を書いて動かなかった。実機 2026-09-23)。
+   参照が要るのは driver の TargetField (材質の TintColor のメンバ ID) と ButtonToggle の TargetValue (driver の State の
+   メンバ ID)。後者は driver を足した後でないと ID が無いので、非同期文脈では監視 tick の Send → getSlot → 1 巡目 (driver)
+   → getSlot → 2 巡目 (toggle) で結線する ($itWireRounds)。トップレベルなら icMemberId で待って順に結線する。
+   ============================================================ *)
+
+Options[ResoniteRealtime`ResoniteColorToggleBox] = {
+  "Size" -> 0.2, "Shape" -> "Box", "Placement" -> "User", "Distance" -> 1.0, "Height" -> Automatic,
+  "User" -> Automatic, "Position" -> {0, 1.2, 1.0}, "Parent" -> "Root", "Offset" -> {-0.55, -0.1, -0.2},
+  "Name" -> "Mathematica Toggle Box", "Grabbable" -> True, "ButtonComponent" -> "TouchButton"};
+
+ResoniteRealtime`ResoniteColorToggleBox[colors_List, opts : OptionsPattern[]] :=
+  If[itAsyncContextQ[],
+    itDeferBuild[itToggleBoxBuild[colors, opts], "色トグル箱", <|"Kind" -> "ToggleBox"|>],
+    itToggleBoxBuild[colors, opts]];
+ResoniteRealtime`ResoniteColorToggleBox[opts : OptionsPattern[]] :=
+  ResoniteRealtime`ResoniteColorToggleBox[{Red, Blue}, opts];
+
+itToRGB[c_] := Quiet @ Check[If[ColorQ[c], ColorConvert[c, "RGB"], $Failed], $Failed];
+
+itToggleBoxBuild[colorsIn_List, opts : OptionsPattern[ResoniteRealtime`ResoniteColorToggleBox]] :=
+  Catch[
+    Module[{o, cols, c1, c2, s, shape, meshType, colType, geom, pose, g, root, mesh, mat, drvId, drvMembers,
+            tintId, stateId, ids},
+      If[!itLinkQ[], Return[iFailure["NotConnected", "ResoniteLink が未接続です。"]]];
+      o = Association @ Join[Options[ResoniteRealtime`ResoniteColorToggleBox], {opts}];
+      cols = itToRGB /@ colorsIn;
+      If[Length[cols] < 2 || !AllTrue[cols, MatchQ[#, _RGBColor] &],
+        Return[iFailure["Colors", "色は 2 つを色オブジェクト (Red, RGBColor[1, 0, 0] 等) で指定してください。"]]];
+      {c1, c2} = Take[cols, 2];
+      s = N[o["Size"]];
+      shape = If[o["Shape"] === "Sphere", "Sphere", "Box"];
+      meshType = If[shape === "Sphere", "SphereMesh", "BoxMesh"];
+      colType  = If[shape === "Sphere", "SphereCollider", "BoxCollider"];
+      geom = If[shape === "Sphere", <|"Radius" -> s/2|>, <|"Size" -> {s, s, s}|>];
+      pose = itPose[o["Placement"], o["User"], o["Distance"], o["Height"], o["Position"], o["Parent"]];
+      (* tick 内の組み立てはタブレットの子になる (itPose)。板 (右隣) と重ならない左手前へずらす *)
+      g = itGadget[];
+      If[itAsyncBuildQ[] && AssociationQ[g] && pose["Parent"] === g["Root"], pose["Position"] = N[o["Offset"]]];
+      root = icSlot[o["Name"], pose["Parent"], "Position" -> pose["Position"],
+        Sequence @@ If[ListQ[pose["Rotation"]], {"Rotation" -> pose["Rotation"]}, {}],
+        "Id" -> ResoniteRealtime`ResoniteRealtimeNewId["TBox"]];
+      $itBuildRoot = root;
+      If[TrueQ[o["Grabbable"]], icComp[root, $icFE <> "Grabbable", <|"Scalable" -> True|>]];
+      icComp[root, $icFE <> "AI_GeneratedContent",
+        <|"Source" -> "Mathematica ResoniteRealtime (ResoniteColorToggleBox)"|>];
+      mesh = icComp[root, $icFE <> meshType, geom, ResoniteRealtime`ResoniteRealtimeNewId["TBoxMesh"]];
+      mat  = icComp[root, $icFE <> "UnlitMaterial", <|"TintColor" -> c1|>, ResoniteRealtime`ResoniteRealtimeNewId["TBoxMat"]];
+      icComp[root, $icFE <> "MeshRenderer",
+        <|"Mesh" -> ResoniteRealtime`ResoniteRealtimeRef[mesh],
+          "Materials" -> <|"$type" -> "list", "elements" -> {ResoniteRealtime`ResoniteRealtimeRef[mat]}|>|>];
+      icComp[root, $icFE <> colType, geom];
+      icComp[root, $icFE <> ToString[o["ButtonComponent"]], <|"AcceptPhysicalTouch" -> True, "AcceptRemoteTouch" -> True|>];
+      drvId = ResoniteRealtime`ResoniteRealtimeNewId["TBoxDrv"];
+      drvMembers = <|"State" -> False, "TrueValue" -> c2, "FalseValue" -> c1|>;
+      If[ListQ[$itWireLater],
+        (* 非同期ビルド: 1 巡目 driver (TargetField -> 材質の TintColor)、2 巡目 ButtonToggle (-> driver の State)。
+           メンバ ID は各巡の getSlot の応答から拾う (itBuildWire) *)
+        $itWireRounds = {
+          {<|"Action" -> "Add", "Slot" -> root, "Type" -> $icFE <> "BooleanValueDriver<colorX>", "Id" -> drvId,
+             "Members" -> drvMembers, "Refs" -> <|"TargetField" -> {mat, "TintColor"}|>|>},
+          {<|"Action" -> "Add", "Slot" -> root, "Type" -> $icFE <> "ButtonToggle",
+             "Refs" -> <|"TargetValue" -> {drvId, "State"}|>|>}},
+        tintId = icMemberId[root, mat, "TintColor"];
+        If[!StringQ[tintId], Throw[iFailure["NoMemberId", "UnlitMaterial.TintColor のメンバ ID が取れませんでした。"], icTag]];
+        icComp[root, $icFE <> "BooleanValueDriver<colorX>",
+          Join[drvMembers, <|"TargetField" -> ResoniteRealtime`ResoniteRealtimeRef[tintId]|>], drvId];
+        stateId = icMemberId[root, drvId, "State"];
+        If[!StringQ[stateId], Throw[iFailure["NoMemberId", "BooleanValueDriver.State のメンバ ID が取れませんでした。"], icTag]];
+        icComp[root, $icFE <> "ButtonToggle", <|"TargetValue" -> ResoniteRealtime`ResoniteRealtimeRef[stateId]|>]];
+      ids = <|"Root" -> root, "Mesh" -> mesh, "Material" -> mat, "Driver" -> drvId, "Colors" -> {c1, c2},
+        "Shape" -> shape, "Size" -> s, "Parent" -> pose["Parent"], "Kind" -> "ToggleBox"|>;
+      $itState["ToggleBoxes"] = Append[Replace[Lookup[$itState, "ToggleBoxes", {}], Except[_List] -> {}], ids];
+      ids],
+    icTag];
+
+(* ============================================================
    ClaudeEval のターン
    ============================================================ *)
 
@@ -1481,7 +1630,7 @@ ResoniteRealtime`ResoniteTabletNotebook[] :=
 itPromptWithContext[prompt_String, level_] :=
   "[Resonite tablet] このプロンプトは Resonite ワールド内のタブレットから送られた。答えはワールド内のタブレット\n" <>
   "(幅の狭いスクロールするテキスト欄 + 画像ビューア) に出る。\n" <>
-  "- 表示上限 PL " <> itFmt[level] <> "。これを超える機密度のデータは表示されない (機密度不明も非表示)。\n" <>
+  "- 表示上限 PL " <> itFmt[level] <> " 未満。これ以上の機密度のデータは表示されない (機密度不明も非表示)。\n" <>
   "- SourceVault のオブジェクト (画像/PDF/動画/本文) をワールドに出すには ResoniteShowObject[uriOrRow] を使う\n" <>
   "  (PDF はページ送りつきの掴めるビューアに出る。ファイルなら ResonitePDFViewer[file] でも可)。\n" <>
   "- 一覧 (arXiv / Eagle / メール等のリスト) を求められたら core 関数 (SourceVaultArXiv / SourceVaultEagleSummaries /\n" <>
@@ -1497,6 +1646,10 @@ itPromptWithContext[prompt_String, level_] :=
   "- 「ワールドに 3D で出して」「3D オブジェクトにして」と言われたら ResoniteGraphics3D[Plot3D[...]] のように\n" <>
   "  Graphics3D を ResoniteGraphics3D に渡す (アバターの正面に実体のメッシュができる)。言われなければ普通に出力する\n" <>
   "  (タブレットの「3D生成」ボタンで後から作れる)。\n" <>
+  "- 「クリックしたら色が変わる (切り替わる) 箱 / 球」を求められたら ResoniteColorToggleBox[{Red, Blue}]\n" <>
+  "  (\"Shape\" -> \"Box\" | \"Sphere\", \"Size\" -> 0.2 (m)) を提案コードとして 1 回だけ実行する (これだけで作られる)。\n" <>
+  "  戻り値が <|\"Deferred\" -> True, ...|> なら作成を予約できた (成功)。事前の状態確認 (ResoniteRealtimeStatus /\n" <>
+  "  ResoniteFluxCatalogSearch) や ResoniteRealtimeAddSlot 等の低レベル API、ProtoFlux は使わない (応答待ちで失敗する)。\n" <>
   "[プロンプト]\n" <> prompt;
 
 (* ノートブックのセルとして評価される 1 ターン。ClaudeEval (runtime 経路) をそのまま呼ぶ。
@@ -1566,15 +1719,46 @@ itRuntimeState[rid_String] :=
     st = Quiet @ Check[f[rid], None];
     If[AssociationQ[st], st, None]];
 
+(* 「実行中」の内訳 (2026-09-23: 承認後に LLM の続きの応答を 10 分待つ間、何をしているか分からなかった)。
+   runtime の DAG (CurrentJobId) にまだ動いているノードがあれば LLM 応答待ち、無ければ CurrentPhase で判定。 *)
+itRunPhaseLabel[st_] :=
+  Module[{job = Lookup[st, "CurrentJobId", None], f = icSym["ClaudeCode`LLMGraphDAGStatus"], dag, ph},
+    dag = If[StringQ[job] && f =!= None, Quiet @ Check[f[job], None], None];
+    ph = ToString[Lookup[st, "CurrentPhase", ""]];
+    Which[
+      AssociationQ[dag] && Lookup[dag, "Running", 0] + Lookup[dag, "Pending", 0] > 0, ": LLM 応答待ち",
+      ph === "Execute", ": 式を実行",
+      MemberQ[{"Redact", "ContinuationCheck"}, ph], ": 結果を処理",
+      True, ""]];
+itRunPhaseLabel[_] := "";
+
 itDecide[decision_] :=
-  Module[{t = Lookup[$itState, "Turn", None], rid, f},
+  Module[{t = Lookup[$itState, "Turn", None], rid, f, st, status},
     If[!AssociationQ[t] || !StringQ[t["RuntimeId"]], itSetStatus["応答するターンがありません"]; Return[None]];
     rid = t["RuntimeId"];
+    (* 2026-09-23: runtime が承認待ちでなければ送らない (ボタンの押し直し / 古い読み取りで、後から来た別の提案を
+       勝手に承認しない。ClaudeRuntimeDecide も NotAwaiting を返すが、こちらで「承認しました」と出してしまっていた) *)
+    If[decision =!= "Cancel",
+      st = itRuntimeState[rid];
+      status = If[AssociationQ[st], ToString[Lookup[st, "Status", "?"]], "?"];
+      If[status =!= "AwaitingApproval",
+        itSetApprovalRow[False];
+        $itState["Turn", "Approval"] = None;
+        itSetStatus["承認待ちではありません (" <> status <> ")"];
+        Return[None]]];
     f = icSym["ClaudeCode`ClaudeRuntimeDecide"];
     itSetApprovalRow[False];
     $itState["Turn", "Approval"] = None;
     itSetStatus[Switch[decision, "Approve", "承認しました", {"ApproveTimeout", _}, "延長して承認しました",
       "Deny", "拒否しました", "Cancel", "中止しました", _, "応答"]];
+    (* 出力欄の「承認が必要です」を消す (残すと、実行中に 2 度目の承認要求が出ているように見える。2026-09-23 実機) *)
+    itSetOutput["> " <> t["Prompt"] <> "\n\n" <>
+      Switch[decision,
+        "Approve" | {"ApproveTimeout", _},
+          "承認しました。runtime が式を実行し、続きを LLM に問い合わせています (数分かかることがあります) ...",
+        "Deny", "拒否しました。",
+        "Cancel", "中止しました。",
+        _, "(実行中)"]];
     (* 承認後の実行は重いので tick の外 (別 ScheduledTask) で。ノートブックの承認ボタンと同じ手順。
        Module 変数を held 式に残さないよう With で値を焼き込む *)
     With[{ff = f, r = rid, d = decision},
@@ -1656,7 +1840,7 @@ itFilterCell[e_, level_] :=
     If[!FreeQ[e, _DynamicModuleBox | _ButtonBox | _DynamicBox | _PaneSelectorBox], Return[None]];
     f = icSym["NBAccess`NBCellExprPrivacyLevel"];
     pl = If[f === None, 1.0, itPL[Quiet @ Check[f[e], $Failed]]];
-    If[pl > level + 10^-9, Cell[itHiddenNote[pl], "Text"], e]];
+    If[pl >= level - 10^-9, Cell[itHiddenNote[pl], "Text"], e]];
 
 itRenderCells[nb_NotebookObject, before_List, level_, rid_ : None] :=
   Module[{after, new, exprs, kept, hidden, texts, pages, extra = {}},
@@ -1775,7 +1959,7 @@ itWatchTurn[] :=
             $itState["Turn", "StableCount"] = 0,
           status === "Running",
             If[t["Approval"] =!= None, $itState["Turn", "Approval"] = None; itSetApprovalRow[False]];
-            itSetStatus["実行中 (" <> ToString[elapsed] <> " s)"],
+            itSetStatus["実行中" <> itRunPhaseLabel[st] <> " (" <> ToString[elapsed] <> " s)"],
           True,
             itSetStatus[status <> " (" <> ToString[elapsed] <> " s)"]];
         If[elapsed > 3600, $itState["Turn", "Phase"] = "Finishing"; $itState["Turn", "LastStatus"] = "Timeout"],
@@ -2275,7 +2459,7 @@ ResoniteRealtime`ResoniteTabletStatus[] :=
       "LastError" -> Lookup[$itState, "LastError", None],
       "LastShow" -> Lookup[$itState, "LastShow", None],
       "Deferred" -> KeyValueMap[#1 -> KeyTake[#2, {"Label", "Status", "Time", "Via"}] &, $itDeferred],
-      "Builds" -> Map[KeyTake[#, {"Label", "Phase", "Tries", "Root"}] &, $itBuilds],
+      "Builds" -> Map[KeyTake[#, {"Label", "Phase", "Round", "Tries", "Root"}] &, $itBuilds],
       "BuildMode" -> If[itBuildModeTick[], "Tick", "Notebook"],
       "ImageServer" -> icImageServerQ[]|>];
 
@@ -2285,7 +2469,11 @@ $itAgentHeads = {
   "ResoniteTabletShow", "ResoniteTabletStatus", "ResoniteTabletLog", "ResoniteTabletNotebook",
   "ResoniteAccessLevel", "ResoniteChatStatus",
   "ResoniteGraphics3D", "ResoniteGraphics3DMesh", "ResoniteMeshJSON", "ResoniteTabletMake3D",
-  "ResonitePDFViewer", "ResonitePDFViewerPage"};
+  "ResonitePDFViewer", "ResonitePDFViewerPage",
+  (* 2026-09-23: 世界に物を作る部品と、読むだけの状態確認。LLM が状態確認 (ResoniteRealtimeStatus /
+     ResoniteFluxCatalogSearch) を提案して承認待ちになり、本題に進めなかった実例から *)
+  "ResoniteColorToggleBox", "ResoniteTabletDeferred",
+  "ResoniteRealtimeStatus", "ResoniteRealtimeLinkMessages", "ResoniteFluxCatalog", "ResoniteFluxCatalogSearch"};
 $itApprovalHeads = {
   "ResoniteTablet", "ResoniteTabletRemove", "ResoniteListGadgetRemove", "ResoniteViewerRemove",
   "ResoniteVideoBoard", "ResoniteViewer", "ResoniteGraphics3DRemove", "ResonitePDFViewerRemove"};

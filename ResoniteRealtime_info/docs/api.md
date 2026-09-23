@@ -171,4 +171,15 @@ Options: "Placement", "Distance" -> 1.0, "Offset" -> {0.65,0,0}, "Position", "Pa
 "PageSize" -> 1200, "MaxPages" -> 400, "Reuse" -> False (True = 最新のビューアへ読み込む、root 文字列 = そのビューアへ)。
 ### ResonitePDFViewerPage[[root,] n | "Next" | "Prev" | "First" | "Last" | "+10" | "-10"] / ResonitePDFViewerRemove[[root | All]]
 root 省略は最新のビューア。`ResoniteTabletStatus[]["PDFViewers"]` に root -> <|"Pages","Page","Title"|> の一覧、`["PDFViewer"]` は最新。
+### ResoniteColorToggleBox[{c1, c2}] → <|"Root", "Mesh", "Material", "Driver", "Colors", "Shape", "Size", "Parent"|> | <|"Deferred" -> True, ...|> | Failure (2026-09-23)
+クリック (レーザー / タッチ) するたびに色が c1 <-> c2 と切り替わる箱 (球)。`ResoniteColorToggleBox[]` は {Red, Blue}。ProtoFlux 不要:
+BoxMesh|SphereMesh + UnlitMaterial (TintColor = c1) + MeshRenderer + BoxCollider|SphereCollider + TouchButton (AcceptRemoteTouch/PhysicalTouch) +
+BooleanValueDriver<colorX> (State: bool 値 = False, TargetField -> UnlitMaterial.TintColor, True = c2, False = c1) + ButtonToggle (TargetValue -> driver の State)。
+**BooleanValueDriver.State は参照ではなく bool 値** (FrooxEngine.dll 反射で確認。初版は ValueField への参照を書いて動かなかった)。
+参照 2 つ (driver.TargetField、toggle.TargetValue) はメンバ ID が要るので、非同期文脈 (LLM の提案コードの実行中 / tick) では監視 tick の
+Send → getSlot → 1 巡目 (driver) → getSlot → 2 巡目 (toggle) で結線する (`$itWireRounds` / `itBuildWire` の "Rounds")。
+Options: "Shape" -> "Box" | "Sphere", "Size" -> 0.2 (m), "Placement" -> "User" | "World", "Distance" -> 1.0, "Height", "Position", "Parent",
+"Offset" -> {-0.55,-0.1,-0.2} (tick 内の組み立てでタブレットの子になるときの位置), "Name", "Grabbable" -> True, "ButtonComponent" -> "TouchButton"。
+LLM の提案コードから呼べる許可ヘッド (承認不要)。`ResoniteRealtimeStatus` / `ResoniteFluxCatalogSearch` / `ResoniteFluxCatalog` /
+`ResoniteRealtimeLinkMessages` / `ResoniteTabletDeferred` (読むだけ) も同日から許可ヘッド。
 

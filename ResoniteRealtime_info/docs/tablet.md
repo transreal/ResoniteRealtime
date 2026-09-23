@@ -117,6 +117,20 @@ runtime の表示セル (実行結果の図) は LLM の応答セルより後に
   タブレットの出力には診断用 Code セルとノートブック側の承認 UI ブロック (CellTags `claudecode-approval-*`) を出さない。
 - FrontEnd を触るのはターン開始のセル書き込み/評価と完了時のラスタライズだけ。
 - 承認/拒否/中止は別の ScheduledTask に投げる (`ClaudeRuntimeDecide` は実行を伴う)。
+  runtime が `AwaitingApproval` でなければ送らない (押し直し / 古い読み取りで、後から来た別の提案を勝手に承認しない。2026-09-23)。
+  承認したら出力欄の「承認が必要です」は「承認しました。実行しています ...」に置き換える。
+- 「実行中」には内訳を付ける (`itRunPhaseLabel`): runtime の DAG にまだノードがあれば「LLM 応答待ち」、CurrentPhase が
+  Execute なら「式を実行」。2026-09-23 実機: 承認後、続きの LLM 応答 (claude CLI) に 10 分かかり、何をしているか分からなかった。
+
+## 承認 UI がノートブックに残る問題 (2026-09-23、修正済み)
+
+タブレットで承認しても、ノートブック側の承認 UI (❓ 通知 / NeedsApproval セル / 承認・中止ボタン、CellTags
+`claudecode-approval-<rid>`) はそのまま残っていた。しかも承認後の結果セル (提案コード / 出力 / ContinueEval 行) はジョブの
+アンカー直後 = 承認 UI より**上**に挿入されるので、ノートブックの末尾に押せる承認ボタンが残り「2 度目の承認要求」に見えた。
+押すと `ClaudeApproveProposal` は `NotAwaitingApproval` を返して無言 (runtime は Running で続きの LLM 応答待ち)。
+対策 (claudecode.wl): `ClaudeRuntimeDecide` が承認 / 拒否 / 中止のときにそのタグのセルを消し、アンカー直後に
+「✅ ワールド内タブレットで承認しました」を書く。ノートブックの承認ボタンも、処理済みなら案内 (`iRuntimeNotAwaitingNotice`) だけ書いて
+`iRuntimeDisplayResult` を呼ばない (結果セルの二重書き防止)。
 
 ## LLM への指示
 
@@ -125,6 +139,9 @@ runtime の表示セル (実行結果の図) は LLM の応答セルより後に
 表示 API は NBAccess の許可ヘッドに 2 層登録 (`ResoniteTabletRegisterHeads[]`、ロード時自動) するので、
 LLM の提案コードが `ResoniteListGadget[SourceVaultArXiv["LLM"]]` を呼んでも承認は要らない。
 削除系 (`ResoniteTabletRemove` 等) は承認ヘッド。
+2026-09-23: 「クリックしたら赤と青の色が変わる Box」は `ResoniteColorToggleBox[{Red, Blue}]` 1 つで作るよう指示する
+(状態確認 `ResoniteRealtimeStatus` / `ResoniteFluxCatalogSearch` は許可ヘッドにしたが「不要」と伝える。
+実機では LLM がまず状態確認を提案 → 承認 → 続きの応答に 10 分 → 本題に進めなかった)。
 
 ## 未検証 (2026-09-22)
 
@@ -132,7 +149,13 @@ LLM の提案コードが `ResoniteListGadget[SourceVaultArXiv["LLM"]]` を呼�
   MinHeight の見積り (ASCII 0.55 em / それ以外 1.0 em)、Mask のクリップ、ボタンのラベル配置。
 - `ResoniteVideoBoard` の再生開始 (VideoTextureProvider の Playback は未操作)。
 - `SelectionEvaluate` を ScheduledTask の中から呼んで FE がセルを評価するか (ノートブックの kernel で確認する)。
-- 承認後の結果セル表示 (`ClaudeRuntimeDecide` → `iRuntimeDisplayResult`) の実機経路。
+- 承認後の結果セル表示 (`ClaudeRuntimeDecide` → `iRuntimeDisplayResult`) は 2026-09-23 に実機で通った
+  (結果セルは書かれる。残った承認 UI は上記のとおり修正)。
+- `ResoniteColorToggleBox` (2026-09-23): 初版は箱は出たが押しても変わらなかった (BooleanValueDriver.State に参照を書いていた。
+  State は bool 値。FrooxEngine.dll の反射 `resources/tools/frooxengine-reflect.fsx` で確認)。2 版 = TouchButton →
+  ButtonToggle (→ driver.State) → BooleanValueDriver (TargetField → TintColor)。**ノートブックのトップレベル
+  `ResoniteColorToggleBox[]` は実機で押すと赤⇔青が切り替わった (2026-09-23)**。タブレット経由 (tick の 2 巡結線) は
+  ヘッドレステストのみで、実機は未確認。
 
 ## テスト
 

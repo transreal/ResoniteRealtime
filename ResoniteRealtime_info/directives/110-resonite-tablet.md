@@ -42,6 +42,10 @@ paths:
 5. **短く**: テキスト欄は狭い。見出し・箇条書きは最小限、Markdown 装飾は使わない。長い説明はしない。
 6. **承認**: 承認が必要な式はタブレットの承認/拒否ボタン (ノートブックの承認ボタンと同じ) で処理される。
    承認待ちのまま Pause で待たない。
+7. **クリックで色が変わる箱 / 球** (2026-09-23): `ResoniteColorToggleBox[{Red, Blue}]` (`"Shape" -> "Box" | "Sphere"`,
+   `"Size" -> 0.2` m) を提案コードとして 1 回だけ実行する。これだけで作られる (承認不要)。
+   戻り値が `<|"Deferred" -> True, ...|>` なら作成を予約できた (成功)。事前の状態確認 (`ResoniteRealtimeStatus` /
+   `ResoniteFluxCatalogSearch`) や `ResoniteRealtimeAddSlot` 等の低レベル API、ProtoFlux は使わない (応答待ちで失敗する)。
 
 ## ノートブックの形 (LLM が書くコード)
 
