@@ -14,10 +14,15 @@
 
 - **Chat ガジェット**: ノートブックの Chat セルをワールド内の UIX パネルで実現します。
 - **ProtoFlux ガジェット**: プロンプトからグラフ記述を LLM に書かせ、ResoniteLink でノードを直接配置・結線し、動的変数 (probes) を読み戻して検証する修正ループです。Flux SDK のテキスト言語 ProtoGraph での生成にも対応します。
-- **タブレット**: ワールド内の UIX タブレットから ClaudeEval (runtime 経路) を走らせます。承認・拒否・中止はタブレットのボタンから行え、結果は表示上限でふるって平文とページ画像に描かれます。資料 (`sv://` / PDF / 画像 / ノートブック) は掴める PDF ビューアへ、検索結果の行リストは ▶ 付きの一覧パネルへ出ます。
+- **タブレット**: ワールド内の UIX タブレットから ClaudeEval (runtime 経路) を走らせます。承認・拒否・中止はタブレットのボタンから行え、結果は表示上限でふるって平文とページ画像に描かれます。PDF は Resonite 標準のドキュメントビューア (ワールドにある雛形を ProtoFlux で複製し、配信 URL を差し替える) で開き、画像 / ノートブックは掴めるページパネルへ、検索結果の行リストは ▶ 付きの一覧パネルへ出ます。
 - **3D 生成**: `Plot3D` / `ArrayPlot3D` / `Graphics3D` を三角形メッシュにし、ResoniteLink の ImportMeshJSON 形式で resoloop (別パッケージ ResoLoop 経由) に渡して、ワールド内の掴めるオブジェクトにします。
 
 設計上の要点は 3 つです。第一に **プライバシーは fail-closed** です。ワールドに出してよい情報の上限 (アクセスレベル: 自分のプライベートワールドなら 1.0、公開ワールドなら 0.25) を宣言し、上限を超える資料やセル、機密度が数値で取れないものは出しません。クラウド LLM に渡す機密度もさらに天井 (0.5) を設けています。第二に **監視は待たない** ことです。ResoniteLink の応答待ちは ScheduledTask やコールバックの中では成立しないため、ガジェットの監視は 1 本の tick が「送るだけ」「次の tick で照合」の 2 相で回り、LLM の提案コードが頼むガジェットの組み立ても予約して tick が待たずに組みます。第三に **FrontEnd を守る** ことです。常駐 Dynamic でポーリングせず、SocketListen のコールバックからは FrontEnd を触りません。
+
+**前提パッケージ**: ワールド内のタブレット・一覧 / サムネイル一覧・PDF ビューアなど本パッケージの主な機能は、同じ作者の
+[NBAccess](https://github.com/transreal/NBAccess) / [claudecode](https://github.com/transreal/claudecode) / [ClaudeRuntime](https://github.com/transreal/ClaudeRuntime) /
+[ClaudeOrchestrator](https://github.com/transreal/ClaudeOrchestrator) / [SourceVault](https://github.com/transreal/SourceVault) の上に作られていて、これらのセットアップが済んでいることを
+前提にしています (役割は下の「前提パッケージ」)。3D 生成には [ResoLoop](https://github.com/transreal/ResoLoop) を使います。
 
 外部ツールのうち **resoloop** (orange3134 氏、AGPL-3.0) と **Flux SDK** (Papaltine、AGPL-3.0) はライセンスが異なるため本リポジトリには含めていません。3D 生成は [ResoLoop](https://github.com/transreal/ResoLoop) パッケージの setup.md に従って resoloop を導入すると使えます。ProtoFlux 生成に使うノードカタログと言語リファレンスも、利用者が自分の Resonite と公式ドキュメントから作ります ([setup.md](setup.md) 5 節)。
 
@@ -29,11 +34,26 @@
 - **OS**: Windows 11 を前提としています。
 - **Resonite**: デスクトップクライアント。L2 を使う機能では、そのセッションのホストであり、Dashboard → Session → Settings で **Enable ResoniteLink** を押しておく必要があります (ResoniteLink 0.13 系で確認)。
 - **外部ツール (任意)**: resoloop + .NET 10 SDK (3D 生成)、Flux-SDK 1.9.0 (ProtoGraph の build)、dotnet fsi (ノードカタログの再生成)。
-- **依存パッケージ (すべて任意)**: claudecode.wl + NBAccess.wl (+ ClaudeRuntime.wl) — Chat / ProtoFlux 生成 / タブレット。SourceVault.wl — `sv://` 資料と一覧。ResoLoop.wl — 3D 生成。WebSocket 層と L1 / L2 / 板の表示は本パッケージだけで動きます。
+- **前提パッケージ**: 下の表の 5 つ。先にそれぞれの setup.md に従って導入してください (NBAccess → claudecode → ClaudeRuntime →
+  ClaudeOrchestrator → SourceVault の順)。3D 生成を使う場合は [ResoLoop](https://github.com/transreal/ResoLoop) も。WebSocket 層と L1 / L2 / 板の表示だけなら
+  本パッケージ単体でも動きますが、タブレット・一覧・PDF 表示はこれらが無いと fail-closed で止まります (`Failure["NoClaudeCode"]` /
+  `Failure["NoSourceVault"]`、機密度が取れない物は出さない)。
+
+| パッケージ | ResoniteRealtime での役割 | リポジトリ / セットアップ |
+| --- | --- | --- |
+| **NBAccess** | 機密度 (PrivacyLevel) の判定でワールドに出す物をふるう (fail-closed)、LLM の提案コードが呼べる表示 API の許可ヘッド登録、キャッシュサーバのパスワード (SystemCredential は NBAccess だけが扱う) | [NBAccess](https://github.com/transreal/NBAccess) / [setup.md](https://github.com/transreal/NBAccess/blob/main/NBAccess_info/docs/setup.md) |
+| **claudecode** | タブレット・Chat ガジェットの ClaudeEval / LLM 呼び出し、ProtoFlux 生成、承認ボタン (`ClaudeRuntimeDecide`) | [claudecode](https://github.com/transreal/claudecode) / [setup.md](https://github.com/transreal/claudecode/blob/main/claudecode_info/docs/setup.md) |
+| **ClaudeRuntime** | タブレットのターンの実行と状態 (承認待ち / 実行中 / 完了) の監視、承認・拒否・中止 | [ClaudeRuntime](https://github.com/transreal/ClaudeRuntime) / [setup.md](https://github.com/transreal/ClaudeRuntime/blob/main/ClaudeRuntime_info/docs/setup.md) |
+| **ClaudeOrchestrator** | タブレットのターンがオーケストレーション (複数ステップのジョブ) に回ったときの進行の監視 | [ClaudeOrchestrator](https://github.com/transreal/ClaudeOrchestrator) / [setup.md](https://github.com/transreal/ClaudeOrchestrator/blob/main/ClaudeOrchestrator_info/docs/setup.md) |
+| **SourceVault** | `sv://` 資料・検索結果の一覧、Eagle フォルダのサムネイル一覧と PDF、資料ごとの機密度、KB 応答 | [SourceVault](https://github.com/transreal/SourceVault) / [setup.md](https://github.com/transreal/SourceVault/blob/main/SourceVault_info/docs/setup.md) |
+
 
 ### インストール
 
-1. 本リポジトリをクローンし、`.wl` ファイル 7 本を `$packageDirectory` 直下に、`ResoniteRealtime_info/` をその隣に置きます。
+0. 前提パッケージ (NBAccess / claudecode / ClaudeRuntime / ClaudeOrchestrator / SourceVault) を、それぞれのリポジトリの setup.md に従って
+   先に導入します (上の表)。
+
+1. 本リポジトリをクローンし、`.wl` ファイル 10 本を `$packageDirectory` 直下に、`ResoniteRealtime_info/` をその隣に置きます。
 
    ```bash
    git clone https://github.com/transreal/ResoniteRealtime.git
@@ -68,7 +88,7 @@ ResoniteRealtimeStart[];                                (* L1 サーバ + 画像
 ResoniteRealtimeBoard[];                                (* 板 *)
 ResoniteRealtimeShowImage[Plot[Sin[x], {x, 0, 2 Pi}]]   (* 板に図 *)
 
-ResoniteAccessLevel["Private", "Owner" -> True];        (* 表示上限 *)
+(* 表示上限はワールドの公開度と所有者から自動。手で決めるなら ResoniteAccessLevel["Private", "Owner" -> True] *)
 ResoniteTablet[]                                        (* ワールド内タブレット。入力欄に書いて Eval *)
 ResoniteGraphics3D[Plot3D[Sin[x y], {x, 0, 3}, {y, 0, 3}]]   (* 掴めるメッシュ (ResoLoop + resoloop) *)
 ```
@@ -76,7 +96,7 @@ ResoniteGraphics3D[Plot3D[Sin[x y], {x, 0, 3}, {y, 0, 3}]]   (* 掴めるメッ�
 ### 主な機能
 
 - **L1 / L2 / L3**: `ResoniteRealtimeStart` / `ResoniteRealtimeOn` / `ResoniteRealtimeSend`、`ResoniteRealtimeLinkConnect` / `ResoniteRealtimeGetSlot` / `ResoniteRealtimeAddSlot` / `ResoniteRealtimeAddComponent` / `ResoniteRealtimeUpdateSlot` / `ResoniteRealtimeUpdateComponent`、`ResoniteRealtimeBoard` / `ResoniteRealtimeShowImage` / `ResoniteRealtimeAsset`。
-- **表示上限**: `ResoniteAccessLevel` (Private 1.0 / Contacts 0.5 / ContactsPlus 0.25 / Public 0.25、非オーナーは一律 0.25)。
+- **表示上限**: `ResoniteAccessLevel` (Private 1.0 / Contacts 0.5 / ContactsPlus 0.25 / Public 0.25、非オーナーは一律 0.25)。既定はワールドの公開度とホスト / 所有者から自動で決まる。
 - **Chat**: `ResoniteChatGadget` / `ResoniteChatStart` / `ResoniteChat` / `ResoniteChatCell`。
 - **ProtoFlux**: `ResoniteFluxGenerate` / `ResoniteFluxChat` / `ResoniteFluxCatalogSearch` / `ResoniteFluxPlace` / `ResoniteFluxProbe` / `ResoniteFluxBuild`。
 - **タブレット**: `ResoniteTablet` / `ResoniteTabletEval` / `ResoniteTabletApprove` / `ResoniteTabletDeny` / `ResoniteTabletCancel` / `ResoniteTabletMake3D` / `ResoniteTabletCleanup`。
@@ -105,8 +125,7 @@ ResoniteGraphics3D[Plot3D[Sin[x y], {x, 0, 3}, {y, 0, 3}]]   (* 掴めるメッ�
 ```wolfram
 Block[{$CharacterEncoding = "UTF-8"}, Get["ResoniteRealtime.wl"]];
 ResoniteRealtimeLinkConnect[];
-ResoniteAccessLevel["Private", "Owner" -> True];
-ResoniteTablet[]
+ResoniteTablet[]                (* 表示上限はワールドの公開度と所有者から自動で決まる *)
 ```
 
 一度作ったタブレットは Resonite のインベントリに保存できます。以後は `Get["ResoniteRealtime.wl"]` だけで常駐監視が始まり (ノートブックのセッション)、

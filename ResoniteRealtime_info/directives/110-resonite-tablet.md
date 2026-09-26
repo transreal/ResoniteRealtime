@@ -28,6 +28,11 @@ paths:
    **提案コードとして実行する** (コードを本文に書いて見せるだけではガジェットは作られない)。
    戻り値が `<|"Deferred" -> True, "Id" -> ...|>` なら作成を予約できた = 成功 (組み立てはタブレットの監視 tick が数秒後に行う)。
    失敗扱いにしたり、`TimeConstrained` で包んだり、再試行したりしない。
+   **「サムネイル」「一覧」の依頼は `"View" -> "Thumbnails"`** (サムネイルを 1 枚の大きな面に並べ、クリックで開く。
+   Eagle の項目は Eagle のサムネイル、PDF は 1 ページ目)。**「リスト」は `"View" -> "List"`** (今の一覧)。
+   省略すると直近のタブレットのプロンプトの言葉で決まる (「サムネ」「一覧」ならサムネイル)。どちらの表示にも切り替えボタンがある。
+   **Eagle のフォルダ** (「Eagle の離散数学フォルダの一覧」) は `ResoniteEagleFolderGadget["離散数学"]`
+   (`"View"` の規則は同じ。`"Ext" -> "pdf"` で PDF だけ、`"Recursive" -> True` で子フォルダも)。
    core 関数には検索語を渡す (`SourceVaultEagleSummaries["自然計算"]`)。`""` で全件取得して自分で絞らない
    (数分かかり実行上限 30 秒でタイムアウトする。延長を申告しても長い走査は避ける)。
    行を自分で組む (MCP の `sourcevault_search` の結果から等) ときのキーは `Title` / `URI` (`sv://...`) / `Kind` /
@@ -51,6 +56,8 @@ paths:
 
 ```mathematica
 ResoniteListGadget[SourceVaultArXiv["LLM", "Limit" -> 40], "Title" -> "arXiv: LLM"]
+ResoniteListGadget[SourceVaultEagleSummaries["自然計算"], "Title" -> "Eagle: 自然計算", "View" -> "Thumbnails"]
+ResoniteEagleFolderGadget["離散数学", "View" -> "Thumbnails"]
 ResoniteShowObject["sv://snapshot/sha256/..."]
 ResoniteShowObject[First[SourceVaultEagleSummaries["猫"]]]
 Plot[Sin[x], {x, 0, 2 Pi}]

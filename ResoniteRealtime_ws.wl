@@ -17,8 +17,8 @@
        (RFC 6455: クライアント→サーバのフレームは必ずマスクされる)。
      - 受信は SocketListen の非同期ハンドラ。FrontEnd 通信は一切しない
        (WebServer.wl 冒頭の rule 95-B 例外と同じ扱い)。
-     - BinaryWrite は 512 バイト単位に割る (WebServer.wl iSendResponse と同じ理由:
-       環境によって 1 回の書き込みサイズが制限される)。
+     - 書き込みは SocketWriteMessage[..., "Blocking" -> True] を 64 KB ずつ (2026-09-24。旧: BinaryWrite 512 B ずつ)。
+       タスク / コールバックの中の BinaryWrite は待たずに積むだけで、溢れると黙って捨てる (iWriteBytes の注記)。
      - ハンドラ内で Pause しない (SocketListen コンテキストで FE をブロックする)。
 
    公開 API:
@@ -105,13 +105,21 @@ iBAJoin[a_ByteArray, b_ByteArray] :=
     Length[b] === 0, a,
     True, ByteArray[Join[Normal[a], Normal[b]]]];
 
-(* 512 バイト単位の確実な書き込み (WebServer.wl iSendResponse と同じ方針) *)
+(* 書き込みは SocketWriteMessage[..., "Blocking" -> True] を 64 KB ずつ (2026-09-24)。
+   BinaryWrite (= SocketWriteMessage の "Blocking" -> Automatic) は SocketListen のコールバックや ScheduledTask の中では
+   待たずに内部キューへ積むだけで、溢れると $Failed を返して黙って捨て、そのソケットは以後書けなくなる。
+   実測: 3.7 MB の PDF を 512 B ずつ書くと 2000 回 (1,024,000 B) で溢れ、大きく書いても 2,048,000 B で溢れて
+   本文が途中で切れた (Resonite "Failed gather" 86.94%、標準ビューアが空 1/-1)。待たない書き込みを空くまで待っても
+   二度と通らなかった。"Blocking" -> True は書き込みごとに ZeroMQLink の受領を待つので溢れない
+   (3.7 MB 1.8 s / 12 MB 2.1 s で全バイト一致)。旧版の 512 B 分割はこの溢れを避けられていなかった。
+   失敗したら残りは書かずに書けたバイト数を返す *)
+$iWSChunk = 65536;
 iWriteBytes[sock_SocketObject, ba_ByteArray] :=
-  Module[{list = Normal[ba], n, i = 1},
-    n = Length[list];
+  Module[{n = Length[ba], i = 1, r},
     While[i <= n,
-      Quiet[BinaryWrite[sock, ByteArray[list[[i ;; Min[i + 511, n]]]]]];
-      i += 512];
+      r = Quiet @ Check[SocketWriteMessage[sock, ba[[i ;; Min[i + $iWSChunk - 1, n]]], "Blocking" -> True], $Failed];
+      If[r === $Failed || FailureQ[r], Return[i - 1, Module]];
+      i += $iWSChunk];
     n];
 
 iCallHandler[f_, arg_Association] :=
@@ -492,6 +500,7 @@ iParseWSURL[url_String] :=
 ResoniteRealtime`RRWSConnect[url_String, handler_, opts : OptionsPattern[]] :=
   Module[{u, timeout, sock, key, req, buf, endPos, text, headers, connId, listener, t0},
     iSweep[];
+    iEnsureSocketsReady[];   (* 最初のソケット操作を SocketConnect にしない (ファイル末尾の注記) *)
     timeout = OptionValue[ResoniteRealtime`RRWSConnect, {opts}, "Timeout"];
     u = iParseWSURL[url];
     sock = Quiet @ Check[
@@ -562,11 +571,35 @@ Options[ResoniteRealtime`RRWSConnect] = {"Timeout" -> 10};
    送信 / 状態
    ============================================================ *)
 
+(* ---- まとめ書き (2026-09-25) ----
+   受領を待つ書き込み (iWriteBytes) は 1 回 ~12 ms かかる (実測: 送信 1 通 13.3 ms、書き込みを除くと 1.2 ms)。
+   タブレットのサムネイル一覧 260 件は 1 tick で ~2,300 通を送り、組み立てに 65 s かかった。
+   RRWSBatch[expr] の間はフレームを接続ごとに溜め、終わりにまとめて書く (WebSocket のフレームは続けて書いてよく、
+   順番も保たれる)。応答を待つ送信の前には RRWSFlush[] で吐き出す (ResoniteRealtime.wl の待つ経路)。
+   中断しても WithCleanup で必ず吐き出す *)
+If[!ValueQ[$iWSBatchBuf], $iWSBatchBuf = None];
+SetAttributes[ResoniteRealtime`RRWSBatch, HoldFirst];
+ResoniteRealtime`RRWSBatch[expr_] :=
+  If[AssociationQ[$iWSBatchBuf], expr,   (* 入れ子は外側がまとめて書く *)
+    Block[{$iWSBatchBuf = <||>}, WithCleanup[expr, iWSFlush[]]]];
+ResoniteRealtime`RRWSFlush[] := iWSFlush[];
+iWSFlush[] :=
+  If[AssociationQ[$iWSBatchBuf] && $iWSBatchBuf =!= <||>,
+    With[{buf = $iWSBatchBuf},
+      $iWSBatchBuf = <||>;
+      KeyValueMap[Function[{connId, parts},
+          With[{c = Lookup[$iWSConns, connId, None]},
+            If[AssociationQ[c] && parts =!= {}, iWriteBytes[c["Socket"], Join @@ parts]]]], buf]];
+    Null];
+
 iSendFrame[connId_String, opcode_Integer, payload_ByteArray] :=
-  Module[{c = Lookup[$iWSConns, connId, None]},
+  Module[{c = Lookup[$iWSConns, connId, None], frame},
     If[!AssociationQ[c], Return[$Failed]];
     If[!TrueQ[c["Handshake"]], Return[$Failed]];
-    iWriteBytes[c["Socket"], iEncodeFrame[opcode, payload, c["Role"] === "client"]];
+    frame = iEncodeFrame[opcode, payload, c["Role"] === "client"];
+    If[AssociationQ[$iWSBatchBuf],
+      $iWSBatchBuf[connId] = Append[Lookup[$iWSBatchBuf, connId, {}], frame],
+      iWriteBytes[c["Socket"], frame]];
     iUpdateConn[connId, <|"Sent" -> c["Sent"] + 1, "LastSend" -> AbsoluteTime[]|>];
     Length[payload]];
 
@@ -601,6 +634,20 @@ ResoniteRealtime`RRWSStatus[] := (iSweep[];
         "Received" -> #2["Received"],
         "IdleSeconds" -> Round[AbsoluteTime[] - #2["LastRecv"], 0.1]|> &,
       $iWSConns]|>);
+
+(* ---- ソケット層の下準備 (2026-09-24) ----
+   新しいカーネルで**最初のソケット操作が SocketConnect だとカーネルごと落ちる**ことがある (segfault、exit 139)。
+   実測 (Wolfram 15.0.1 / Windows、パッケージ抜きの素の SocketConnect、各 15 回): "localhost:8020" 4 回、"127.0.0.1:8020" 3 回。
+   先に SocketOpen → Close を 1 回しておくと 0 回。ZeroMQLink の初回起動と接続が競合するらしい。
+   ResoniteLink への接続 (RRWSConnect) が最初のソケット操作になる使い方 (headless / 自動接続) で踏むので、
+   ロード時 (トップレベル) に 1 回済ませ、RRWSConnect の頭でも確かめる *)
+iEnsureSocketsReady[] :=
+  If[!TrueQ[$iSocketsReady],
+    Quiet @ Check[
+      With[{o = SocketOpen[{"127.0.0.1", 0}]}, If[MatchQ[o, _SocketObject], Close[o]]],
+      Null];
+    $iSocketsReady = True];
+iEnsureSocketsReady[];
 
 End[];
 

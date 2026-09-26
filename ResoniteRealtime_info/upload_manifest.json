@@ -1,22 +1,25 @@
 {
-	"packageName": "ResoniteRealtime",
-	"files": [
+	"packageName":"ResoniteRealtime",
+	"files":[
 		"ResoniteRealtime.wl",
 		"ResoniteRealtime_ws.wl",
 		"ResoniteRealtime_chat.wl",
 		"ResoniteRealtime_flux.wl",
 		"ResoniteRealtime_fluxlink.wl",
 		"ResoniteRealtime_tablet.wl",
-		"ResoniteRealtime_mesh.wl"
+		"ResoniteRealtime_mesh.wl",
+		"ResoniteRealtime_docboard.wl",
+		"ResoniteRealtime_pdfcache.wl",
+		"ResoniteRealtime_surface.wl"
 	],
-	"directories": [
+	"directories":[
 		"ResoniteRealtime_info"
 	],
-	"excludePatterns": [
-		"ResoniteRealtime_info/history/",
-		"ResoniteRealtime_info/references/tests/",
-		"ResoniteRealtime_info/references/protograph/",
-		"ResoniteRealtime_info/references/protoflux-nodes.json",
-		"ResoniteRealtime_info/references/protoflux-nodes-raw.json"
+	"excludePatterns":[
+		"ResoniteRealtime_info\/history\/",
+		"ResoniteRealtime_info\/references\/tests\/",
+		"ResoniteRealtime_info\/references\/protograph\/",
+		"ResoniteRealtime_info\/references\/protoflux-nodes.json",
+		"ResoniteRealtime_info\/references\/protoflux-nodes-raw.json"
 	]
 }

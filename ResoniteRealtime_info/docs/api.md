@@ -4,7 +4,13 @@ Mathematica から Resonite (VR) を制御するブリッジ。ロード: `Block
 補助モジュール `ResoniteRealtime_ws.wl` (WebSocket 層)、`ResoniteRealtime_chat.wl` (Chat ガジェット)、`ResoniteRealtime_flux.wl` (ProtoFlux ガジェット) は自動ロードされる。
 経路: L1 = WL が WebSocket サーバで世界の `WebsocketClient` (ProtoFlux) が繋ぐ (TAB 区切り行、速い、ホスト不要)。
 L2 = WL が ResoniteLink (公式 WS+JSON) のクライアントで slot / component を読み書き (ホスト必須、リアルタイム制御には使わない)。
-L3 = 同じポートで静的ファイル (画像) を配る。オプションはすべて文字列名。
+L3 = 同じポートで静的ファイル (画像・PDF・動画) を配る。PDF は `application/pdf`。書き込みは `SocketWriteMessage[..., "Blocking" -> True]` を
+64 KB ずつ (2026-09-24。待たない書き込みはタスクの中で溢れると黙って捨て、1 MB を超える PDF が途中で切れていた。3.7 MB / 12 MB で全バイト一致を確認)。
+ソケット層は読み込み時に SocketOpen → Close を 1 回しておく (2026-09-24。新しいカーネルで最初のソケット操作が SocketConnect だと
+Wolfram 15.0.1 が約 4 回に 1 回 segfault する。素の SocketConnect でも再現し、この下準備で 0/20)。オプションはすべて文字列名。
+**まとめ書き** (2026-09-25): `RRWSBatch[expr]` の間に送るフレームは接続ごとに溜め、終わりに 1 回で書く (順番は保たれる。入れ子は外側が書く。
+中断しても書く)。`RRWSFlush[]` で途中で吐き出す (ResoniteLink の応答を待つ送信は待つ前に必ず吐き出す)。受領を待つ書き込みは 1 回 ~12 ms
+かかり、タブレットの tick (応答を待たない送信だけ) は全体をまとめ書きにしている (サムネイル 260 件の組み立て 65 s → 35.5 s)。
 
 ## L1 ブリッジ (行プロトコル)
 ### ResoniteRealtimeStart[] → Association (Status)
@@ -53,6 +59,8 @@ L2 だけで板 (StaticTexture2D + QuadMesh + UnlitMaterial + MeshRenderer) を�
 Options: "Size" -> 800, "Verb" -> "img", "Send" -> True, "Target" -> Automatic | "Board" | "Bridge" | None
 式を PNG にして配信し、板があれば板の URL を差し替え、無ければ L1 で `img<TAB>url` を送る。
 ### ResoniteRealtimeRemoveBoard[] / ResoniteRealtimeAsset[file]
+`ResoniteRealtimeAsset[file]` の URL はファイル名をパーセント符号化する (UTF-8、非予約文字 A-Z a-z 0-9 - . _ ~ 以外を %XX)。配信側は
+要求パスを UTF-8 として戻してから探し、戻した名前に `..` `/` `\` があれば 400 (2026-09-24。日本語名の Eagle PDF が 404 で空のビューアになっていた)。
 ### $ResoniteRealtimePublicBaseURL — 聴衆がいる場では公開 URL (127.0.0.1 は自分にしか見えない)
 
 ## Chat ガジェット (ResoniteRealtime_chat.wl)
@@ -113,7 +121,31 @@ DynamicValueVariableDriver<type> で世界のフィールド (メンバ ID) を�
 ## タブレット (ResoniteRealtime_tablet.wl) — ClaudeEval をワールド内で走らせる
 詳細は `tablet.md`。表示上限 (PL) を超えるもの・機密度が数値で取れないものは出さない (fail-closed)。
 ### ResoniteAccessLevel[] → 1.0 | 0.5 | 0.25 / ResoniteAccessLevel["Private" | "Contacts" | "ContactsPlus" | "Public", "Owner" -> True | False]
-非オーナー (既定 `$ResoniteWorldOwner = False`) は一律 0.25。所有者/公開度は ResoniteLink から取れないので手で設定する。
+非オーナーは一律 0.25。既定 (`$ResoniteWorldAccessMode = Automatic`) ではタブレットの監視がワールドから読む: Root 直下に "Mathematica World Info" (SessionInfoSource + ProtoFlux の WorldSessionID → ObjectWrite<FrooxEngineContext,string> → SessionId) を置き、公開度 / ホスト / ワールド記録の所有者を 10 s ごとに読む。ResoniteLink は自分がホストのワールドでしか使えないので、ホスト = 所有者ならオーナー (`$ResoniteOwnerUserId` に "U-..." を置けばその ID も要求)。読めない / 90 s 古い / SessionId が空 (空の SessionInfoSource も AccessLevel は既定値 Private を示す) なら厳しい側 (0.25)。`ResoniteAccessLevel[access, "Owner" -> ...]` を明示で呼ぶと手動になり、`ResoniteAccessLevel[Automatic]` で自動に戻る。
+実機 (2026-09-25、nconc Home): 9.5 s で Private / ホスト U-nconc / 所有者 U-nconc を読み 0.25 → 1.0。
+### ResoniteAccessLevel[Automatic] / $ResoniteWorldAccessMode (Automatic | "Manual") / $ResoniteOwnerUserId (Automatic | "U-...")
+### $ResoniteOwnerPresenceGate (既定 True) / $ResoniteOwnerPresenceFreshSeconds (既定 5)
+ワールドのボタン操作 (だれが押しても同期フィールドが変わり、オーナーの PC のこのカーネルが実行する) を、オーナー (= ホスト) がそのワールドに
+フォーカスしていて、VR ならヘッドセットを着けているときだけ実行する。判定は World Info の ProtoFlux (`FireOnValueChange<int>`、`OnlyForUser` =
+`HostUser`) に nonce を投げて `IsUserPresent(HostUser)` と Ack を書かせる。5 s 以内の「在席」ならすぐ実行、古ければ保留して問い合わせ直し、
+「不在」/ 8 s 無回答なら断る。詳細と Resonite の挙動 (ホストが去るとセッションは終わる、フォーカス移動では残る) は `tablet.md`。
+### ResoniteOwnerPresence[] → <|"Gate", "Present", "Watching", "AckSecondsAgo", "Nonce", "AckNonce", "Ready", "Held", "Log"|>
+### $ResonitePDFCache (既定 True) / $ResonitePDFCacheBaseURL / $ResonitePDFCacheUploadURL / $ResonitePDFCacheMaxLevel (既定 0.5)
+Private / Contacts のワールドでオーナーなら、PDF を初めて出すときに `<$ResonitePDFCacheBaseURL>/<SHA-256>.pdf` へ写しを置き
+(sftp、Git 同梱 curl を裏で。パスワードは NBAccess 経由の SystemCredential)、StaticDocument.URL をそれにする (フレンドにも見える)。
+サーバは PC ごとに設定する (ソースには書かない。未設定なら写しを置かない)。
+既に置いてあれば使い、消されていれば送り直す。機密度 > MaxLevel / 不明の PDF は置かない。詳細は `tablet.md`。
+### ResonitePDFCacheSetup[uploadURL, baseURL] / ResonitePDFCacheSetup[] / ResonitePDFCacheSetup[None]
+写しを置くサーバをこの PC に設定する (`sftp://user@host/path/www/cache` と、それを読む `https://host/cache`)。
+`$UserBaseDirectory/ApplicationData/ResoniteRealtime/pdfcache_server.json` に保存し、ロードのたびに読む。引数なしで今の設定と次にすること
+(<|"Configured", "UploadURL", "BaseURL", "ConfigFile", "Credential", "PasswordSaved", "Next"|>)、None で設定を消す。
+Option "Credential" -> Automatic (パスワードの名前 = アカウント名 `sftp://user@host`。同じアカウントを使う他のパッケージと共有) |
+"名前" (このパッケージ専用)。設定は他のパッケージ (SlideWorkflow 等) と独立。戻り値に "CredentialShared"。
+### ResonitePDFCacheCredential[] / [password] / [None]
+sftp のパスワードを NBAccess 経由で SystemCredential に保存 / 削除する。戻り値 <|"Credential", "Configured", "Shared"|>
+(削除で "Shared" -> True なら、同じアカウントを使う他のパッケージのパスワードも消えたことを "Note" で知らせる)。
+### ResonitePDFCacheStatus[] | ["Skipped"] / ResonitePDFCacheRetry[] / ResonitePDFCacheList[] / ResonitePDFCacheClear[] | [All] | [{hash..}] | ["OlderThan" -> days]
+サムネイル一覧の見出しの「キャッシュ削除」ボタン (閉じるの右) は、サーバの cache の写しをすべて消す (tick で待たずに一覧 → 削除)。
 ### ResoniteTablet[] → ids | Failure["NotConnected"]
 Options: "Placement" -> "User" | "World", "Distance" -> 1.2, "Height", "User", "Position", "Parent", "Name",
 "CanvasSize" -> {1000, 1500}, "PanelScale" -> 0.0006, "FontSize" -> 26, "Viewer" -> True, "ViewerSize" -> 0.9,
@@ -140,7 +172,68 @@ Options: "Title", "MaxPages" -> 200, "PageSize" -> 1200。
 ### ResoniteViewer[] / ResoniteViewerShow[pages] / ResoniteViewerPage[n | "Next" | "Prev" | "First" | "Last"] / ResoniteViewerRemove[]
 ページ = Image | Graphics | {"PDF", file, n} | {"File", path}。PNG は URL 単位でキャッシュ。
 ### ResoniteListGadget[rows] → <|"Root", "Count", "Hidden", "Pages", "Title"|> / ResoniteListGadgetRemove[root | ]
-Options: "Title", "RowsPerPage" -> 8, "Placement" -> Automatic (タブレットの左隣) | "User" | "World", "CanvasSize" -> {1400, 1000}, "FontSize" -> 30。
+Options: "Title", "RowsPerPage" -> 8, "Placement" -> Automatic (タブレットの左隣) | "User" | "World", "CanvasSize" -> {1400, 1000}, "FontSize" -> 30,
+"View" -> Automatic (直近のタブレットのプロンプトに「サムネ」「一覧」「thumbnail」「ギャラリー」があればサムネイル一覧、無ければ一覧) | "List" | "Thumbnails"。
+フッタの「サムネ」ボタンでサムネイル一覧に切り替わる (同じ行で組み直して一覧は消す)。
+### ResoniteThumbnailGadget[rows] → <|"Root", "WireSlot", "View" -> "Thumbnails", "Count", "Hidden", "Overflow", "Title"|> / ResoniteThumbnailGadgetRemove[root | ]
+行のサムネイルを 1 枚の大きな面 (Canvas 1 つ) に升目で並べる。升目の画像は WL で JPEG に貼り合わせて背景に敷く。
+横に長い面は 36 列ずつの縦帯に分け (`$itThumbStripCols`。1 枚のテクスチャは 4096 px 程度に収めたい)、帯ごとに子スロット
+"Sheet<k>" (RectTransform の anchor で面の該当範囲 + StaticTexture2D + Image) を置く。戻り値の記録には "URLs" / "Textures"。
+帯の JPEG (`thumbs_<鍵>[_k].jpg`) の鍵は元画像のパス・大きさ・更新日時と配置で、揃っていれば画像を読まずに使い回す
+(PDF の 1 ページ目を 20 s で打ち切った版と読めない画像があった版は `thumbs_<鍵>p` の名前で書き、次は読み直す)。
+画像の形式は拡張子でなく先頭のバイトで決めて指定読みする (`itImageFormat`。Eagle の `<name>_thumbnail.png` は中身が WebP。
+2026-09-25: 拡張子で PNG と決め打った版は SF フォルダ 289 件中 287 件が空カードになった)。WebP は 1 枚 ~0.1 s (289 件で 35 s、初回のみ)。
+升目ごとに透明な Button + `ButtonValueSet<int>` (押すと共有の `ValueField<int>` Selected に自分の番号を書く) と題名 (UIX Text、3 行まで)。
+監視は State スロット (Selected) を Depth 0 で読むだけ (実機 1 KB。5 升目のガジェット全体は 91 KB)。見出しの「リスト」(-1) で一覧へ、「閉じる」(-2)。
+サムネイルの取得元: 行の "Thumbnail" > ファイルと同じフォルダの Eagle の `*_thumbnail.png` > 画像ファイルそのもの > Eagle ID から
+`SourceVaultEagleThumbnailPath` > PDF の 1 ページ目 (40 dpi、配信ディレクトリに `thpdf_*.png` でキャッシュ、合計 20 s まで) > 空カード。
+置き場所はタブレットの左隣 (タブレットの親の子。姿勢は監視が 5 s ごとに Depth 0 で読む `TabletPose`)。タブレットの子にはしない。
+Options: "Title", "Columns" -> Automatic (縦は "MaxRows" -> 7 段まで積み、それ以上は横にいくらでも広げる。25 件 = 7 x 4、49 件 = 9 x 6、
+98 件 = 14 x 7、150 件 = 22 x 7、289 件 = 42 x 7。2026-09-25 ユーザー指示「縦 7、横は無制限、全部出す」),
+"ThumbSize" -> {200, 260} (px), "LabelHeight" -> 70,
+"ThumbMeters" -> 0.12 (サムネイル 1 枚の幅 m。高さ 2.4 m を超える面だけ縮める。横はいくら長くてもよい),
+"MaxItems" -> Infinity (整数を与えると超えた分は「ほか N 件はリストで」と見出しに出る), "FontSize" -> 18, "Position", "Parent" (タブレットが無いとき)。
+実機 (2026-09-25、Eagle 260 件): 38 x 7、面 4.94 x 1.53 m、帯 2 枚、組み立て 35.5 s (まとめ書き前は 65 s)。
+
+### ResoniteThumbnailGadget[rows, "Shape" -> shape, "Center" -> Automatic] / ResoniteThumbnailShape[root[, shape]] (2026-09-26)
+"Shape" -> "Plane" (既定) | "Cylinder" | "SphereInside" | "Mobius" | 名前 ($ResoniteThumbnailSurfaces のキー) | ResoniteThumbnailSurface[...]。
+曲面は升目ごとの小さな Canvas を面の点と接平面に置く (帯の JPEG の升目の矩形を SpriteProvider の Rect で切り出す)。"Center" -> Automatic はアバターの目 (tick の中なら
+Root → User → Head を待たずに読む。戻り値 <|"Deferred", "Id", "Via" -> "Surface", "Shape"|>)、<|"Parent", "Position", "Rotation"|> で明示。
+見出しの「形を変更」(Selected = -4) と ResoniteThumbnailShape[root] は $ResoniteThumbnailShapes の順に次の形で組み直す。
+### ResoniteThumbnailSurface[name] / ResoniteThumbnailSurface[Function[{x, y, g}, {X, Y, Z}], "Name", "Label", "Radius", "Y0", "Fit", "Flip", "TwoSided", "Rows"]
+面の定義 <|"Name", "Label", "Map", "Radius", "Y0", "Fit", "Flip", "TwoSided", "Rows"|>。"TwoSided" -> True = 同じ場所の表裏両方に升目が来る面 (メビウスの帯)、
+"Rows" -> Function[{n, 列の幅 m, spec}, 段数] = 面に合わせた段数 (メビウスは 2 周を埋める段数)。x, y = 平面の一覧の座標 (m、升目の範囲の中心が原点、x 右 / y 上)、
+g = <|"W", "H", "Y0", "R", ...Fit の結果|>、戻り値は中心 (アバターの目、+z = 正面) の座標系の点。ez = ∂S/∂x × ∂S/∂y が中心から外を向くと升目の表が中心を向く。
+### ResoniteThumbnailSurfaceFrames[spec, g, {{x, y}, ...}] / ResoniteThumbnailSurfaceFrames[root] → {<|"Position", "Rotation", "X", "Y", "Z"|>, ...}
+### ResoniteThumbnailSurfaceHit[root, {origin, dir}[, "Detail"]] → 升目の番号 | None (| <|"Cell", "XY", "Point", "T"|>)
+一覧 root の座標系の光線と面の交点を Newton 法で解き、交点の平面座標を含む升目を返す (ワールドのクリックはタイルのコライダーが同じことをする)。
+2026-09-25 から: 見出しに [接続] (Selected = -3) と状態欄、升目は `Content` の下、覆い `Veil`、署名つき行データ `Data`、
+読み込み / 複製で升目を隠す `Flux`。帯の画像は `importTexture2DFile` で Resonite の資産に取り込む (インベントリに保存できる)。
+Canvas の幅は最低 1400 px (`$itThumbMinWidth`)、見出し 150 px (題名 + 状態欄の帯)、帯の画像の幅は Layout の "SW"。
+戻り値の "WireSlots" -> {State, 覆いの文字} は巡ごとの結線スロット (2 巡目 = 「接続」の ButtonValueSet<string> -> 覆いの Text.Content)。
+状態欄: 接続中・開いている間は経過秒 (tick、`idBoardProgress`)。詳細は tablet.md「インベントリに保存できるサムネイル一覧」。
+見出しの「機密度で非表示 N」は表示上限 (タブレットの [PL<...]) 以上の行と機密度が分からない行 (fail-closed)。配置で隠れた分ではない。
+### ResoniteDocViewer[file] → <|"Root", "Kind" -> "DocViewer", "Pages", "Title"|> (tick があれば開くジョブ) / ResoniteDocViewerRemove[root | ]
+雛形なしの PDF ビューア (`ResoniteRealtime_docboard.wl`)。`StaticDocument` → `DocumentPageTexture` → `SpriteProvider` → UIX `Image`、
+ページ送り (`ButtonValueShift<int>` / `ButtonValueSet<int>`)・「n / N」(`ValueTextFormatDriver<int>`)・閉じる (`ButtonDestroy`) は
+ワールドの中だけで動く。Options: "Title", "Position" -> Automatic (タブレット / 開いた一覧の升目の前), "Parent"。
+`$ResonitePDFMode = "Native"` で雛形が無い / 複製に失敗したときの落ち先 (`$ResonitePDFLite` 既定 True)。"Lite" なら常にこれ。
+`ResonitePDFViewerRemove[All]` はこれも消す。
+### ResoniteTabletWorkerStatus[] / ResoniteTabletWorkerStop[] / $ResoniteTabletWorker (既定 True)
+重い仕事 (サムネイルの帯・Eagle フォルダの一覧・大きな PDF のページ数) を回す常駐の作業用カーネル (`LinkLaunch` の
+`-subkernel`、ResoniteRealtime_docboard.wl)。監視の tick が動いているときだけ使う (トップレベルの呼び出しはその場で)。
+`ResoniteTabletWorkerStatus[]` → <|"Phase" ("Off" | "Starting" | "Defs" | "Ready" | "Busy"), "Alive", "Queue", "Job", "SlowTicks"|>。
+"SlowTicks" は 1 s を超えた tick の段 (FE が止まったときの手掛かり)。`$ResoniteTabletWorker = False` なら従来どおりこのカーネルで。
+非同期文脈の `ResoniteThumbnailGadget` / `ResoniteEagleFolderGadget` は作業用カーネルに回すと <|"Deferred", "Id", "Via" -> "Worker", ...|>
+を返し、出来たら同じ Id で組み立てる (`ResoniteTabletDeferred[][id]`)。組み立ての送信は tick ごとに 0.3 s ぶん (`$itDrainSeconds`)。
+### ResoniteBoardAdopt[root] / $ResoniteBoardKeyFile
+インベントリから出したサムネイル一覧の引き継ぎ (「接続」ボタンと同じ)。一覧の `Data` は HMAC-SHA256 で署名した行 JSON
+(鍵 = `$ResoniteBoardKeyFile`、既定 `$UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key`)。署名が合わなければ断る。
+引き継いだら**ワールド情報を読み直してから** (確認中は開かない) 表示上限未満の升目だけ見せ、上限以上には覆いを付ける。
+記録 (`itThumbs[]`) の "Phase" ("Checking" | "Ready")、"Level"、"Covers" (升目番号 -> 覆いのスロット)、"Stash"、"Assets"。
+### ResoniteEagleFolderGadget[folder] → 一覧 / サムネイル一覧の戻り値 (tick の中なら予約)
+Eagle のフォルダ (名前 / id、スマートフォルダも可) の項目を `SourceVaultEagleItemsInFolder` + `SourceVaultEagleSummaryRow` で行にして出す。
+Options: "View" -> Automatic | "List" | "Thumbnails", "Recursive" -> False, "Ext" -> All | "pdf" | {...}, "Title" -> Automatic ("Eagle: <folder>")。
 ### ResoniteVideoBoard[urlOrFile] → ids (VideoTextureProvider + AudioOutput。再生開始は実機未確認)
 ### $ResoniteTabletMaxChars (6000) / $ResoniteTabletCloudMaxLevel (0.5) / $ResoniteTabletTurnRunner (テスト用フック)
 ### $ResoniteTabletBuildMode (Automatic | "Tick" | "Notebook") / ResoniteTabletDeferred[] / ResoniteTabletRunDeferred[id]
@@ -165,8 +258,20 @@ Model (MeshRenderer, MeshCollider DualSided)。Options: "Placement" -> "User" | 
 "Apply" -> True (False で書くだけ) + ResoniteGraphics3DMesh のオプション。
 ### ResoniteGraphics3DRemove[result | rootName] (ResoLoopSlotDelete。承認ヘッド)
 ### ResoniteTabletMake3D[] — タブレットの「3D生成」ボタン。直前のターンの Graphics3D (claudecode の $ClaudeRuntimeDisplayHook で拾う) を ResoniteGraphics3D へ
-### ResonitePDFViewer[file | pages] → <|"Root", "Pages", "Page", "Title"|> | <|"Deferred" -> True, ...|> | Failure
-掴める PDF ビューアパネル (ページ画像 + ページ送り)。呼ぶたびに新しいビューアを増やし、前のは残る (2 つ目以降は右下手前へ {0.12,-0.05,-0.06} m ずつずらす)。
+### $ResonitePDFMode ("Native" | "Panel") / ResonitePDFTemplate[] / ResonitePDFTemplate[slotId | None]
+"Native" (既定): PDF は Resonite 標準のドキュメントビューアで開く。ワールドにある標準ビューア (名前が "PDF Template" で始まる物、無ければ *.pdf。
+Root から 2 段) を雛形として覚え、ProtoFlux (ValueInput<bool> → FireOnTrue → DuplicateSlot) で複製し、StaticDocument.URL を配信 URL に差し替える。
+雛形が無ければ "Panel" (自前パネル) に落ちる。複製はタブレットの隣 (タブレットの親の子) の右前に置く (子にはしない)。
+3 回試して複製が現れなければ同じ PDF を自前パネルで開く。雛形は使う前に確かめ (直近 60 s に確かめていれば省く)、
+ワールドに無ければ (出し直されて ID が変わった等) 走査で探し直す (20 s 見つからなければ自前パネル、その後 5 分は探さない)。`ResoniteTabletStatus[]` の `PDFTemplate` / `NativeDocs` / `DocJobs` / `NativeLog`。
+### $ResoniteTabletStashTemplate (既定 True)
+ワールドの雛形を 1 つ複製してタブレットの子に "PDF Template (Mathematica)" として非表示で保管し、以後の雛形に使う
+(出し直し・削除に強く、インベントリに保存したタブレットにも入る)。`ResoniteTabletStatus[]` の "Stash" が保管のスロット ID。
+引き継ぎと候補の見張りは根を Depth 1 + Panel だけ読む (保管や一覧まで読まない)。
+### $ResoniteNativeLogFile
+標準ビューアの段階記録 (NativeLog) の追記先。既定 `%TEMP%\ResoniteRealtime\native_pdf.log` (タブ区切り: 時刻 / NB か headless / PID / ジョブ / 段階 / 試行 / 注記)。None で書かない。
+### ResonitePDFViewer[file | pages] → <|"Native" -> True, "Deferred" -> True, "Id", "Pages", "Title"|> (Native) | <|"Root", "Pages", "Page", "Title"|> | <|"Deferred" -> True, ...|> | Failure
+Native では file (pdf) を標準ビューアの複製で開く (`"Native" -> False` で自前パネル)。自前パネル: 掴める PDF ビューアパネル (ページ画像 + ページ送り)。呼ぶたびに新しいビューアを増やし、前のは残る (2 つ目以降は右下手前へ {0.12,-0.05,-0.06} m ずつずらす)。
 Options: "Placement", "Distance" -> 1.0, "Offset" -> {0.65,0,0}, "Position", "Parent", "CanvasSize" -> {1000,1400}, "PanelScale", "FontSize", "Title",
 "PageSize" -> 1200, "MaxPages" -> 400, "Reuse" -> False (True = 最新のビューアへ読み込む、root 文字列 = そのビューアへ)。
 ### ResonitePDFViewerPage[[root,] n | "Next" | "Prev" | "First" | "Last" | "+10" | "-10"] / ResonitePDFViewerRemove[[root | All]]

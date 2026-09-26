@@ -174,7 +174,12 @@ Begin["`Private`"];
    再ロードしても**古い定義が消えずに残り、より特殊な方が先に当たる**。
    2026-09-04 に実際に踏んだ: LinkConnect のホスト名を直したのに旧定義が使われ続けた。
    公開シンボル (この context 直下) の値だけ落とす。::usage は Clear では消えず、
-   状態変数は ResoniteRealtime`Private` にあるので生きている接続も壊れない。 *)
+   状態変数は ResoniteRealtime`Private` にあるので生きている接続も壊れない。
+   2026-09-26: 前のロードの監視 tick (ScheduledTask、割り込み型) は再ロード中も走り、Clear した公開関数
+   (ResoniteRealtimeLinkMessages 等) を未定義のまま呼んで Last::nolast を出した。ロードの間は tick の Busy を立てて
+   何もさせず、ファイルの最後で下ろす (tick は Busy なら入口で戻る。立てたのはここなので最後に必ず False に戻す)。 *)
+If[AssociationQ[$itState], $itState["Busy"] = True];
+If[AssociationQ[$icState], $icState["Busy"] = True];
 Scan[Quiet[Clear[#]] &, Names["ResoniteRealtime`*"]];
 
 ResoniteRealtime`$ResoniteRealtimeVersion = "0.2.1";
@@ -209,6 +214,15 @@ Block[{$CharacterEncoding = "UTF-8"},
 (* ---- Graphics3D -> ワールド内の 3D オブジェクト (resoloop のメッシュ資産取り込み) ---- *)
 Block[{$CharacterEncoding = "UTF-8"},
   Get[FileNameJoin[{$iPackageDirectory, "ResoniteRealtime_mesh.wl"}]]];
+(* ---- 雛形なしの PDF ビューア + インベントリに保存できるサムネイル一覧 (タブレットの部品を使う。2026-09-25) ---- *)
+Block[{$CharacterEncoding = "UTF-8"},
+  Get[FileNameJoin[{$iPackageDirectory, "ResoniteRealtime_docboard.wl"}]]];
+(* ---- サムネイル一覧を曲面に貼る (円筒 / 球の内側 / メビウスの帯 / 任意の面。一覧の部品を使う。2026-09-26) ---- *)
+Block[{$CharacterEncoding = "UTF-8"},
+  Get[FileNameJoin[{$iPackageDirectory, "ResoniteRealtime_surface.wl"}]]];
+(* ---- PDF の写しを web サーバに置く (Private / Contacts のワールドでフレンドにも見えるように。2026-09-25) ---- *)
+Block[{$CharacterEncoding = "UTF-8"},
+  Get[FileNameJoin[{$iPackageDirectory, "ResoniteRealtime_pdfcache.wl"}]]];
 
 (* ---- 状態 (再ロードで壊さない) ---- *)
 If[!AssociationQ[$iState],
@@ -321,7 +335,7 @@ $iContentTypes = <|
   "wav" -> "audio/wav", "mp3" -> "audio/mpeg", "ogg" -> "audio/ogg",
   "mp4" -> "video/mp4", "webm" -> "video/webm",
   "txt" -> "text/plain; charset=utf-8", "csv" -> "text/csv; charset=utf-8",
-  "json" -> "application/json; charset=utf-8"|>;
+  "json" -> "application/json; charset=utf-8", "pdf" -> "application/pdf"|>;
 
 iEnsureAssetDirectory[] := (
   If[!DirectoryQ[$iAssetDirectory], CreateDirectory[$iAssetDirectory]];
@@ -337,14 +351,34 @@ iHTTPResponse[status_String, contentType_String, body_ByteArray] :=
       "Connection: close\r\n\r\n", "UTF-8"],
     body];
 
-(* /a/<name> だけを配る。.. を含む要求と配信ディレクトリ外は拒否する。 *)
+(* ---- URL のパーセント符号化 (2026-09-24) ----
+   日本語や空白・かぎ括弧を含むファイル名 (Eagle の PDF 等) を URL にそのまま入れると、Resonite は UTF-8 のパーセント
+   符号化で要求してくる (%E6%9C%88...)。配信側が元に戻さずに探していたので 404 になり、標準ビューアが空 (1/-1) だった。
+   URL を作る側で符号化し (非予約文字 A-Z a-z 0-9 - . _ ~ 以外を %XX)、配信側で UTF-8 として戻す。"+" は空白にしない *)
+iPercentEncode[s_String] :=
+  StringJoin @ Map[
+    If[(48 <= # <= 57) || (65 <= # <= 90) || (97 <= # <= 122) || MemberQ[{45, 46, 95, 126}, #],
+      FromCharacterCode[#], "%" <> ToUpperCase[IntegerString[#, 16, 2]]] &,
+    Normal[StringToByteArray[s, "UTF-8"]]];
+iPercentDecode[s_String] :=
+  Module[{b = Normal[StringToByteArray[s, "UTF-8"]], n, i = 1, hexQ, out},
+    n = Length[b];
+    hexQ = (48 <= # <= 57) || (65 <= # <= 70) || (97 <= # <= 102) &;
+    out = Reap[
+      While[i <= n,
+        If[b[[i]] === 37 && i + 2 <= n && hexQ[b[[i + 1]]] && hexQ[b[[i + 2]]],
+          Sow[FromDigits[FromCharacterCode[b[[i + 1 ;; i + 2]]], 16]]; i += 3,
+          Sow[b[[i]]]; i++]]][[2]];
+    If[out === {}, "", Quiet @ Check[ByteArrayToString[ByteArray[First[out]], "UTF-8"], s]]];
+
+(* /a/<name> だけを配る。.. を含む要求と配信ディレクトリ外は拒否する (復号した後の名前で調べる。%2F などの抜け道を塞ぐ)。 *)
 iHTTPHandler[req_Association] :=
   Module[{path, name, file, ext, body},
     path = First[StringSplit[Lookup[req, "Path", "/"], "?"], "/"];
     If[!StringStartsQ[path, "/a/"],
       Return[iHTTPResponse["404 Not Found", "text/plain",
         StringToByteArray["not found", "UTF-8"]]]];
-    name = StringDrop[path, 3];
+    name = iPercentDecode[StringDrop[path, 3]];
     If[StringContainsQ[name, ".."] || StringContainsQ[name, "/"] ||
        StringContainsQ[name, "\\"] || name === "",
       Return[iHTTPResponse["400 Bad Request", "text/plain",
@@ -377,7 +411,7 @@ ResoniteRealtime`ResoniteRealtimeAsset[file_String] :=
     target = FileNameJoin[{dir, name}];
     If[ExpandFileName[file] =!= ExpandFileName[target],
       Quiet[CopyFile[file, target, OverwriteTarget -> True]]];
-    iBaseURL[] <> "/" <> name];
+    iBaseURL[] <> "/" <> iPercentEncode[name]];
 
 (* ラスタライズは 1 か所に。Graphics のまま ImageQ で判定すると縦横比合わせが
    黙って飛ぶ (2026-09-04 のテストで検出)。 *)
@@ -739,6 +773,7 @@ ResoniteRealtime`ResoniteRealtimeLink[msg_Association, opts : OptionsPattern[]] 
     t0 = iNow[];
     ResoniteRealtime`RRWSSend[conn, ba];
     If[!TrueQ[wait], Return[<|"Sent" -> True, "MessageId" -> msgId|>]];
+    ResoniteRealtime`RRWSFlush[];   (* まとめ書きの途中なら、待つ前に吐き出す (溜めたままだと応答が来ない) *)
     candidates = {};
     (* 2026-09-22: 受信バッファは $iLinkLimit (100) 件で切り詰められる。以前は「送信前の件数より後ろ」を
        見ていたので、接続内の 101 件目以降は応答が永遠に見えずタイムアウトした (タブレットの組み立て
@@ -914,6 +949,10 @@ ResoniteRealtime`ResoniteRealtimeMonitor[] :=
 End[];
 
 EndPackage[];
+
+(* 再ロードの間止めていた監視 tick を戻す (ファイル頭の Busy。定義はすべて入れ直した) *)
+If[AssociationQ[ResoniteRealtime`Private`$itState], ResoniteRealtime`Private`$itState["Busy"] = False];
+If[AssociationQ[ResoniteRealtime`Private`$icState], ResoniteRealtime`Private`$icState["Busy"] = False];
 
 Print[Style["ResoniteRealtime パッケージがロードされました。", Bold]];
 Print["

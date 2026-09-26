@@ -72,13 +72,14 @@ ResoniteRealtimeRemoveBoard[]
 
 ## 表示上限 (アクセスレベル)
 
-ワールドに出してよい情報の上限 (PrivacyLevel、PL) を宣言します。ResoniteLink からは所有者や公開度が取れないので手で設定します。
+ワールドに出してよい情報の上限 (PrivacyLevel、PL) です。既定では、タブレットの監視がワールドの公開度と所有者を読んで自動で決めます。自分がホストで所有するプライベートワールドなら 1.0、フレンド限定なら 0.5、それ以外や他人のワールドなら 0.25 です。読めないあいだは 0.25 です。手で決めたいときは次のように呼びます (手動になります)。
 
 ```wolfram
 ResoniteAccessLevel["Private", "Owner" -> True]     (* 1.0: 自分のプライベートワールド *)
 ResoniteAccessLevel["Contacts"]                     (* 0.5 *)
 ResoniteAccessLevel["Public"]                       (* 0.25 *)
 ResoniteAccessLevel[]                               (* 現在値。非オーナー ($ResoniteWorldOwner = False) は一律 0.25 *)
+ResoniteAccessLevel[Automatic]                      (* 自動 (ワールドから読む) に戻す *)
 ```
 
 PL がこの上限を超える資料・セルは出しません。機密度が数値で取れないものも出しません (fail-closed)。LLM に渡す AccessLevel はさらに `$ResoniteTabletCloudMaxLevel` (0.5) で頭打ちになります。
@@ -145,14 +146,16 @@ ResoniteShowObject[row]                             (* 共通スキーマ行 (Ti
 ResoniteShowObject["C:\\docs\\paper.pdf"]            (* pdf / png / jpg / mp4 / txt / md / nb *)
 ResoniteShowObject[Plot[Sin[x], {x, 0, 5}]]
 ResoniteListGadget[rows, "Title" -> "arXiv"]        (* 行ごとに ▶ のある一覧パネル (タブレットの左隣)。▶ で開く *)
-ResonitePDFViewer[file]                             (* 掴める PDF ビューア: [<<][<] n/N [>][>>][閉じる]。呼ぶたびに増える *)
+ResonitePDFViewer[file]                             (* Resonite 標準のドキュメントビューアで開く (雛形が要る。無ければ自前パネル)。呼ぶたびに増える *)
 ResonitePDFViewer[file2, "Reuse" -> True]           (* 最新のビューアへ読み込む (増やさない) *)
 ResonitePDFViewerPage["Next"] ; ResonitePDFViewerRemove[] ; ResonitePDFViewerRemove[All]
 ResoniteViewerShow[pages] ; ResoniteViewerPage["Next"]   (* 板ビューア (ターンの図用) *)
 ResoniteVideoBoard[urlOrFile]                       (* 動画の板 (再生制御は未実装) *)
 ```
 
-PDF / 画像 / ノートブックはページ画像にして PDF ビューアへ、文字列や Markdown は出力欄へ、`sv://` は SourceVault で解決します。行の PrivacyLevel が表示上限を超える、または無い行は出しません (fail-closed)。
+PDF は Resonite 標準のドキュメントビューアで開きます (`$ResonitePDFMode = "Native"`)。ワールドに標準の PDF ビューアを 1 つ置いておいてください
+(PDF を一度インポートした物。名前を `PDF Template` にしておくと確実)。それを ProtoFlux で複製して配信 URL を差し替えます。無ければ自前のページ画像パネルに落ちます。
+画像 / ノートブックはページ画像にして自前パネルへ、文字列や Markdown は出力欄へ、`sv://` は SourceVault で解決します。行の PrivacyLevel が表示上限を超える、または無い行は出しません (fail-closed)。
 
 ## 3D オブジェクト (Graphics3D をメッシュに)
 

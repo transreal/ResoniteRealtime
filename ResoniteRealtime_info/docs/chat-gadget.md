@@ -92,8 +92,8 @@ Mathematica Chat            Grabbable, AI_GeneratedContent
 
 ## 未検証
 
-- Private ワールドの判定は手動 (`ResoniteAccessLevel["Private"]`)。ResoniteLink はセッション制御の
-  データモデルにアクセスできないので、自動判定は別経路 (L1 の ProtoFlux から通知) が要る。
+- Private ワールドの判定は 2026-09-25 から自動 (タブレットの監視が SessionInfoSource + WorldSessionID で読む。tablet.md)。
+  手動の `ResoniteAccessLevel["Private"]` も使え、呼ぶと手動になる。
 - Text の整列 (enum) は既定のまま (書式は `<|"$type"->"enum","value"->...|>` で通るはず)。
 - 背景を不透明にする方法 (下の表を参照)。
 

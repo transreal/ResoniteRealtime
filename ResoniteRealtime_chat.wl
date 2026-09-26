@@ -43,7 +43,16 @@ ResoniteRealtime`$ResoniteWorldAccessLevels::usage =
   "既定 <|\"Private\" -> 1.0, \"Contacts\" -> 0.5, \"ContactsPlus\" -> 0.25, \"Public\" -> 0.25|> (2026-09-22 指示)。";
 ResoniteRealtime`$ResoniteWorldOwner::usage =
   "$ResoniteWorldOwner が True なら今のワールドは自分のもの (公開度の表が効く)。False (既定、厳しい側) なら公開度に関わらず 0.25。\n" <>
-  "ResoniteLink からワールドの所有者と公開度は取れないので手で設定する: ResoniteAccessLevel[\"Private\", \"Owner\" -> True]。";
+  "既定 (自動) ではタブレットの監視がワールドから読む: Root 直下の \"Mathematica World Info\" (SessionInfoSource + ProtoFlux の\n" <>
+  "WorldSessionID) で公開度 / ホスト / ワールド記録の所有者を読み、ホスト = 所有者ならオーナー。手で決めるときは\n" <>
+  "ResoniteAccessLevel[\"Private\", \"Owner\" -> True] (手動になる)。ResoniteAccessLevel[Automatic] で自動に戻る。";
+ResoniteRealtime`$ResoniteWorldAccessMode::usage =
+  "$ResoniteWorldAccessMode は Automatic (既定: タブレットの監視がワールドの公開度と所有者を読む) か \"Manual\"\n" <>
+  "(ResoniteAccessLevel[access, \"Owner\" -> ...] で手で決めた)。ResoniteAccessLevel[Automatic] で Automatic に戻る。";
+ResoniteRealtime`$ResoniteOwnerUserId::usage =
+  "$ResoniteOwnerUserId に \"U-...\" を置くと、自動判定でオーナーとみなすのはホストがその ID のときだけになる。既定 Automatic
+" <>
+  "(ホスト = ワールド記録の所有者ならオーナー)。";
 ResoniteRealtime`ResoniteAccessLevel::usage =
   "ResoniteAccessLevel[] は現在のワールドのアクセスレベル (表示上限 PL: 1.0 / 0.5 / 0.25) を返す。\n" <>
   "ResoniteAccessLevel[\"Private\" | \"Contacts\" | \"ContactsPlus\" | \"Public\", \"Owner\" -> True | False] で\n" <>
@@ -105,6 +114,9 @@ If[!AssociationQ[ResoniteRealtime`$ResoniteWorldAccessLevels] ||
 If[!StringQ[ResoniteRealtime`$ResoniteWorldAccess],
   ResoniteRealtime`$ResoniteWorldAccess = Lookup[$icState, "WorldAccess", "Public"]];
 If[!BooleanQ[ResoniteRealtime`$ResoniteWorldOwner], ResoniteRealtime`$ResoniteWorldOwner = False];
+(* 2026-09-25: 公開度と所有者はタブレットの監視がワールドから読む (Automatic、既定)。ResoniteAccessLevel[access, ...] を
+   明示で呼ぶと手動 ("Manual") になり、ResoniteAccessLevel[Automatic] で自動に戻る *)
+If[!MatchQ[ResoniteRealtime`$ResoniteWorldAccessMode, Automatic | "Manual"], ResoniteRealtime`$ResoniteWorldAccessMode = Automatic];
 
 (* ============================================================
    アクセスレベル
@@ -128,9 +140,17 @@ Options[ResoniteRealtime`ResoniteAccessLevel] = {"Owner" -> Automatic};
 
 ResoniteRealtime`ResoniteAccessLevel[access_String, opts : OptionsPattern[]] /;
     KeyExistsQ[ResoniteRealtime`$ResoniteWorldAccessLevels, access] := (
+  ResoniteRealtime`$ResoniteWorldAccessMode = "Manual";
   ResoniteRealtime`$ResoniteWorldAccess = access;
   With[{o = OptionValue[ResoniteRealtime`ResoniteAccessLevel, {opts}, "Owner"]},
     If[BooleanQ[o], ResoniteRealtime`$ResoniteWorldOwner = o]];
+  ResoniteRealtime`ResoniteAccessLevel[]);
+
+(* 自動に戻す: 次にワールドの情報を読むまでは厳しい側 (非オーナー = 0.25) *)
+ResoniteRealtime`ResoniteAccessLevel[Automatic] := (
+  ResoniteRealtime`$ResoniteWorldAccessMode = Automatic;
+  ResoniteRealtime`$ResoniteWorldOwner = False;
+  ResoniteRealtime`$ResoniteWorldAccess = "Public";
   ResoniteRealtime`ResoniteAccessLevel[]);
 
 (* SourceVault の release context 名。非オーナーは常に public (0.25) *)
@@ -743,10 +763,12 @@ icMemberValue[comp_, member_String] :=
                  見つかれば処理、10 秒来なければ失敗 1 回と数えて Idle へ
    書き込み (状態欄・フラグ戻し・答え) も Block[{$iLinkWaitDefault = False}] で送りっぱなし。
    LLM 呼び出し (ClaudeQueryBg = RunProcess) だけは同期で、その間 (数秒〜数十秒) はカーネルが塞がる。 *)
+(* 受信の一覧が List でなければ (再ロード中で ResoniteRealtimeLinkMessages が未定義など) 応答なし扱い。
+   Select は未評価の式にも効き、空の ResoniteRealtimeLinkMessages[] に Last を掛けて Last::nolast になっていた (2026-09-26) *)
 icPollReply[msgId_String] :=
-  Module[{hits},
-    hits = Select[ResoniteRealtime`ResoniteRealtimeLinkMessages[Max[60, $iLinkLimit]],
-      AssociationQ[#["Message"]] &&
+  Module[{msgs = ResoniteRealtime`ResoniteRealtimeLinkMessages[Max[60, $iLinkLimit]], hits},
+    If[!ListQ[msgs], Return[None]];
+    hits = Select[msgs, AssociationQ[#] && AssociationQ[Lookup[#, "Message", None]] &&
         Lookup[#["Message"], "sourceMessageId", None] === msgId &];
     If[hits === {}, None, Last[hits]["Message"]]];
 

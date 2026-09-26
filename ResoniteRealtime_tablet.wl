@@ -109,10 +109,29 @@ ResoniteRealtime`ResoniteListGadget::usage =
   "SourceVaultMailSearchIndex 等 core 関数の戻り値) をワールド内のボタン付き一覧にする。行の ▶ でその PDF / 画像 / 本文がビューアに出る。\n" <>
   "表示上限を超える行は落とす。オプション: \"Title\" -> \"SourceVault\", \"RowsPerPage\" -> 8,\n" <>
   "  \"Placement\" -> Automatic (タブレットがあればその左隣、無ければアバター正面) | \"User\" | \"World\",\n" <>
-  "  \"Distance\", \"Height\", \"Position\", \"Parent\", \"CanvasSize\" -> {1400, 1000}, \"PanelScale\" -> 0.0006, \"FontSize\" -> 30。\n" <>
-  "戻り値: <|\"Root\", \"Count\", \"Hidden\", ...|>。";
+  "  \"Distance\", \"Height\", \"Position\", \"Parent\", \"CanvasSize\" -> {1400, 1000}, \"PanelScale\" -> 0.0006, \"FontSize\" -> 30,\n" <>
+  "  \"View\" -> Automatic (直近のタブレットのプロンプトに「サムネ / 一覧」があればサムネイル一覧) | \"List\" | \"Thumbnails\"。\n" <>
+  "フッタの「サムネ」ボタンでサムネイル一覧に切り替わる。戻り値: <|\"Root\", \"Count\", \"Hidden\", ...|>。";
 ResoniteRealtime`ResoniteListGadgetRemove::usage =
   "ResoniteListGadgetRemove[rootId] は一覧ガジェットを消す。ResoniteListGadgetRemove[] は全部消す。";
+ResoniteRealtime`ResoniteThumbnailGadget::usage =
+  "ResoniteThumbnailGadget[rows] は行リストのサムネイルを 1 枚の大きな面 (Canvas 1 つ、テクスチャは貼り合わせた JPEG) に\n" <>
+  "升目で並べる。升目をクリックするとその PDF / 画像が開く (ResoniteShowObject と同じ)。「リスト」ボタンで一覧に戻る。\n" <>
+  "サムネイル: Eagle の項目は <name>_thumbnail.png、画像はそのもの、PDF は 1 ページ目、無ければ空カード。\n" <>
+  "タブレットの左隣 (タブレットの子にはしない) に出る。オプション: \"Title\", \"Columns\" -> Automatic, \"ThumbSize\" -> {200, 260} (px),\n" <>
+  "\"ThumbMeters\" -> 0.12 (サムネイル 1 枚の幅 m), \"MaxRows\" -> 7, \"MaxItems\" -> Infinity, \"FontSize\" -> 18。\n" <>
+  "縦は MaxRows 段まで積み、それ以上は横にいくらでも広げる (全件を並べる。289 件 = 42 x 7)。高さ 2.4 m を超える面だけ縮める。\n" <>
+  "横に長い面は 36 列ずつの帯 (帯ごとに JPEG 1 枚) に分けて貼る。帯の JPEG は元画像と配置が同じなら使い回す。\n" <>
+  "見出しの「機密度で非表示 N」は表示上限を超える行、「ほか N 件はリストで」は MaxItems (整数を与えたとき) を超えた行。\n" <>
+  "\"Shape\" -> \"Plane\" (既定) | \"Cylinder\" (アバターを囲む円筒) | \"SphereInside\" (アバターを中心とする球の内側) | \"Mobius\" (メビウスの帯) |\n" <>
+  "ResoniteThumbnailSurface[...] (任意の面)。曲面は升目ごとのタイルを面の点と接平面に置き、中心はアバターの目 (\"Center\" -> Automatic)。\n" <>
+  "見出しの「形を変更」ボタンで $ResoniteThumbnailShapes の順に切り替わる (ResoniteThumbnailShape)。";
+ResoniteRealtime`ResoniteThumbnailGadgetRemove::usage =
+  "ResoniteThumbnailGadgetRemove[rootId] はサムネイル一覧を消す。ResoniteThumbnailGadgetRemove[] は全部消す。";
+ResoniteRealtime`ResoniteEagleFolderGadget::usage =
+  "ResoniteEagleFolderGadget[folder] は Eagle のフォルダ (名前または id、スマートフォルダも可) の項目を一覧 / サムネイル一覧に出す\n" <>
+  "(行は SourceVaultEagleSummaryRow)。オプション: \"View\" -> Automatic (「サムネ / 一覧」ならサムネイル) | \"List\" | \"Thumbnails\",\n" <>
+  "\"Recursive\" -> False, \"Ext\" -> All | \"pdf\" | {...}, \"Title\" -> Automatic。";
 ResoniteRealtime`ResonitePDFViewer::usage =
   "ResonitePDFViewer[file] は PDF / 画像 / ノートブックを、ページ送りつきの掴めるビューアパネル (Resonite の\n" <>
   "ドキュメントビューア風: ページ画像 + [<<] [<] n/N [>] [>>] [閉じる]) でワールドに出す。\n" <>
@@ -156,6 +175,20 @@ ResoniteRealtime`ResoniteTabletRunDeferred::usage =
   "ResoniteTabletRunDeferred[id] は予約した組み立て (ResoniteListGadget 等) を実行する。専用ノートブックの Input セルとして\n" <>
   "評価される (トップレベル評価なので ResoniteLink の応答を受けられる)。直接呼ぶものではない。";
 ResoniteRealtime`ResoniteTabletDeferred::usage = "ResoniteTabletDeferred[] は予約した組み立ての台帳 (id -> <|Label, Status, Result, Time|>) を返す。";
+ResoniteRealtime`$ResoniteTabletStashTemplate::usage =
+  "$ResoniteTabletStashTemplate (既定 True) のとき、ワールドの標準 PDF ビューアの雛形を 1 つ複製してタブレットの子に\n" <>
+  "\"PDF Template (Mathematica)\" として非表示で保管し、以後の雛形に使う (雛形の出し直しや削除に強くなり、\n" <>
+  "インベントリに保存したタブレットにも入る)。False で保管しない。";
+ResoniteRealtime`$ResoniteNativeLogFile::usage =
+  "$ResoniteNativeLogFile は標準ビューア (Native PDF) の段階記録 NativeLog の追記先。既定 %TEMP%\\ResoniteRealtime\\native_pdf.log (タブ区切り: 時刻 / NB か headless / PID / ジョブ / 段階 / 試行 / 注記)。None で書かない。";
+ResoniteRealtime`$ResonitePDFMode::usage =
+  "$ResonitePDFMode: \"Native\" (既定) なら PDF を Resonite 標準のドキュメントビューア (雛形 = タブレット / サムネイル一覧に保管した物、\n" <>
+  "無ければワールドにある物を ProtoFlux で複製し、配信 URL を差し替える) で開く。雛形が無いときは Resonite の文書表示\n" <>
+  "(ResoniteDocViewer: StaticDocument + DocumentPageTexture。ページ送りはワールドの中だけで動く) で開く ($ResonitePDFLite = False なら\n" <>
+  "自前パネルに落ちる)。\"Lite\" なら常に文書表示、\"Panel\" なら自前のページ画像パネル (ResonitePDFViewer)。";
+ResoniteRealtime`ResonitePDFTemplate::usage =
+  "ResonitePDFTemplate[] は複製の雛形 (Resonite 標準の PDF ビューア。名前が \"PDF Template\" で始まる物、無ければ *.pdf) を\n" <>
+  "ワールド (Root から 2 段) で探して覚える。ResonitePDFTemplate[slotId] で明示、ResonitePDFTemplate[None] で忘れる。";
 ResoniteRealtime`ResoniteTabletServe::usage =
   "ResoniteTabletServe[] は常駐監視を始める: ResoniteLink が無ければ ResoniteRealtimeDiscover[] で見つけて繋ぎ (15 秒ごと)、\n" <>
   "ワールドの Root 直下の \"Mathematica Tablet\" (インベントリから出した物も) を探し、その「接続」ボタンが押されたら\n" <>
@@ -178,6 +211,25 @@ ResoniteRealtime`$ResoniteTabletPageResolution::usage =
   "$ResoniteTabletPageResolution はページ画像の解像度 (dpi、既定 192)。ページの幅 px = PagePoints * dpi / 72 (既定 1280)。";
 ResoniteRealtime`$ResoniteTabletCloudMaxLevel::usage =
   "$ResoniteTabletCloudMaxLevel はモデル未指定時に LLM へ渡す AccessLevel の上限 (既定 0.5)。表示上限とは別。";
+ResoniteRealtime`$ResoniteOwnerPresenceGate::usage =
+  "$ResoniteOwnerPresenceGate (既定 True): ワールド内のボタン (タブレット / 一覧 / サムネイル一覧 / PDF ビューア / 接続) の操作を、\n" <>
+  "オーナー (= ResoniteLink をつないでいるホスト) がそのワールドにいて見ているときだけ、このカーネルで実行する。\n" <>
+  "判定はワールド側の ProtoFlux (HostUser -> IsUserPresent。ホストだけが評価) に毎回問い合わせる: そのワールドにフォーカスが\n" <>
+  "あり、VR ならヘッドセットを着けていること。別のワールドにフォーカスを移している (ResoniteLink は残っている) ときや、\n" <>
+  "問い合わせに答えが来ないときは、誰が押しても実行しない (厳しい側)。False にすると判定しない (単独でのデバッグ用)。";
+ResoniteRealtime`$ResoniteOwnerPresenceFreshSeconds::usage =
+  "$ResoniteOwnerPresenceFreshSeconds (既定 5): 直近の在席確認がこの秒数以内に「在席」なら、ボタンの操作をすぐ実行する。\n" <>
+  "それより古ければ、押された操作を保留して問い合わせ直し、答えを見てから実行するか断る。";
+ResoniteRealtime`$ResoniteThumbnailsDisclosable::usage =
+  "$ResoniteThumbnailsDisclosable (既定 True、2026-09-26 方針): サムネイル一覧の升目 (縮小画像と題名) は機密度にかかわらず見せてよい物として扱う。\n" <>
+  "機密度で行を落とさず、覆い (非表示) も付けず、インベントリから出したときも升目を隠さない。秘匿するのは中身 (開いた PDF 等) だけで、\n" <>
+  "開くときに表示上限で判定する。False にすると前の動き (表示上限以上の行を落とす / 覆う、出し直すと「接続」まで隠す)。";
+ResoniteRealtime`$ResonitePDFPageClick::usage =
+  "$ResonitePDFPageClick (既定 True): PDF のページそのものを押すと次のページへ進むようにする。文書表示 (ResoniteDocViewer) は\n" <>
+  "組み立て時に、標準ビューアの複製は置いた直後に木を読んでページ表示と [次へ] を探して結ぶ (結果は ResoniteTabletStatus[][\"NativeLog\"])。";
+ResoniteRealtime`ResoniteOwnerPresence::usage =
+  "ResoniteOwnerPresence[] はオーナー在席の判定の状態 <|\"Gate\", \"Present\", \"Watching\", \"AckSecondsAgo\", \"Nonce\", \"AckNonce\",\n" <>
+  "\"Ready\", \"Held\" (保留中の操作), \"Log\" (直近の実行 / 拒否)|> を返す。";
 
 Begin["`Private`"];
 
@@ -272,8 +324,8 @@ itTickActiveQ[] := MatchQ[Lookup[$itState, "Task", None], _TaskObject];
 itBuildModeTick[] :=
   Switch[ResoniteRealtime`$ResoniteTabletBuildMode, "Tick", True, "Notebook", False, _, itTickActiveQ[]];
 
-itEnqueueBuild[label_String, sender_Function] :=
-  Module[{id = StringTake[CreateUUID[], 8]},
+itEnqueueBuild[label_String, sender_Function, id0_ : Automatic] :=
+  Module[{id = If[StringQ[id0], id0, StringTake[CreateUUID[], 8]]},
     $itBuilds[id] = <|"Phase" -> "Send", "Sender" -> sender, "Label" -> label, "Time" -> iNow[], "Tries" -> 0|>;
     $itDeferred[id] = <|"Expr" -> None, "Label" -> label, "Time" -> iNow[], "Status" -> "Pending", "Via" -> "Tick"|>;
     itSetStatus[label <> " を作成中 (予約 " <> id <> ")"];
@@ -301,25 +353,61 @@ itBuildFinish[id_String, status_String, result_] :=
     itSetStatus[Lookup[b, "Label", "組み立て"] <> If[status === "Done", ": 作成しました",
       ": 失敗 " <> ToString[If[FailureQ[result], result["MessageTemplate"], result]]]]];
 
+(* 結線用に読むスロット: 組み立ての戻り値が "WireSlot" を持てばそれ (サムネイル一覧の State。升目が多いと根ごとは重い) *)
+itWireTarget[res_Association] := Lookup[res, "WireSlot", res["Root"]];
+(* 巡ごとに読むスロットを変えられる ("WireSlots" -> {1 巡目, 2 巡目, ...}。2026-09-25: サムネイル一覧の 2 巡目は覆いの文字) *)
+itWireTarget[res_Association, k_Integer] :=
+  With[{ws = Lookup[res, "WireSlots", None]},
+    If[ListQ[ws] && 1 <= k <= Length[ws] && StringQ[ws[[k]]], ws[[k]], itWireTarget[res]]];
+
+(* 組み立ての送信を tick に分ける (2026-09-25): サムネイル一覧 289 件は 2,100 通、1 tick で送ると ~2 s 塞ぎ、件数が増えると
+   FE の「動的評価の放棄」ダイアログの範囲に入る。Sender の間は ResoniteLink への送信を記録するだけにし (返事は待たない
+   送信と同じ <|"Sent", "MessageId"|>)、tick ごとに $itDrainSeconds ぶん送る。小さい組み立てはその tick で送り終わる *)
+$itDrainSeconds = 0.3;
+itRecordLink[m_Association, opts_List] :=
+  Module[{msgId = Lookup[m, "messageId", ResoniteRealtime`ResoniteRealtimeNewId["Msg"]]},
+    AppendTo[$itOutbox, Join[<|"messageId" -> msgId|>, m]];
+    <|"Sent" -> True, "MessageId" -> msgId|>];
+$itOutbox = {};
+
 itBuildSend[id_String, b_Association] :=
-  Module[{res, wires, rounds, root, sent},
-    {res, wires, rounds, root} = Block[{$iLinkWaitDefault = False, $itWireLater = {}, $itWireRounds = {}, $itBuildRoot = None},
-      {Quiet @ Check[b["Sender"][], $Failed], $itWireLater, $itWireRounds, $itBuildRoot}];
+  Module[{res, wires, rounds, root, outbox},
+    {res, wires, rounds, root, outbox} = Block[{$iLinkWaitDefault = False, $itWireLater = {}, $itWireRounds = {}, $itBuildRoot = None,
+        $itOutbox = {}},
+      Block[{ResoniteRealtime`ResoniteRealtimeLink},
+        ResoniteRealtime`ResoniteRealtimeLink[m_Association, o___] := itRecordLink[m, {o}];
+        {Quiet @ Check[b["Sender"][], $Failed], $itWireLater, $itWireRounds, $itBuildRoot, $itOutbox}]];
     If[StringQ[root], $itBuilds[id, "Root"] = root];
     If[!AssociationQ[res] || !StringQ[Lookup[res, "Root", None]],
-      Return[itBuildFinish[id, "Failed", res]]];
+      Return[itBuildFinish[id, "Failed", res]]];   (* 何も送っていない *)
     If[!ListQ[rounds], rounds = {}];
-    If[wires === {} && rounds === {}, Return[itBuildFinish[id, "Done", res]]];
-    sent = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[res["Root"], "Depth" -> -1,
+    $itBuilds[id] = Join[b, <|"Phase" -> "Drain", "Outbox" -> outbox, "Result" -> res, "Wires" -> wires, "Rounds" -> rounds,
+      "Root" -> res["Root"], "Total" -> Length[outbox]|>];
+    itBuildDrain[id, $itBuilds[id]]];
+
+itBuildDrain[id_String, b_Association] :=
+  Module[{out = Replace[Lookup[b, "Outbox", {}], Except[_List] -> {}], t0 = iNow[], k = 0, n, res = b["Result"], sent},
+    n = Length[out];
+    While[k < n && (k === 0 || iNow[] - t0 < $itDrainSeconds),
+      k++; Quiet @ Check[ResoniteRealtime`ResoniteRealtimeLink[out[[k]], "Wait" -> False], Null]];
+    If[k < n,
+      $itBuilds[id, "Outbox"] = Drop[out, k];
+      itSetStatus[Lookup[b, "Label", "組み立て"] <> " を送っています (" <> ToString[b["Total"] - (n - k)] <> " / " <>
+        ToString[b["Total"]] <> ")"];
+      Return[Null]];
+    (* 全部送った: 結線 (あれば) *)
+    If[b["Wires"] === {} && b["Rounds"] === {}, Return[itBuildFinish[id, "Done", res]]];
+    sent = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[itWireTarget[res, 1], "Depth" -> -1,
       "IncludeComponentData" -> True, "Wait" -> False], $Failed];
     If[!AssociationQ[sent] || !StringQ[Lookup[sent, "MessageId", None]],
       Return[itBuildFinish[id, "Failed", iFailure["GetSlot", "結線用の getSlot を送れませんでした。"]]]];
-    $itBuilds[id] = Join[b, <|"Phase" -> "Wire", "Round" -> 1, "Result" -> res, "Wires" -> wires, "Rounds" -> rounds,
-      "Root" -> res["Root"], "MessageId" -> sent["MessageId"], "Sent" -> iNow[], "Tries" -> 1|>]];
+    $itBuilds[id] = Join[KeyDrop[b, "Outbox"], <|"Phase" -> "Wire", "Round" -> 1, "MessageId" -> sent["MessageId"], "Sent" -> iNow[],
+      "Tries" -> 1|>]];
 
 (* 失敗して消したガジェットを台帳からも外す *)
 itForgetGadget[root_String] :=
   ($itState["Lists"] = KeyDrop[Lookup[$itState, "Lists", <||>], root];
+   $itState["Thumbs"] = KeyDrop[itThumbs[], root];
    $itState["PDFViewers"] = KeyDrop[itPDFViewers[], root];
    With[{v = itViewer[]}, If[AssociationQ[v] && Lookup[Lookup[v, "Board", <||>], "Slot", None] === root,
      $itState["Viewer"] = None]]);
@@ -349,14 +437,14 @@ itBuildWire[id_String, b_Association] :=
               ToString[missing] <> " 個の結線でメンバ ID が取れませんでした (" <> ToString[round] <> " 巡目)。"]],
           round < Length[rounds],
             (* 次の巡: いま足したコンポーネントのメンバ ID を取りに行く *)
-            sent = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[b["Result"]["Root"], "Depth" -> -1,
+            sent = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[itWireTarget[b["Result"], round + 1], "Depth" -> -1,
               "IncludeComponentData" -> True, "Wait" -> False], $Failed];
             If[!AssociationQ[sent] || !StringQ[Lookup[sent, "MessageId", None]],
               itBuildFinish[id, "Failed", iFailure["GetSlot", "結線用の getSlot を送れませんでした。"]],
               $itBuilds[id] = Join[b, <|"Round" -> round + 1, "MessageId" -> sent["MessageId"], "Sent" -> iNow[], "Tries" -> 1|>]],
           True, itBuildFinish[id, "Done", b["Result"]]],
       iNow[] - b["Sent"] > 10 && b["Tries"] < 3,
-        sent = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[b["Result"]["Root"], "Depth" -> -1,
+        sent = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[itWireTarget[b["Result"], round], "Depth" -> -1,
           "IncludeComponentData" -> True, "Wait" -> False], $Failed];
         $itBuilds[id] = Join[b, <|"MessageId" -> Lookup[sent, "MessageId", b["MessageId"]], "Sent" -> iNow[],
           "Tries" -> b["Tries"] + 1|>],
@@ -366,7 +454,7 @@ itBuildWire[id_String, b_Association] :=
 
 itProcessBuilds[] :=
   KeyValueMap[Function[{id, b},
-    Switch[b["Phase"], "Send", itBuildSend[id, b], "Wire", itBuildWire[id, b], _, Null]], $itBuilds];
+    Switch[b["Phase"], "Send", itBuildSend[id, b], "Drain", itBuildDrain[id, b], "Wire", itBuildWire[id, b], _, Null]], $itBuilds];
 
 (* getSlot (Depth -1, IncludeComponentData) の応答からコンポーネントのメンバ (フィールド) の ID を拾う *)
 itMemberIdFromReply[res_, compId_String, member_String] :=
@@ -400,8 +488,8 @@ itWireItem[___] := False;
 (* カーネル再起動などで台帳を失ったガジェットの残骸を、名前でワールドから消す *)
 Options[ResoniteRealtime`ResoniteTabletCleanup] = {
   "Names" -> {"Mathematica Tablet", "SourceVault List", "PDF Viewer", "Mathematica Viewer", "Mathematica Video", "Mathematica Chat",
-    "Mathematica Toggle Box"},
-  "Prefixes" -> {"Mathematica Tablet"}};
+    "Mathematica Toggle Box", "Mathematica PDFs", "SourceVault Thumbnails", "Mathematica World Info", "Mathematica PDF Viewer"},
+  "Prefixes" -> {"Mathematica Tablet", "SourceVault Thumbnails"}};
 
 ResoniteRealtime`ResoniteTabletCleanup[opts : OptionsPattern[]] :=
   Module[{names, prefixes, tree, val, kids, hits, removed = {}},
@@ -410,6 +498,20 @@ ResoniteRealtime`ResoniteTabletCleanup[opts : OptionsPattern[]] :=
     val = If[AssociationQ[#], Lookup[#, "value", #], #] &;
     tree = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot["Root", "Depth" -> 1, "Timeout" -> 30], $Failed];
     If[!AssociationQ[tree], Return[iFailure["GetSlot", "Root の階層が取れませんでした。"]]];
+    (* サムネイル一覧もタブレットの隣に置くので名前では拾えない。台帳から消す *)
+    Do[
+      Quiet @ Check[ResoniteRealtime`ResoniteRealtimeRemoveSlot[id], Null];
+      AppendTo[removed, <|"Id" -> id, "Name" -> ToString[Lookup[itThumbs[][id], "Title", "Thumbnails"]]|>],
+      {id, Keys[itThumbs[]]}];
+    (* 標準ビューアの複製はタブレットの隣 (タブレットの親の子) に置くので名前では拾えない。台帳から消す *)
+    Do[
+      Quiet @ Check[ResoniteRealtime`ResoniteRealtimeRemoveSlot[id], Null];
+      AppendTo[removed, <|"Id" -> id, "Name" -> ToString[Lookup[itNativeDocs[][id], "Title", "PDF"]]|>],
+      {id, Keys[itNativeDocs[]]}];
+    Do[
+      Quiet @ Check[ResoniteRealtime`ResoniteRealtimeRemoveSlot[id], Null];
+      AppendTo[removed, <|"Id" -> id, "Name" -> ToString[Lookup[idDocViewers[][id], "Title", "PDF"]]|>],
+      {id, Keys[Quiet @ Check[idDocViewers[], <||>]]}];
     kids = Lookup[Lookup[tree, "data", <||>], "children", {}];
     hits = Select[kids, With[{nm = ToString[val[Lookup[#, "name", ""]]]},
       MemberQ[names, nm] || AnyTrue[prefixes, StringStartsQ[nm, #] &]] &];
@@ -420,7 +522,10 @@ ResoniteRealtime`ResoniteTabletCleanup[opts : OptionsPattern[]] :=
           AppendTo[removed, <|"Id" -> id, "Name" -> ToString[val[Lookup[h, "name", ""]]]|>]]],
       {h, hits}];
     ResoniteRealtime`ResoniteTabletStop[];
-    $itState = Join[$itState, <|"Gadget" -> None, "Viewer" -> None, "PDFViewers" -> <||>, "Lists" -> <||>, "Turn" -> None|>];
+    $itState = Join[$itState, <|"Gadget" -> None, "Viewer" -> None, "PDFViewers" -> <||>, "Lists" -> <||>, "Turn" -> None,
+      "NativeDocs" -> <||>, "PDFDup" -> None, "DocJobs" -> {}, "Thumbs" -> <||>, "WorldInfo" -> None, "WorldInfoBuilding" -> False,
+      "DocViewers" -> <||>, "TexImports" -> {}, "BoardJobs" -> <||>, "BoardCands" -> {}, "BoardCandInfo" -> <||>,
+      "Presence" -> <||>, "HeldPresses" -> {}|>];
     $itBuilds = <||>;
     $itState["Candidates"] = {};
     itRestartServeIfNeeded[];
@@ -557,6 +662,369 @@ itPose[placement_, userSpec_, distance_, height_, pos_, parent_] :=
       If[AssociationQ[p], Return[p]]];
     <|"Parent" -> parent, "Position" -> pos, "Rotation" -> None, "User" -> None|>];
 
+(* ---- 裏板 (2026-09-24 ユーザー指示) ----
+   UIX のパネルは奥行きを書かない半透明の扱いなので、後ろのガラスや空が手前に描かれて透けて見え、厚みも無いので
+   横から見ると消える。パネルの裏 (+z。利用者は -z 側) に薄い不透明な箱を置く (奥行きを書くので後ろが隠れ、縁が見える) *)
+$itBackingDepth = 0.015; $itBackingMargin = 0.012;
+$itBackingColor = RGBColor[0.1, 0.11, 0.13];
+itBacking[parent_String, {w_?NumericQ, h_?NumericQ}] :=
+  Module[{s, mesh, mat},
+    s = icSlot["Backing", parent, "Position" -> N[{0., 0., $itBackingDepth/2 + 0.002}]];
+    mesh = icComp[s, $icFE <> "BoxMesh", <|"Size" -> N[{w + 2 $itBackingMargin, h + 2 $itBackingMargin, $itBackingDepth}]|>];
+    mat = icComp[s, $icFE <> "PBS_Metallic", <|"AlbedoColor" -> $itBackingColor, "Metallic" -> 0., "Smoothness" -> 0.25|>];
+    icComp[s, $icFE <> "MeshRenderer",
+      <|"Mesh" -> ResoniteRealtime`ResoniteRealtimeRef[mesh],
+        "Materials" -> <|"$type" -> "list", "elements" -> {ResoniteRealtime`ResoniteRealtimeRef[mat]}|>|>];
+    s];
+
+(* 裏板の無いタブレット (この版より前に作った / インベントリから出した) に 1 回だけ後付けする (tick、待たない) *)
+itMaybeBacking[] :=
+  Module[{g = itGadget[], s},
+    If[!AssociationQ[g] || StringQ[Lookup[g, "Backing", None]] || !StringQ[Lookup[g, "Root", None]] || !itLinkQ[] ||
+       TrueQ[Lookup[g, "BackingTried", False]], Return[None]];
+    $itState["Gadget", "BackingTried"] = True;
+    s = itNoWait @ Quiet @ Check[itBacking[g["Root"], Lookup[g, "CanvasSize", {1000, 1500}]*Lookup[g, "PanelScale", 0.0006]], $Failed];
+    If[StringQ[s], $itState["Gadget", "Backing"] = s];
+    s];
+
+(* ---- ワールドの公開度と所有者を自動で知る (2026-09-25 ユーザー指示) ----
+   「プライベートで、オーナー (nconc) だけが admin で所有するワールドなら表示上限 1.0 になるはず」。
+   ResoniteLink のメッセージにセッション情報は無い (status は版番号だけ、ワールド設定はスロットに属さない) が、
+   部品 SessionInfoSource は SessionId を入れると公開度 / ホスト / ワールド記録の所有者 / 人数を埋める (実機:
+   AccessLevel "Private"、HostUserId "U-nconc"、CorrespondingOwnerId "U-nconc")。今のセッション ID は ProtoFlux の
+   WorldSessionID でしか取れない (ログには開いている全ワールドが混ざる) ので、Root 直下に小さな仕掛けを置く:
+     Mathematica World Info
+     ├─ info       SessionInfoSource
+     ├─ trigger    ValueInput<bool>            (WL が True にする)
+     ├─ sessionId  WorldSessionID
+     ├─ target     ObjectValueSource<string> + GlobalReference<IValue<string>> (-> info.SessionId)
+     ├─ write      ObjectWrite<FrooxEngineContext, string> (Value <- sessionId, Variable -> target)
+     └─ fire       FireOnTrue (Condition <- trigger, OnChanged -> write)
+   罠: ObjectWrite<string> (ExecutionContext 版) は FrooxEngine の変数を受けず Variable が空のまま (実機)。
+   空の SessionInfoSource も AccessLevel は既定値 "Private" を示すので、SessionId とホストが入るまで信じない。
+   ResoniteLink は自分がホストのワールドでしか使えないので、つないでいる自分 = ホスト。オーナー = ホストがワールド記録の
+   所有者 ($ResoniteOwnerUserId を文字列で置けば、その ID であることも要求する)。
+
+   ---- オーナー在席の確認 (2026-09-25 ユーザー指示) ----
+   「フレンドが押した操作も、オーナーの PC で実行したい。ただしオーナーがそのワールドにいて、目が行き届くときだけ」。
+   FrooxEngine.dll の IL で確かめたこと (2026-09-25):
+     - ホストが抜けるとセッションは終わる: クライアントは SessionConnectionManager.OnHostConnectionClosed ->
+       World.HostConnectionClosed -> World.Destroy (ホストの移譲は無い)。VRChat のように残り続けることはない。
+     - ただしホストは別のワールドにフォーカスを移せる (元のワールドは裏で動き続け、ResoniteLink も残る)。このとき
+       User.IsPresentInWorld が False になる (WorldManager.BeginUpdate がフォーカスの切り替えで各ワールドの LocalUser に書く)。
+     - User.IsPresent = IsPresentInWorld && (VR でなければ真 | IsPresentInHeadset)。VR でヘッドセットを外しても False。
+       デスクトップで Mathematica のウインドウに切り替えても IsPresentInWorld は変わらない (Resonite 内のフォーカスの話)。
+   ワールドの中でボタンを押せるのはそのワールドにフォーカスしている人だけなので、「オーナーが在席していない」なら押したのは
+   オーナー以外。押した人を個別に調べなくても、在席を確かめれば要求どおりになる。
+   在席はワールド側の ProtoFlux に問い合わせる (ホストだけが評価。OnlyForUser = HostUser):
+     ├─ nonce        ValueInput<int>              (WL が問い合わせのたびに 1 増やす)
+     ├─ host         HostUser
+     ├─ present      IsUserPresent (User <- host)
+     ├─ presentTarget / ackTarget   ValueSource<bool> / ValueSource<int> + GlobalReference (-> info の ValueField)
+     ├─ writePresent ValueWrite<FrooxEngineContext, bool> (present -> Present) --OnWritten--> writeAck
+     ├─ writeAck     ValueWrite<FrooxEngineContext, int>  (nonce -> Ack)
+     └─ probe        FireOnValueChange<int> (Value <- nonce, OnlyForUser <- host, OnChanged -> writePresent)
+   info スロットに ValueField<bool> Present / ValueField<int> Ack を置き、SessionInfoSource と一緒に 1 回の getSlot で読む。
+   Ack が送った nonce と一致したら、それはホストのクライアントがいまこのワールドで評価した答え。答えが来なければ不在扱い。 *)
+$itWorldInfoName = "Mathematica World Info";
+$itWorldInfoSeconds = 10;     (* 読み直しの間隔 *)
+$itWorldInfoStale = 90;       (* これより古い読み取りは信じない (厳しい側へ) *)
+If[!ValueQ[ResoniteRealtime`$ResoniteOwnerUserId], ResoniteRealtime`$ResoniteOwnerUserId = Automatic];
+
+itWorldInfo[] := With[{w = Lookup[$itState, "WorldInfo", None]}, If[AssociationQ[w], w, None]];
+itAutoAccessQ[] := ResoniteRealtime`$ResoniteWorldAccessMode === Automatic;
+
+itWorldInfoBuild[] :=
+  Catch[
+    Module[{pfb = $itPFB, ref = ResoniteRealtime`ResoniteRealtimeRef, root, info, sInfo, s, trig, wsid, tgt, vsrc, ow, fire, grefId, fid,
+        vPres, vAck, nonce, host, pres, presT, presSrc, ackT, ackSrc, wAck, wPres, gPres, gAck, fec, pid, aid},
+      If[!itLinkQ[], Throw[iFailure["NotConnected", "ResoniteLink が未接続です。"], icTag]];
+      root = icSlot[$itWorldInfoName, "Root", "Id" -> ResoniteRealtime`ResoniteRealtimeNewId["WInfo"]];
+      $itBuildRoot = root;
+      icComp[root, $icFE <> "AI_GeneratedContent",
+        <|"Source" -> "Mathematica ResoniteRealtime world info (session access level for the tablet display limit)"|>];
+      info = icSlot["info", root];
+      sInfo = icComp[info, $icFE <> "SessionInfoSource", <|"SessionId" -> ""|>, ResoniteRealtime`ResoniteRealtimeNewId["SInfo"]];
+      s = icSlot["trigger", root];
+      trig = icComp[s, pfb <> "ProtoFlux.Runtimes.Execution.Nodes.ValueInput<bool>", <|"Value" -> False|>,
+        ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["sessionId", root];
+      wsid = icComp[s, pfb <> "ProtoFlux.Runtimes.Execution.Nodes.FrooxEngine.Worlds.WorldSessionID", <||>,
+        ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      tgt = icSlot["target", root];
+      vsrc = icComp[tgt, pfb <> "FrooxEngine.ProtoFlux.CoreNodes.ObjectValueSource<string>", <||>,
+        ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["write", root];
+      ow = icComp[s, pfb <> "ProtoFlux.Runtimes.Execution.Nodes.ObjectWrite<[FrooxEngine]FrooxEngine.ProtoFlux.FrooxEngineContext,string>",
+        <|"Value" -> ref[wsid], "Variable" -> ref[vsrc]|>, ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["fire", root];
+      fire = icComp[s, pfb <> "ProtoFlux.Runtimes.Execution.Nodes.Actions.FireOnTrue",
+        <|"Condition" -> ref[trig], "OnChanged" -> ref[ow]|>, ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      (* オーナー在席の問い合わせ (上の注記)。答えの置き場は info (SessionInfoSource と一緒に読む) *)
+      fec = "[FrooxEngine]FrooxEngine.ProtoFlux.FrooxEngineContext";
+      vPres = icComp[info, $icFE <> "ValueField<bool>", <|"Value" -> False|>, ResoniteRealtime`ResoniteRealtimeNewId["WPres"]];
+      vAck = icComp[info, $icFE <> "ValueField<int>", <|"Value" -> 0|>, ResoniteRealtime`ResoniteRealtimeNewId["WAck"]];
+      s = icSlot["nonce", root];
+      nonce = icComp[s, pfb <> "ProtoFlux.Runtimes.Execution.Nodes.ValueInput<int>", <|"Value" -> 0|>,
+        ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["host", root];
+      host = icComp[s, pfb <> "ProtoFlux.Runtimes.Execution.Nodes.FrooxEngine.Users.HostUser", <||>,
+        ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["present", root];
+      pres = icComp[s, pfb <> "ProtoFlux.Runtimes.Execution.Nodes.FrooxEngine.Users.IsUserPresent", <|"User" -> ref[host]|>,
+        ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      presT = icSlot["presentTarget", root];
+      presSrc = icComp[presT, pfb <> "FrooxEngine.ProtoFlux.CoreNodes.ValueSource<bool>", <||>, ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      ackT = icSlot["ackTarget", root];
+      ackSrc = icComp[ackT, pfb <> "FrooxEngine.ProtoFlux.CoreNodes.ValueSource<int>", <||>, ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["writeAck", root];
+      wAck = icComp[s, pfb <> "ProtoFlux.Runtimes.Execution.Nodes.ValueWrite<" <> fec <> ",int>",
+        <|"Value" -> ref[nonce], "Variable" -> ref[ackSrc]|>, ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["writePresent", root];
+      wPres = icComp[s, pfb <> "ProtoFlux.Runtimes.Execution.Nodes.ValueWrite<" <> fec <> ",bool>",
+        <|"Value" -> ref[pres], "Variable" -> ref[presSrc], "OnWritten" -> ref[wAck]|>, ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["probe", root];
+      icComp[s, pfb <> "ProtoFlux.Runtimes.Execution.Nodes.Actions.FireOnValueChange<int>",
+        <|"Value" -> ref[nonce], "OnlyForUser" -> ref[host], "OnChanged" -> ref[wPres]|>, ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      (* 書き込み先 = info.SessionId / Present.Value / Ack.Value のメンバ ID。tick の組み立てでは 1 巡目に結線 (読むのは info スロットだけ) *)
+      grefId = ResoniteRealtime`ResoniteRealtimeNewId["GRef"];
+      gPres = ResoniteRealtime`ResoniteRealtimeNewId["GRef"]; gAck = ResoniteRealtime`ResoniteRealtimeNewId["GRef"];
+      If[ListQ[$itWireLater],
+        $itWireRounds = {{
+          <|"Action" -> "Add", "Slot" -> tgt, "Type" -> $icFE <> "ProtoFlux.GlobalReference<[FrooxEngine]FrooxEngine.IValue<string>>",
+            "Id" -> grefId, "Refs" -> <|"Reference" -> {sInfo, "SessionId"}|>|>,
+          <|"Action" -> "Update", "Component" -> vsrc, "Members" -> <|"Source" -> ref[grefId]|>|>,
+          <|"Action" -> "Add", "Slot" -> presT, "Type" -> $icFE <> "ProtoFlux.GlobalReference<[FrooxEngine]FrooxEngine.IValue<bool>>",
+            "Id" -> gPres, "Refs" -> <|"Reference" -> {vPres, "Value"}|>|>,
+          <|"Action" -> "Update", "Component" -> presSrc, "Members" -> <|"Source" -> ref[gPres]|>|>,
+          <|"Action" -> "Add", "Slot" -> ackT, "Type" -> $icFE <> "ProtoFlux.GlobalReference<[FrooxEngine]FrooxEngine.IValue<int>>",
+            "Id" -> gAck, "Refs" -> <|"Reference" -> {vAck, "Value"}|>|>,
+          <|"Action" -> "Update", "Component" -> ackSrc, "Members" -> <|"Source" -> ref[gAck]|>|>}},
+        fid = icMemberId[info, sInfo, "SessionId"];
+        pid = icMemberId[info, vPres, "Value"];
+        aid = icMemberId[info, vAck, "Value"];
+        If[!StringQ[fid] || !StringQ[pid] || !StringQ[aid],
+          Throw[iFailure["NoMemberId", "ワールド情報の結線先 (SessionId / Present / Ack) のメンバ ID が取れませんでした。"], icTag]];
+        icComp[tgt, $icFE <> "ProtoFlux.GlobalReference<[FrooxEngine]FrooxEngine.IValue<string>>", <|"Reference" -> ref[fid]|>, grefId];
+        icCheck @ ResoniteRealtime`ResoniteRealtimeUpdateComponent[vsrc, <|"Source" -> ref[grefId]|>];
+        icComp[presT, $icFE <> "ProtoFlux.GlobalReference<[FrooxEngine]FrooxEngine.IValue<bool>>", <|"Reference" -> ref[pid]|>, gPres];
+        icCheck @ ResoniteRealtime`ResoniteRealtimeUpdateComponent[presSrc, <|"Source" -> ref[gPres]|>];
+        icComp[ackT, $icFE <> "ProtoFlux.GlobalReference<[FrooxEngine]FrooxEngine.IValue<int>>", <|"Reference" -> ref[aid]|>, gAck];
+        icCheck @ ResoniteRealtime`ResoniteRealtimeUpdateComponent[ackSrc, <|"Source" -> ref[gAck]|>]];
+      $itState["Presence"] = <||>;
+      $itState["WorldInfo"] = <|"Root" -> root, "Info" -> info, "SInfo" -> sInfo, "Trigger" -> trig,
+        "Present" -> vPres, "Ack" -> vAck, "Nonce" -> nonce,
+        "Link" -> Lookup[$iState, "Link", None], "Built" -> None, "Fired" -> None, "Data" -> None, "Time" -> None,
+        "LastRead" -> 0, "Created" -> iNow[]|>;
+      <|"Root" -> root, "WireSlot" -> info, "Kind" -> "WorldInfo"|>],
+    icTag];
+
+(* tick: 仕掛けが無い / 接続が変わった (ワールドが変わったかも) なら作り直し、組み上がって 3 s 後に 1 回発火する *)
+itMaybeWorldInfo[] :=
+  Module[{w = itWorldInfo[], st},
+    (* 在席の確認にも使うので、公開度が手動 ("Manual") でも在席ゲートが有効なら組む *)
+    If[!(itAutoAccessQ[] || itGateOnQ[]) || !itLinkQ[], Return[None]];
+    (* 接続が変わった (ワールドが変わったかも) / 在席の問い合わせが無い古い版 (再ロード前に組んだ物。$itState は再ロードで残る) は作り直す *)
+    If[AssociationQ[w] && (w["Link"] =!= Lookup[$iState, "Link", None] ||
+        (itGateOnQ[] && NumericQ[Lookup[w, "Built", None]] && !StringQ[Lookup[w, "Nonce", None]])),
+      itNoWait @ Quiet @ Check[ResoniteRealtime`ResoniteRealtimeRemoveSlot[w["Root"]], Null];
+      $itState["WorldInfo"] = None; w = None; $itState["Presence"] = <||>;
+      itWorldInfoApply[None]];
+    If[w === None,
+      If[TrueQ[Lookup[$itState, "WorldInfoBuilding", False]], Return[None]];
+      $itState["WorldInfoBuilding"] = True;
+      $itState["WorldInfoBuildId"] = If[itBuildModeTick[] || itAsyncContextQ[],
+        itEnqueueBuild["ワールド情報", Function[itWorldInfoBuild[]]],
+        (itWorldInfoBuild[]; $itState["WorldInfo", "Built"] = iNow[]; None)];
+      Return[None]];
+    If[w["Built"] === None,
+      st = Lookup[Lookup[$itDeferred, Lookup[$itState, "WorldInfoBuildId", ""], <||>], "Status", None];
+      Which[
+        st === "Done", $itState["WorldInfo", "Built"] = iNow[]; $itState["WorldInfoBuilding"] = False,
+        st === "Failed", $itState["WorldInfo"] = None; $itState["WorldInfoBuilding"] = False];
+      Return[None]];
+    $itState["WorldInfoBuilding"] = False;
+    Which[
+      w["Fired"] === None && iNow[] - w["Built"] >= $itNativeWarmupSeconds,
+        itSetFlag[w["Trigger"], True]; $itState["WorldInfo", "Fired"] = iNow[],
+      NumericQ[w["Fired"]] && iNow[] - w["Fired"] > 2 && !TrueQ[Lookup[w, "Reset", False]],
+        itSetFlag[w["Trigger"], False]; $itState["WorldInfo", "Reset"] = True];
+    (* 読み取りが途絶えたら厳しい側へ *)
+    If[NumericQ[w["Time"]] && iNow[] - w["Time"] > $itWorldInfoStale, itWorldInfoApply[None]]];
+
+(* 在席の問い合わせの答え待ちなら急ぎで読む ("Urgent": 巡回を待たずに次の getSlot にする。押された操作を保留している) *)
+itWorldInfoTargets[] :=
+  With[{w = itWorldInfo[]},
+    Which[
+      !AssociationQ[w], {},
+      itPresenceOutstandingQ[] && iNow[] - Lookup[w, "LastRead", 0] > 0.4,
+        {<|"Kind" -> "WorldInfo", "Root" -> w["Info"], "Depth" -> 0, "Components" -> True, "Urgent" -> itHeld[] =!= {}|>},
+      itAutoAccessQ[] && NumericQ[w["Fired"]] && iNow[] - w["Fired"] > 1 &&
+        iNow[] - Lookup[w, "LastRead", 0] > $itWorldInfoSeconds,
+        {<|"Kind" -> "WorldInfo", "Root" -> w["Info"], "Depth" -> 0, "Components" -> True|>},
+      True, {}]];
+
+itHandleWorldInfo[res_Association] :=
+  Module[{w = itWorldInfo[], comp, m, d},
+    If[!AssociationQ[w], Return[None]];
+    $itState["WorldInfo", "LastRead"] = iNow[];
+    Quiet @ Check[itHandlePresence[res, w], $itState["LastError"] = "presence"];
+    comp = icFindComponent[res, w["SInfo"]];
+    If[!AssociationQ[comp], Return[None]];
+    m = Lookup[comp, "members", <||>];
+    d = AssociationMap[icMemberValue[comp, #] &,
+      {"SessionId", "Name", "HostUserId", "HostUsername", "CorrespondingOwnerId", "AccessLevel", "JoinedUsers"}];
+    $itState["WorldInfo", "Data"] = d;
+    $itState["WorldInfo", "Time"] = iNow[];
+    itWorldInfoApply[d]];
+
+(* 読み取りを公開度とオーナーに写す。SessionId とホストが入っていなければ (空の SessionInfoSource) 厳しい側 *)
+itWorldInfoApply[d_] :=
+  Module[{before = itAccessLabel[], ok, access, owner, cfg = ResoniteRealtime`$ResoniteOwnerUserId},
+    If[!itAutoAccessQ[], Return[None]];
+    ok = AssociationQ[d] && StringQ[d["SessionId"]] && d["SessionId"] =!= "" &&
+      StringQ[d["HostUserId"]] && d["HostUserId"] =!= "" && StringQ[d["AccessLevel"]];
+    If[ok,
+      access = Switch[d["AccessLevel"], "Private", "Private", "Contacts", "Contacts", "ContactsPlus", "ContactsPlus", _, "Public"];
+      owner = StringQ[d["CorrespondingOwnerId"]] && d["HostUserId"] === d["CorrespondingOwnerId"] &&
+        (!StringQ[cfg] || d["HostUserId"] === cfg);
+      ResoniteRealtime`$ResoniteWorldAccess = access;
+      ResoniteRealtime`$ResoniteWorldOwner = owner,
+      ResoniteRealtime`$ResoniteWorldAccess = "Public";
+      ResoniteRealtime`$ResoniteWorldOwner = False];
+    If[itAccessLabel[] =!= before && itGadgetQ[],
+      itSetText["TitleText", Lookup[itGadget[], "Name", "Mathematica Tablet"] <> "   [" <> itAccessLabel[] <> "]"];
+      itSetStatus["表示上限: " <> itAccessLabel[] <>
+        If[ok, " (" <> d["AccessLevel"] <> "、ホスト " <> d["HostUserId"] <> "、所有者 " <> ToString[d["CorrespondingOwnerId"]] <> ")",
+          " (ワールドの情報が取れないので厳しい側)"]]];
+    itAccessLevel[]];
+
+(* ---- オーナー在席の確認とボタン操作のゲート (2026-09-25 ユーザー指示。仕組みは itWorldInfoBuild の前の注記) ----
+   ワールドのボタンはだれが押しても同期されたフィールドが変わり、このカーネル (オーナーの PC) の監視が読んで実行する。
+   その実行の前に itPressGate を通す:
+     - 直近 $ResoniteOwnerPresenceFreshSeconds 秒以内の答えが「在席」なら、すぐ実行する。
+     - そうでなければ操作を保留し、問い合わせ (nonce を 1 増やす) を出して、答えを見てから実行する / 断る。
+       押した後に出した問い合わせに「不在」と答えがあった、または $itPresenceHoldSeconds 秒答えが無い -> 断る
+       (ボタンの旗は押された時点で戻してあるので、断った操作は消える)。
+   問い合わせは $itPresenceSeconds 秒ごとにも出す (巡回の読み取りに載るので、在席中はたいていすぐ実行できる)。 *)
+If[!BooleanQ[ResoniteRealtime`$ResoniteOwnerPresenceGate], ResoniteRealtime`$ResoniteOwnerPresenceGate = True];
+If[!NumericQ[ResoniteRealtime`$ResoniteOwnerPresenceFreshSeconds], ResoniteRealtime`$ResoniteOwnerPresenceFreshSeconds = 5];
+$itPresenceSeconds = 3;        (* 定期の問い合わせの間隔 *)
+$itPresenceRetrySeconds = 4;   (* 答えの来ない問い合わせを出し直すまで *)
+$itPresenceHoldSeconds = 8;    (* 保留した操作をこれ以上待たせない (答えが来なければ断る) *)
+$itHeldMax = 5;
+$itGateBypass = False;
+
+itGateOnQ[] := TrueQ[ResoniteRealtime`$ResoniteOwnerPresenceGate];
+itPresence[] := Replace[Lookup[$itState, "Presence", <||>], Except[_Association] -> <||>];
+itHeld[] := Replace[Lookup[$itState, "HeldPresses", {}], Except[_List] -> {}];
+
+(* 問い合わせの仕掛けが組み上がって落ち着いたか (組み立て直後に書くと ProtoFlux が永久に沈黙する。$itNativeWarmupSeconds) *)
+itPresenceReadyQ[] :=
+  With[{w = itWorldInfo[]},
+    AssociationQ[w] && StringQ[Lookup[w, "Nonce", None]] && NumericQ[Lookup[w, "Built", None]] &&
+      iNow[] - w["Built"] >= $itNativeWarmupSeconds];
+
+(* 答え待ち = 送った nonce の答えがまだ無い (出し直しまでの間) *)
+itPresenceOutstandingQ[] :=
+  With[{p = itPresence[]},
+    IntegerQ[Lookup[p, "Nonce", None]] && Lookup[p, "AckNonce", 0] =!= p["Nonce"] &&
+      iNow[] - Lookup[p, "SentAt", 0] <= $itPresenceRetrySeconds];
+
+itOwnerWatchingQ[] :=
+  With[{p = itPresence[]},
+    TrueQ[Lookup[p, "Present", False]] && NumericQ[Lookup[p, "AckAt", None]] &&
+      iNow[] - p["AckAt"] <= ResoniteRealtime`$ResoniteOwnerPresenceFreshSeconds];
+
+itPresenceProbe[] :=
+  Module[{w = itWorldInfo[], p = itPresence[], n, r},
+    If[!itPresenceReadyQ[] || !itLinkQ[], Return[None]];
+    n = Lookup[p, "Nonce", 0] + 1;
+    r = itNoWait @ Quiet @ Check[ResoniteRealtime`ResoniteRealtimeUpdateComponent[w["Nonce"], <|"Value" -> n|>], $Failed];
+    If[r === $Failed || FailureQ[r], Return[None]];
+    $itState["Presence"] = Join[p, <|"Nonce" -> n, "SentAt" -> iNow[]|>];
+    n];
+
+(* info の getSlot 応答から答えを拾う。いま待っている nonce の答えだけ数える (出し直す前の分が遅れて来ても使わない) *)
+itHandlePresence[res_, w_Association] :=
+  Module[{p = itPresence[], ack, pres},
+    If[!StringQ[Lookup[w, "Ack", None]] || !StringQ[Lookup[w, "Present", None]], Return[None]];
+    ack = icMemberValue[icFindComponent[res, w["Ack"]], "Value"];
+    pres = icMemberValue[icFindComponent[res, w["Present"]], "Value"];
+    If[!IntegerQ[ack] || !IntegerQ[Lookup[p, "Nonce", None]] || ack =!= p["Nonce"] || Lookup[p, "AckNonce", 0] === ack,
+      Return[None]];
+    $itState["Presence"] = Join[p, <|"AckNonce" -> ack, "AckAt" -> iNow[], "AckSentAt" -> Lookup[p, "SentAt", iNow[]],
+      "Present" -> TrueQ[pres]|>];
+    itPresenceResolve[]];
+
+itSayHeld[h_Association, msg_String] :=
+  (itSetStatus[msg]; If[Lookup[h, "Say", None] =!= None, Quiet @ Check[h["Say"][msg], Null]]);
+
+itRunHeld[h_Association] :=
+  Module[{r},
+    r = Block[{$itGateBypass = True}, Quiet @ Check[ReleaseHold[h["Action"]], $Failed]];
+    $itState["PressLog"] = Take[Append[Replace[Lookup[$itState, "PressLog", {}], Except[_List] -> {}],
+      <|"Time" -> DateString[{"Hour", ":", "Minute", ":", "Second"}], "Label" -> h["Label"], "Result" -> "Run",
+        "HeldSeconds" -> Round[iNow[] - h["Time"], 0.1]|>], -Min[20, Length[Lookup[$itState, "PressLog", {}]] + 1]];
+    r];
+
+itRefuseHeld[h_Association] :=
+  Module[{msg},
+    msg = If[h["Reason"] === "Absent",
+      "オーナーがこのワールドを見ていないので実行しません",
+      "オーナーの在席を確かめられないので実行しません"] <> " (" <> h["Label"] <> ")";
+    itSayHeld[h, msg];
+    $itState["PressLog"] = Take[Append[Replace[Lookup[$itState, "PressLog", {}], Except[_List] -> {}],
+      <|"Time" -> DateString[{"Hour", ":", "Minute", ":", "Second"}], "Label" -> h["Label"], "Result" -> "Refused",
+        "Reason" -> h["Reason"]|>], -Min[20, Length[Lookup[$itState, "PressLog", {}]] + 1]];
+    msg];
+
+itPresenceResolve[] :=
+  Module[{held = itHeld[], p = itPresence[], keep = {}, run = {}, refuse = {}},
+    If[held === {}, Return[0]];
+    Do[Which[
+        !itGateOnQ[] || itOwnerWatchingQ[], AppendTo[run, h],
+        (* 押した後に出した問い合わせに「不在」と答えがあった *)
+        Lookup[p, "Present", None] === False && NumericQ[Lookup[p, "AckSentAt", None]] && p["AckSentAt"] >= h["Time"],
+          AppendTo[refuse, Append[h, "Reason" -> "Absent"]],
+        iNow[] - h["Time"] > $itPresenceHoldSeconds || !itLinkQ[],
+          AppendTo[refuse, Append[h, "Reason" -> "NoAnswer"]],
+        True, AppendTo[keep, h]],
+      {h, held}];
+    $itState["HeldPresses"] = keep;
+    Scan[itRefuseHeld, refuse];
+    Scan[itRunHeld, run];
+    Length[run]];
+
+(* tick: 定期の問い合わせ (保留があって在席が確かでなければすぐ) と、保留の期限切れ *)
+itPresenceTick[] :=
+  Module[{p = itPresence[]},
+    If[itGateOnQ[] && itPresenceReadyQ[] && !itPresenceOutstandingQ[] &&
+       ((itHeld[] =!= {} && !itOwnerWatchingQ[]) || iNow[] - Lookup[p, "SentAt", 0] >= $itPresenceSeconds),
+      itPresenceProbe[]];
+    itPresenceResolve[]];
+
+(* ボタンの操作の関門。action は保留されうるので、ハンドラの局所変数は With で値を埋めて渡す。
+   say: 保留・拒否の知らせをガジェット自身の状態欄にも出す関数 (None ならタブレットの状態欄だけ) *)
+SetAttributes[itPressGate, HoldRest];
+itPressGate[label_String, say_, action_] :=
+  Which[
+    !itGateOnQ[] || TrueQ[$itGateBypass] || itOwnerWatchingQ[], action,
+    True,
+      Module[{h = <|"Label" -> label, "Say" -> say, "Action" -> Hold[action], "Time" -> iNow[]|>, held = itHeld[]},
+        $itState["HeldPresses"] = Take[Append[held, h], -Min[$itHeldMax, Length[held] + 1]];
+        If[!itPresenceOutstandingQ[], itPresenceProbe[]];
+        itSayHeld[h, "オーナーの在席を確かめています… (" <> label <> ")"];
+        <|"Held" -> True, "Label" -> label|>]];
+
+ResoniteRealtime`ResoniteOwnerPresence[] :=
+  With[{p = itPresence[]},
+    <|"Gate" -> itGateOnQ[], "Present" -> Lookup[p, "Present", None], "Watching" -> itOwnerWatchingQ[],
+      "AckSecondsAgo" -> If[NumericQ[Lookup[p, "AckAt", None]], Round[iNow[] - p["AckAt"], 0.1], None],
+      "Nonce" -> Lookup[p, "Nonce", None], "AckNonce" -> Lookup[p, "AckNonce", None], "Ready" -> itPresenceReadyQ[],
+      "Held" -> Lookup[itHeld[], "Label", {}],
+      "Log" -> Replace[Lookup[$itState, "PressLog", {}], Except[_List] -> {}]|>];
+
 (* ============================================================
    タブレット本体
    ============================================================ *)
@@ -604,6 +1072,7 @@ ResoniteRealtime`ResoniteTablet[opts : OptionsPattern[]] :=
 
       panel = icSlot["Panel", root, "Scale" -> {pscale, pscale, pscale}];
       ids["Panel"] = panel;
+      ids["Backing"] = itBacking[root, csz*pscale];
       icComp[panel, $icUIX <> "Canvas",
         <|"Size" -> csz, "AcceptRemoteTouch" -> True, "AcceptPhysicalTouch" -> True|>];
       icMakeMaterials[panel];
@@ -728,6 +1197,17 @@ itSetText[key_String, text_String] :=
       ResoniteRealtime`ResoniteRealtimeUpdateComponent[g[key], <|"Content" -> text|>], $Failed]];
 
 itSetStatus[text_String] := itSetText["StatusText", itTruncate[text, 200]];
+
+(* 題名の [表示上限] を今の値に合わせる (2026-09-25 ユーザー指摘: 題名 [PL<0.25 guest] と状態 ready (PL<1.00 Private) が食い違った。
+   題名は表示上限が「変わったとき」だけ書いていたので、再ロード・引き継ぎ・インベントリから出した直後に古いまま残った)。
+   tick ごとに比べ、違うときだけ書く *)
+itSyncTitle[] :=
+  Module[{g = itGadget[], want},
+    If[!AssociationQ[g] || !itLinkQ[] || !StringQ[Lookup[g, "TitleText", None]], Return[None]];
+    want = Lookup[g, "Name", "Mathematica Tablet"] <> "   [" <> itAccessLabel[] <> "]";
+    If[Lookup[g, "TitleShown", None] =!= want,
+      itSetText["TitleText", want]; $itState["Gadget", "TitleShown"] = want];
+    want];
 
 itSetOutput[text_String] :=
   Module[{g = itGadget[], t, h},
@@ -961,7 +1441,8 @@ itVideoBoardBuild[src_String, opts : OptionsPattern[ResoniteRealtime`ResoniteVid
 Options[ResoniteRealtime`ResonitePDFViewer] = {
   "Placement" -> "User", "Distance" -> 1.0, "Height" -> Automatic, "User" -> Automatic, "Offset" -> {0.65, 0, 0},
   "Position" -> {0, 1.3, 1.0}, "Parent" -> "Root", "CanvasSize" -> {1000, 1400}, "PanelScale" -> 0.0006,
-  "FontSize" -> 30, "Name" -> "PDF Viewer", "Title" -> "", "PageSize" -> 1200, "MaxPages" -> 400, "Reuse" -> False};
+  "FontSize" -> 30, "Name" -> "PDF Viewer", "Title" -> "", "PageSize" -> 1200, "MaxPages" -> 400, "Reuse" -> False,
+  "Native" -> Automatic};
 
 (* ビューアは複数 (root -> 記録、作った順)。▶ を押すたびに増え、前のは残る (2026-09-22 ユーザー指示)。
    itPDF[] は最新、itPDF[root] はそのビューア *)
@@ -1000,6 +1481,9 @@ itPagesOfFile[file_String, maxPages_Integer] :=
 ResoniteRealtime`ResonitePDFViewer[file_String, opts : OptionsPattern[]] :=
   Catch[
     With[{o = Association @ Join[Options[ResoniteRealtime`ResonitePDFViewer], {opts}]},
+      (* Resonite 標準のビューアで開く (雛形があるとき)。PDF だけ。画像 / .nb は自前パネル *)
+      If[itExt[file] === "pdf" && (o["Native"] === True || (o["Native"] === Automatic && itNativeTryQ[])),
+        Return[itNativeSpawn[file, Replace[o["Title"], "" -> FileNameTake[file]]]]];
       ResoniteRealtime`ResonitePDFViewer[itPagesOfFile[file, o["MaxPages"]],
         "Title" -> Replace[o["Title"], "" -> FileNameTake[file]], opts]],
     icTag];
@@ -1035,6 +1519,7 @@ itPDFViewerBuild[pages_List, opts : OptionsPattern[ResoniteRealtime`ResonitePDFV
       icComp[root, $icFE <> "AI_GeneratedContent",
         <|"Source" -> "Mathematica ResoniteRealtime PDF viewer (page images)"|>];
       panel = icSlot["Panel", root, "Scale" -> {pscale, pscale, pscale}];
+      itBacking[root, csz*pscale];
       icComp[panel, $icUIX <> "Canvas",
         <|"Size" -> csz, "AcceptRemoteTouch" -> True, "AcceptPhysicalTouch" -> True|>];
       icMakeMaterials[panel];
@@ -1128,13 +1613,591 @@ ResoniteRealtime`ResonitePDFViewerPage[root_String, dir_String] :=
 ResoniteRealtime`ResonitePDFViewerRemove[] :=
   With[{r = itPDFRoot[]}, If[StringQ[r], ResoniteRealtime`ResonitePDFViewerRemove[r], None]];
 ResoniteRealtime`ResonitePDFViewerRemove[All] :=
-  Map[ResoniteRealtime`ResonitePDFViewerRemove, Keys[itPDFViewers[]]];
+  Map[ResoniteRealtime`ResonitePDFViewerRemove,
+    Join[Keys[itPDFViewers[]], Keys[itNativeDocs[]], Keys[Quiet @ Check[idDocViewers[], <||>]]]];
 ResoniteRealtime`ResonitePDFViewerRemove[root_String] :=
   Module[{v = itPDF[root], r = None},
     If[AssociationQ[v],
       r = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeRemoveSlot[root], $Failed];
       $itState["PDFViewers"] = KeyDrop[itPDFViewers[], root]];
+    If[KeyExistsQ[itNativeDocs[], root],
+      r = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeRemoveSlot[root], $Failed];
+      $itState["NativeDocs"] = KeyDrop[itNativeDocs[], root]];
+    If[KeyExistsQ[Quiet @ Check[idDocViewers[], <||>], root],
+      r = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeRemoveSlot[root], $Failed];
+      $itState["DocViewers"] = KeyDrop[idDocViewers[], root]];
     r];
+
+(* ============================================================
+   Resonite 標準のドキュメントビューアで PDF を開く ("Native"、2026-09-24)
+
+   ResoniteLink には「インポート」も「複製」も無い (0.13.1 は mesh / texture 資産だけ)。標準ビューアは 155 slot /
+   348 component / ProtoFlux 111 個の雛形で、コンポーネントを一つずつ作り直すのは非現実的。代わりに
+     1. ワールドにある標準ビューア (雛形: 名前が "PDF Template" で始まる物、無ければ *.pdf) を覚え、
+     2. 小さな ProtoFlux (ValueInput<bool> → FireOnTrue → DuplicateSlot(雛形, OverrideParent = 置き場)) を一度だけ置き、
+     3. 開くたびに ValueInput の Value を True にして複製させ、置き場に現れた複製の StaticDocument.URL を
+        配信 URL (L3) に差し替え、名前と位置を整える (実機 2026-09-24: http の PDF を標準ビューアが描画した)。
+   すべて tick の 2 相 (送る / 次の tick で照合) で待たない。ValueInput<bool> を使うのは出力が一つでプロキシ解決
+   (待つ getSlot) が要らないから。
+   ============================================================ *)
+If[!MemberQ[{"Native", "Panel"}, ResoniteRealtime`$ResonitePDFMode], ResoniteRealtime`$ResonitePDFMode = "Native"];
+$itPFB = "[ProtoFluxBindings]FrooxEngine.";
+(* 複製待ち: 実機はトリガから約 2 s で現れる (2026-09-24、NB / headless とも。照会は 2 s ごと)。現れないときは
+   ガジェットが死んでいる (カーネルの最初のガジェットがときどき沈黙する。作り直すと動く) ので、長く待たずに 6 s で作り直す *)
+$itNativeSpawnSeconds = 6; $itNativeReplySeconds = 10;
+(* 組み立て直後にトリガを書くと ProtoFlux のノード群が二度と発火しない (2026-09-24 実機: 0 s 後は永久に沈黙、0.5 s 後は動く。
+   NB の tick は前の tick の終わりから 0.1 s 後に来ることがある) ので、組み立てから $itNativeWarmupSeconds は触らない *)
+$itNativeWarmupSeconds = 3;
+
+itNativeDocs[] := Replace[Lookup[$itState, "NativeDocs", <||>], Except[_Association] -> <||>];
+(* 雛形の保管 (2026-09-24 ユーザー指示): ワールドの雛形はユーザーが出し直すと ID が変わり、消えることもある。
+   複製を 1 つタブレットの子に「PDF Template (Mathematica)」として非表示 (isActive False) で保管し、あればそれを雛形に使う。
+   タブレットをインベントリに保存すると一緒に入り、引き継ぎ (根を Depth 1 で読む) で見つかる *)
+$itStashName = "PDF Template (Mathematica)";
+If[!ValueQ[ResoniteRealtime`$ResoniteTabletStashTemplate], ResoniteRealtime`$ResoniteTabletStashTemplate = True];
+itStashId[] := With[{g = itGadget[]}, If[AssociationQ[g] && StringQ[Lookup[g, "Stash", None]], g["Stash"], None]];
+(* 雛形の出どころ: タブレットの保管 > サムネイル一覧の保管 (2026-09-25: 一覧だけでも開けるように) > ワールドの雛形 *)
+itNativeTemplate[] :=
+  With[{st = itStashId[], bs = Quiet @ Check[idBoardStash[], None], t = Lookup[$itState, "PDFTemplate", None]},
+    Which[StringQ[st], <|"Id" -> st, "Name" -> $itStashName, "Stash" -> True|>,
+      StringQ[bs], <|"Id" -> bs, "Name" -> $itStashName, "Stash" -> True, "Board" -> True|>,
+      AssociationQ[t], t, True, None]];
+(* 無くなった雛形を忘れる (保管ならタブレットの記録から、ワールドの雛形なら PDFTemplate から) *)
+itForgetTemplate[id_] :=
+  (If[StringQ[id] && itStashId[] === id, $itState["Gadget", "Stash"] = None];
+   If[StringQ[id], Scan[If[Lookup[itThumbs[][#], "Stash", None] === id, $itState["Thumbs", #, "Stash"] = None] &, Keys[itThumbs[]]]];
+   With[{t = Lookup[$itState, "PDFTemplate", None]},
+     If[!StringQ[id] || (AssociationQ[t] && Lookup[t, "Id", None] === id), $itState["PDFTemplate"] = None]]);
+itNativeTemplateId[] := With[{t = itNativeTemplate[]}, If[AssociationQ[t], Lookup[t, "Id", None], None]];
+itNativeReadyQ[] := ResoniteRealtime`$ResonitePDFMode === "Native" && StringQ[itNativeTemplateId[]];
+(* 標準ビューアで試すか: 雛形を知っている、または直近 5 分に「雛形が無い」と分かっていない (その間は探しに行かず自前パネル)。
+   2026-09-24 実機: ユーザーが雛形を出し直して ID が変わり、古い ID のまま 3 回とも複製が出ず自前パネルに落ちた *)
+itNativeTryQ[] :=
+  itLinkQ[] && (ResoniteRealtime`$ResonitePDFMode === "Lite" ||
+    ResoniteRealtime`$ResonitePDFMode === "Native" &&
+      (TrueQ[ResoniteRealtime`$ResonitePDFLite] || StringQ[itNativeTemplateId[]] ||
+        iNow[] - Lookup[$itState, "TemplateMissingAt", -1000] > 300));
+(* 2026-09-25: 雛形が無いと分かっているときは文書ビューア (ResoniteRealtime_docboard.wl) で開く (自前パネルに落とさない) *)
+itNativeDup[] := With[{d = Lookup[$itState, "PDFDup", None]},
+  If[AssociationQ[d] && d["Template"] === itNativeTemplateId[], d, None]];
+
+(* 木を平らに (depth 段まで)。自分の置き場の下は見ない *)
+itSlotsUpTo[tree_Association, depth_Integer] :=
+  Module[{acc = {}, holder = Lookup[Replace[Lookup[$itState, "PDFDup", <||>], Except[_Association] -> <||>], "Holder", None], walk},
+    walk[s_, d_] := If[AssociationQ[s] && Lookup[s, "id", None] =!= holder,
+      AppendTo[acc, s]; If[d < depth, Scan[walk[#, d + 1] &, Lookup[s, "children", {}]]]];
+    Scan[walk[#, 1] &, Lookup[tree, "children", {}]];
+    acc];
+
+(* 雛形の候補: "PDF Template" で始まる名前 > ".pdf" で終わる名前。自分が出した複製は除く *)
+itNativeTemplateCandidates[slots_List] :=
+  Module[{own = Keys[itNativeDocs[]], named, hits, nameOf, keyOf},
+    nameOf = ToLowerCase[ToString[itVal[Lookup[#, "name", ""]]]] &;
+    (* "PDF Template" / "PDF_Template" / "pdf-template" を同じに扱う *)
+    keyOf = StringDelete[nameOf[#], " " | "_" | "-"] &;
+    (* 自分が出した複製と、タブレットに保管した雛形 (別のタブレットの物も) は除く *)
+    named = Select[slots, AssociationQ[#] && StringQ[Lookup[#, "id", None]] && !MemberQ[own, #["id"]] &&
+      ToString[itVal[Lookup[#, "name", ""]]] =!= $itStashName &];
+    hits = Select[named, StringStartsQ[keyOf[#], "pdftemplate"] &];
+    If[hits === {}, hits = Select[named, StringEndsQ[nameOf[#], ".pdf"] &]];
+    Map[<|"Id" -> #["id"], "Name" -> ToString[itVal[Lookup[#, "name", ""]]]|> &, hits]];
+
+ResoniteRealtime`ResonitePDFTemplate[] :=
+  Module[{t = itNativeTemplate[], tree, cands},
+    If[AssociationQ[t], Return[t]];
+    If[!itLinkQ[], Return[iFailure["NotConnected", "ResoniteLink が未接続です。"]]];
+    tree = itScanSlotsNow[];
+    If[FailureQ[tree], Return[tree]];
+    cands = itNativeTemplateCandidates[tree];
+    If[cands === {},
+      Return[iFailure["NoTemplate",
+        "Resonite 標準の PDF ビューア (名前が \"PDF Template\" で始まる物、または *.pdf) がワールドにありません。1 つインポートして置いてください。"]]];
+    $itState["TemplateWanted"] = False; $itState["TemplateCheckedAt"] = iNow[];
+    $itState["PDFTemplate"] = First[cands]];
+ResoniteRealtime`ResonitePDFTemplate[None] := ($itState["PDFTemplate"] = None; $itState["PDFDup"] = None; None);
+ResoniteRealtime`ResonitePDFTemplate[id_String] :=
+  ($itState["TemplateWanted"] = False; $itState["TemplateMissingAt"] = -1000; $itState["TemplateCheckedAt"] = 0;
+   $itState["StashFailedAt"] = -10^6;
+   $itState["PDFTemplate"] = <|"Id" -> id, "Name" -> id|>);
+
+(* 複製ガジェット: 置き場 "Mathematica PDFs" (Root 直下) + ProtoFlux 5 ノード。結線は 2 段目 (fluxlink と同じ)。待たない *)
+itNativeDupBuild[] :=
+  Catch[
+    Module[{tpl = itNativeTemplateId[], holder, root, s, trig, tplRef, tplNode, holdRef, holdNode, dup, fire, ref},
+      If[!StringQ[tpl], Throw[iFailure["NoTemplate", "雛形が未設定です (ResonitePDFTemplate[])。"], icTag]];
+      If[!itLinkQ[], Throw[iFailure["NotConnected", "ResoniteLink が未接続です。"], icTag]];
+      ref = ResoniteRealtime`ResoniteRealtimeRef;
+      holder = icSlot["Mathematica PDFs", "Root", "Position" -> {0., 0., 0.}];
+      root = icSlot["PDF Duplicator", holder, "Position" -> {0., -3., 0.}, "Scale" -> {0.05, 0.05, 0.05}];
+      icComp[root, $icFE <> "AI_GeneratedContent", <|"Source" -> "Mathematica ResoniteRealtime PDF duplicator (ProtoFlux)"|>];
+      s = icSlot["trigger", root];
+      trig = icComp[s, $itPFB <> "ProtoFlux.Runtimes.Execution.Nodes.ValueInput<bool>", <|"Value" -> False|>,
+        ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["templateSlot", root];
+      tplRef = icComp[s, $icFE <> "ProtoFlux.GlobalReference<[FrooxEngine]FrooxEngine.Slot>", <|"Reference" -> ref[tpl]|>];
+      tplNode = icComp[s, $itPFB <> "FrooxEngine.ProtoFlux.CoreNodes.ElementSource<[FrooxEngine]FrooxEngine.Slot>",
+        <|"Source" -> ref[tplRef]|>, ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["parentSlot", root];
+      holdRef = icComp[s, $icFE <> "ProtoFlux.GlobalReference<[FrooxEngine]FrooxEngine.Slot>", <|"Reference" -> ref[holder]|>];
+      holdNode = icComp[s, $itPFB <> "FrooxEngine.ProtoFlux.CoreNodes.ElementSource<[FrooxEngine]FrooxEngine.Slot>",
+        <|"Source" -> ref[holdRef]|>, ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["duplicate", root];
+      dup = icComp[s, $itPFB <> "ProtoFlux.Runtimes.Execution.Nodes.FrooxEngine.Slots.DuplicateSlot", <||>,
+        ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      s = icSlot["fire", root];
+      fire = icComp[s, $itPFB <> "ProtoFlux.Runtimes.Execution.Nodes.Actions.FireOnTrue", <||>,
+        ResoniteRealtime`ResoniteRealtimeNewId["Node"]];
+      icCheck @ ResoniteRealtime`ResoniteRealtimeUpdateComponent[dup, <|"Template" -> ref[tplNode], "OverrideParent" -> ref[holdNode]|>];
+      icCheck @ ResoniteRealtime`ResoniteRealtimeUpdateComponent[fire, <|"Condition" -> ref[trig], "OnChanged" -> ref[dup]|>];
+      $itState["PDFDup"] = <|"Holder" -> holder, "Root" -> root, "Trigger" -> trig, "Template" -> tpl, "Created" -> iNow[]|>],
+    icTag];
+
+(* 開く = ジョブを積むだけ。tick が進める *)
+(* 開く PDF の機密度 (itShowDocument が Block で渡す。不明なら None = 1.0 扱いで写しを置かない) *)
+If[!ValueQ[$itOpenPL], $itOpenPL = None];
+(* 写し (ResoniteRealtime_pdfcache.wl): Private / Contacts のワールドなら web サーバの URL を使う (無ければ送り始めて、今は local) *)
+itOpenDocURL[file_String, local_String, title_String] :=
+  Replace[Quiet @ Check[ipcOpenURL[file, local, $itOpenPL, title], None],
+    Except[_Association] -> <|"URL" -> local, "CacheKey" -> None|>];
+
+itNativeSpawn[file_String, title_String] :=
+  Module[{url, n, id, c},
+    If[!itEnsureImageServer[], Return[iFailure["NoServer", "画像配信 (ResoniteRealtimeStart[]) が要ります。"]]];
+    url = ResoniteRealtime`ResoniteRealtimeAsset[file];
+    If[FailureQ[url], Return[url]];
+    c = itOpenDocURL[file, url, title];
+    (* ページ数: 130 MB の PDF で 5-8 s かかる (2026-09-25 実測)。大きい物は作業用カーネルで数え、分かるまで 0 *)
+    n = Quiet @ Check[idPageCount[file], 0];
+    id = StringTake[CreateUUID[], 8];
+    $itState["DocJobs"] = Append[Replace[Lookup[$itState, "DocJobs", {}], Except[_List] -> {}],
+      <|"Id" -> id, "Phase" -> If[TrueQ[Quiet @ Check[idLiteDirectQ[], False]], "LiteInit", "Init"], "URL" -> url,
+        "Title" -> title, "File" -> file, "Pages" -> n, "Time" -> iNow[], "Tries" -> 0, "Anchor" -> $itOpenAnchor,
+        "CacheKey" -> c["CacheKey"]|>];
+    itSetStatus["PDF を開いています: " <> itTruncate[title, 40]];
+    <|"Native" -> True, "Deferred" -> True, "Id" -> id, "Pages" -> n, "Title" -> title|>];
+
+itSendGet[root_String, depth_Integer, comps : (True | False)] :=
+  With[{r = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[root, "Depth" -> depth,
+      "IncludeComponentData" -> comps, "Wait" -> False], $Failed]},
+    If[AssociationQ[r], Lookup[r, "MessageId", None], None]];
+itNativeFail[j_Association, why_String] /; Lookup[j, "Kind", "Doc"] === "Doc" && TrueQ[ResoniteRealtime`$ResonitePDFLite] &&
+    StringQ[Lookup[j, "URL", None]] && !StringStartsQ[ToString[j["Phase"]], "Lite"] :=
+  (itNativeLog[j["Id"], "Failed", j["Tries"], why <> " -> Resonite の文書表示で開きます"];
+   itSetStatus["標準ビューアが使えないので Resonite の文書表示で開きます: " <> itTruncate[j["Title"], 40]];
+   Join[j, <|"Phase" -> "LiteInit", "Tries" -> 0|>]);
+itNativeFail[j_Association, why_String] :=
+  (itNativeLog[j["Id"], "Failed", j["Tries"], why];
+   $itState["LastError"] = iFailure["NativePDF", why, KeyTake[j, {"Id", "Title", "Phase", "Tries", "Kind"}]];
+   If[Lookup[j, "Kind", "Doc"] === "Stash",
+     $itState["StashFailedAt"] = iNow[],
+     itSetStatus["PDF を開けません: " <> why];
+     itNativeFallback[j]];
+   None);
+
+(* 保管が無ければ作る: タブレットがあり、ワールドの雛形を知っていて、PDF を開いていない (DocJobs が空) とき。
+   失敗したら 10 分は試さない *)
+(* 2026-09-25: 保管先はタブレット (保管が無ければ) → サムネイル一覧 (保管が無い物、組み上がって接続済み)。元の雛形は
+   どこの物でもよい (ワールドの雛形 / タブレットの保管 / 別の一覧の保管) *)
+itStashTarget[] :=
+  Module[{g = itGadget[], b},
+    If[AssociationQ[g] && StringQ[Lookup[g, "Root", None]] && !StringQ[itStashId[]], Return[g["Root"]]];
+    b = SelectFirst[Keys[itThumbs[]], !StringQ[Lookup[itThumbs[][#], "Stash", None]] &&
+      Lookup[itThumbs[][#], "Phase", "Ready"] === "Ready" && !TrueQ[Lookup[itThumbs[][#], "StashTried", False]] &, None];
+    b];
+itMaybeStash[] :=
+  Module[{target = itStashTarget[], tid = itNativeTemplateId[], jobs = Replace[Lookup[$itState, "DocJobs", {}], Except[_List] -> {}], id},
+    If[!StringQ[target] || !TrueQ[ResoniteRealtime`$ResoniteTabletStashTemplate] ||
+       ResoniteRealtime`$ResonitePDFMode =!= "Native" || !StringQ[tid] ||
+       jobs =!= {} || iNow[] - Lookup[$itState, "StashFailedAt", -10^6] < 600 || !itLinkQ[],
+      Return[None]];
+    If[KeyExistsQ[itThumbs[], target], $itState["Thumbs", target, "StashTried"] = True];
+    id = "stash-" <> StringTake[CreateUUID[], 6];
+    itNativeLog[id, "Stash", 0, "雛形 " <> tid <> " の複製を " <> target <> " に保管します"];
+    $itState["DocJobs"] = {<|"Id" -> id, "Kind" -> "Stash", "Phase" -> "Init", "Title" -> $itStashName,
+      "Time" -> iNow[], "Tries" -> 0, "Target" -> target|>};
+    id];
+
+(* 標準ビューアで開けなかったら同じ PDF を自前パネル (Panel) で開く (見えないよりよい。2026-09-24: ノートブックカーネルだけ
+   複製が現れない事象への保険)。tick の中なので組み立ては次の tick (itDeferBuild) *)
+itNativeFallback[j_Association] :=
+  Module[{pages, r},
+    If[!StringQ[Lookup[j, "File", None]] || !FileExistsQ[j["File"]], Return[None]];
+    pages = Catch[Quiet @ Check[itPagesOfFile[j["File"], 400], {}], icTag];
+    If[!ListQ[pages] || pages === {}, Return[None]];
+    r = Quiet @ Check[ResoniteRealtime`ResonitePDFViewer[pages, "Title" -> j["Title"]], $Failed];
+    itNativeLog[j["Id"], "Fallback", j["Tries"], "自前パネル " <> ToString[Length[pages]] <> " ページ"];
+    itSetStatus["標準ビューアで開けなかったので自前パネルで開きます: " <> itTruncate[j["Title"], 40]];
+    r];
+(* 置き場所: タブレットの隣 (タブレットの親の子) に、タブレットから見て右前。タブレットの子にはしない
+   (2026-09-24 実機: 子にすると監視・引き継ぎ・インベントリ保存が 1 枚 155 slot / 400 KB ずつ重くなり、2 枚で 1.2 MB)。
+   タブレット根の姿勢 (親から見た position / rotation / scale) は Configure の直前に Depth 0 で読む。
+   タブレットが無いときは Root の原点の前 *)
+itQRotate[{x_, y_, z_, w_}, v_List] :=
+  With[{u = {x, y, z}}, v + 2 w Cross[u, v] + 2 Cross[u, Cross[u, v]]];
+itSlotVec[d_Association, key_String, comps_List, default_] :=
+  With[{v = itVal[Lookup[d, key, None]]},
+    If[AssociationQ[v] && VectorQ[Lookup[v, comps, None], NumericQ], N[Lookup[v, comps]], default]];
+itNativePose[k_Integer, tab_ : None] :=
+  Module[{off = {0.65 + 0.12 k, 0., -0.35 - 0.06 k}, p, q, sc, parent},
+    If[AssociationQ[tab],
+      p = itSlotVec[tab, "position", {"x", "y", "z"}, None];
+      q = itSlotVec[tab, "rotation", {"x", "y", "z", "w"}, {0., 0., 0., 1.}];
+      sc = itSlotVec[tab, "scale", {"x", "y", "z"}, {1., 1., 1.}];
+      parent = Lookup[Replace[Lookup[tab, "parent", <||>], Except[_Association] -> <||>], "targetId", None];
+      If[ListQ[p] && StringQ[parent],
+        Return[<|"Parent" -> parent, "Position" -> p + itQRotate[q, sc*off], "Rotation" -> q|>]]];
+    (* 置き場 (Root 原点、回転なし) と同じ座標で Root に出す。置き場に残すと、やり直しで置き場ごと捨てたときに消える *)
+    <|"Parent" -> "Root", "Position" -> {0., 1.3, 1.0} + {0.12 k, -0.05 k, -0.06 k}, "Rotation" -> None|>];
+
+itProcessDocJobs[] :=
+  Module[{jobs = Replace[Lookup[$itState, "DocJobs", {}], Except[_List] -> {}], j, before},
+    If[jobs === {} || !itLinkQ[], Return[Null]];
+    before = First[jobs];
+    j = itNativeStep[before];
+    (* 段階が変わったら記録 (診断用。ResoniteTabletStatus[]["NativeLog"]) *)
+    If[!AssociationQ[j] || j["Phase"] =!= before["Phase"] || j["Tries"] =!= before["Tries"],
+      itNativeLog[before["Id"], If[AssociationQ[j], j["Phase"], "End"], If[AssociationQ[j], j["Tries"], before["Tries"]]]];
+    $itState["DocJobs"] = If[AssociationQ[j], ReplacePart[jobs, 1 -> j], Rest[jobs]]];
+
+itNativeLog[id_, phase_, tries_, note_ : ""] :=
+  With[{all = Append[Replace[Lookup[$itState, "NativeLog", {}], Except[_List] -> {}],
+      <|"Time" -> DateString[Now, {"Hour", ":", "Minute", ":", "Second"}], "Job" -> id, "Phase" -> phase, "Tries" -> tries, "Note" -> note|>]},
+    $itState["NativeLog"] = Take[all, -Min[60, Length[all]]];
+    itNativeLogFile[id, phase, tries, note]];
+
+(* 同じ記録をファイルにも追記する (ノートブックのカーネルでだけ失敗するとき、外から読めるように。2026-09-24) *)
+If[!ValueQ[ResoniteRealtime`$ResoniteNativeLogFile],
+  ResoniteRealtime`$ResoniteNativeLogFile = FileNameJoin[{$TemporaryDirectory, "ResoniteRealtime", "native_pdf.log"}]];
+itNativeLogFile[id_, phase_, tries_, note_] :=
+  Module[{f = ResoniteRealtime`$ResoniteNativeLogFile, st},
+    If[!StringQ[f], Return[Null]];
+    Quiet @ Check[
+      If[!DirectoryQ[DirectoryName[f]], CreateDirectory[DirectoryName[f], CreateIntermediateDirectories -> True]];
+      st = OpenAppend[f, CharacterEncoding -> "UTF-8"];
+      WriteString[st, StringRiffle[{DateString[Now, "ISODateTimeMillisecond"], If[TrueQ[$Notebooks], "NB", "headless"],
+        ToString[$ProcessID], ToString[id], ToString[phase], ToString[tries], ToString[note]}, "\t"] <> "\n"];
+      Close[st], If[Head[st] === OutputStream, Quiet[Close[st]]]];
+    Null];
+
+(* タブレット根を Depth 0 で読む (姿勢と親)。タブレットが無ければ None *)
+itNativePoseRequest[] :=
+  With[{g = itGadget[]},
+    If[AssociationQ[g] && StringQ[Lookup[g, "Root", None]], itSendGet[g["Root"], 0, False], None]];
+
+itNativeStep[j_Association] :=
+  Module[{d = itNativeDup[], res, tab, sent, kids, new, dupId, pose, sd, k},
+    Switch[j["Phase"],
+      "Init",
+        (* 雛形を知らない (忘れた / 出し直された) なら探す *)
+        If[!StringQ[itNativeTemplateId[]], Return[itNativeFindTemplate[j]]];
+        (* 雛形がまだワールドにあるかを 1 回読んで確かめる (Depth 0、待たない)。直近 60 s に確かめていれば省く
+           (出し直されると ID が変わり、古い ID のガジェットは黙って何も複製しない) *)
+        If[!TrueQ[Lookup[j, "TplOK", False]] && iNow[] - Lookup[$itState, "TemplateCheckedAt", 0] > 60,
+          sent = itSendGet[itNativeTemplateId[], 0, False];
+          If[!StringQ[sent], Return[itNativeFail[j, "getSlot を送れませんでした"]]];
+          Return[Join[j, <|"Phase" -> "CheckTpl", "MessageId" -> sent, "Sent" -> iNow[]|>]]];
+        If[d === None,
+          d = Block[{$iLinkWaitDefault = False}, Quiet @ Check[itNativeDupBuild[], $Failed]];
+          If[AssociationQ[d], itNativeLog[j["Id"], "Build", j["Tries"],
+            "holder " <> d["Holder"] <> " trigger " <> d["Trigger"] <> " template " <> d["Template"]]]];
+        If[!AssociationQ[d], Return[itNativeFail[j, "複製ガジェットを作れませんでした"]]];
+        If[iNow[] - Lookup[d, "Created", 0] < $itNativeWarmupSeconds, Return[j]];   (* 暖機 *)
+        sent = itSendGet[d["Holder"], 1, False];
+        If[!StringQ[sent], Return[itNativeFail[j, "getSlot を送れませんでした"]]];
+        Join[j, <|"Phase" -> "Before", "MessageId" -> sent, "Sent" -> iNow[]|>],
+      "CheckTpl",
+        res = icPollReply[j["MessageId"]];
+        Which[
+          AssociationQ[res] && Lookup[res, "success", True] =!= False && AssociationQ[Lookup[res, "data", None]],
+            $itState["TemplateCheckedAt"] = iNow[];
+            Join[j, <|"Phase" -> "Init", "TplOK" -> True|>],
+          AssociationQ[res] || iNow[] - j["Sent"] > $itNativeReplySeconds,
+            itNativeLog[j["Id"], "Template", j["Tries"], "雛形 " <> ToString[itNativeTemplateId[]] <> " がワールドにありません。探し直します"];
+            itNativeDupDiscard[];
+            itForgetTemplate[itNativeTemplateId[]];
+            (* 次の候補 (保管が消えたならワールドの雛形の記録) が残っていれば、それも確かめ直す。無ければ走査で探す *)
+            If[StringQ[itNativeTemplateId[]],
+              $itState["TemplateCheckedAt"] = 0;
+              Join[j, <|"Phase" -> "Init", "TplOK" -> False|>],
+              itNativeFindTemplate[j]],
+          True, j],
+      "FindTpl",
+        Which[
+          StringQ[itNativeTemplateId[]],
+            $itState["TemplateWanted"] = False;
+            $itState["TemplateCheckedAt"] = iNow[];
+            itNativeLog[j["Id"], "Template", j["Tries"], "雛形 " <> itNativeTemplateId[] <> " を見つけました"];
+            Join[j, <|"Phase" -> "Init", "TplOK" -> True|>],
+          iNow[] - j["Since"] > $itNativeFindSeconds,
+            $itState["TemplateWanted"] = False;
+            $itState["TemplateMissingAt"] = iNow[];
+            itNativeFail[j, "ワールドに雛形 (Resonite 標準の PDF ビューア) が見つかりません"],
+          True, j],
+      "LiteInit" | "LitePose", idLiteStep[j],
+      "Before",
+        res = icPollReply[j["MessageId"]];
+        Which[
+          AssociationQ[res],
+            kids = Lookup[Select[Lookup[Lookup[res, "data", <||>], "children", {}], AssociationQ], "id", Nothing];
+            itSetFlag[d["Trigger"], True];
+            Join[j, <|"Phase" -> "Fired", "Known" -> kids, "FiredAt" -> iNow[]|>],
+          iNow[] - j["Sent"] > $itNativeReplySeconds, itNativeRetry[j, "getSlot の応答が来ません"],
+          True, j],
+      "Fired",
+        sent = itSendGet[d["Holder"], 1, False];
+        If[!StringQ[sent], Return[itNativeFail[j, "getSlot を送れませんでした"]]];
+        Join[j, <|"Phase" -> "Await", "MessageId" -> sent, "Sent" -> iNow[]|>],
+      "Await",
+        res = icPollReply[j["MessageId"]];
+        Which[
+          AssociationQ[res],
+            new = Select[Lookup[Lookup[res, "data", <||>], "children", {}],
+              AssociationQ[#] && StringQ[Lookup[#, "id", None]] && !MemberQ[j["Known"], #["id"]] && #["id"] =!= d["Root"] &];
+            If[new =!= {},
+              dupId = First[new]["id"];
+              itSetFlag[d["Trigger"], False];
+              Join[j, <|"Phase" -> "Configure", "Root" -> dupId, "MessageId" -> itSendGet[dupId, 0, True],
+                "PoseMessageId" -> If[Lookup[j, "Kind", "Doc"] === "Stash", None, idJobPoseRequest[j]], "Sent" -> iNow[]|>],
+              itNativeLog[j["Id"], "Poll", j["Tries"], "holder children " <> ToString[Length[Lookup[Lookup[res, "data", <||>], "children", {}]]] <>
+                ", " <> ToString[Round[iNow[] - j["FiredAt"], 0.1]] <> " s since trigger"];
+              If[iNow[] - j["FiredAt"] > $itNativeSpawnSeconds,
+                itSetFlag[d["Trigger"], False];
+                itNativeRetry[j, "複製が現れません (雛形が消えた?)"],
+                Join[j, <|"Phase" -> "Fired"|>]]],
+          iNow[] - j["Sent"] > $itNativeReplySeconds, Join[j, <|"Phase" -> "Fired"|>],
+          True, j],
+      "Configure",
+        res = If[StringQ[j["MessageId"]], icPollReply[j["MessageId"]], None];
+        tab = If[StringQ[Lookup[j, "PoseMessageId", None]], icPollReply[j["PoseMessageId"]], None];
+        Which[
+          (* タブレットの姿勢は 5 秒待って来なければ諦める (Root の原点の前に置く) *)
+          AssociationQ[res] && (AssociationQ[tab] || !StringQ[Lookup[j, "PoseMessageId", None]] || iNow[] - j["Sent"] > 5),
+            sd = SelectFirst[Lookup[Lookup[res, "data", <||>], "components", {}],
+              AssociationQ[#] && StringEndsQ[ToString[Lookup[#, "componentType", ""]], "StaticDocument"] &, None];
+            If[!AssociationQ[sd], Return[itNativeFail[j, "複製に StaticDocument がありません (雛形が標準ビューアではない?)"]]];
+            If[Lookup[j, "Kind", "Doc"] === "Stash", Return[itNativeStashPlace[j]]];
+            k = Length[itNativeDocs[]];
+            pose = idJobPose[j, k, tab];
+            itNoWait @ Quiet @ Check[ResoniteRealtime`ResoniteRealtimeUpdateSlot[j["Root"],
+              Join[<|"name" -> itTruncate[j["Title"], 80], "position" -> pose["Position"], "isActive" -> True|>,
+                If[StringQ[pose["Parent"]], <|"parent" -> ResoniteRealtime`ResoniteRealtimeRef[pose["Parent"]]|>, <||>],
+                If[ListQ[pose["Rotation"]], <|"rotation" -> pose["Rotation"]|>, <||>]]], Null];
+            (* 置く時点の URL: 写しが用意できていればそれ (開いてから置くまでに送り終わることがある) *)
+            With[{u = Quiet @ Check[ipcURLFor[Lookup[j, "CacheKey", None], j["URL"]], j["URL"]]},
+              itNoWait @ Quiet @ Check[ResoniteRealtime`ResoniteRealtimeUpdateComponent[sd["id"],
+                <|"URL" -> ResoniteRealtime`ResoniteRealtimeValue["Uri", u]|>], Null];
+              (* "Local" は 127.0.0.1 の URL、"Doc" は StaticDocument (写しの用意 / 消失で URL を差し替える) *)
+              $itState["NativeDocs"] = Append[itNativeDocs[], j["Root"] ->
+                <|"Title" -> j["Title"], "File" -> j["File"], "Pages" -> j["Pages"], "URL" -> u, "Local" -> j["URL"],
+                  "Doc" -> sd["id"], "CacheKey" -> Lookup[j, "CacheKey", None], "Created" -> iNow[],
+                  "Parent" -> pose["Parent"]|>]];
+            itNativeLog[j["Id"], "Placed", j["Tries"], j["Root"] <> " under " <> ToString[pose["Parent"]]];
+            itSetStatus["PDF: " <> itTruncate[j["Title"], 40] <> " (" <>
+              If[IntegerQ[j["Pages"]] && j["Pages"] > 0, ToString[j["Pages"]] <> " ページ、", ""] <> "標準ビューア)"];
+            (* ページを押したら次のページ: 複製を 1 回だけ全部読んで、ページ表示と [次へ] を探して結ぶ (itNativePageClick) *)
+            If[TrueQ[ResoniteRealtime`$ResonitePDFPageClick],
+              With[{m = itSendGet[j["Root"], -1, True]},
+                If[StringQ[m], Join[j, <|"Phase" -> "PageClick", "MessageId" -> m, "Sent" -> iNow[]|>], None]],
+              None],
+          iNow[] - j["Sent"] > $itNativeReplySeconds,
+            If[j["Tries"] < 2,
+              Join[j, <|"MessageId" -> itSendGet[j["Root"], 0, True], "PoseMessageId" -> idJobPoseRequest[j],
+                "Sent" -> iNow[], "Tries" -> j["Tries"] + 1|>],
+              itNativeFail[j, "複製の読み取りに失敗しました"]],
+          True, j],
+      "PageClick",
+        res = icPollReply[j["MessageId"]];
+        Which[
+          AssociationQ[res],
+            Quiet @ Check[itNativePageClick[j, res], itNativeLog[j["Id"], "PageClick", j["Tries"], "失敗 (例外)"]];
+            None,
+          iNow[] - j["Sent"] > 20, itNativeLog[j["Id"], "PageClick", j["Tries"], "複製の全体が読めませんでした"]; None,
+          True, j],
+      _, None]];
+
+(* ---- 標準ビューアのページを押したら次のページ (2026-09-25 ユーザー指示) ----
+   デスクトップでは視線 (カーソル) を下の [>] まで動かさないとめくれず読みにくい。標準ビューアは雛形の複製で中身を
+   知らない (155 slot / ProtoFlux 111) ので、複製の木から探す:
+     ページ表示 = DocumentPageTexture を (SpriteProvider / 材質を 1 段経て) 参照する UIX Image / RawImage のスロット
+     [次へ]    = UIX Button を持つスロットのうち、(1) ButtonValueShift<int> の Delta > 0 で PageIndex か番号を進める物、
+                 (2) 名前か子の文字が Next / > / ▶ / → / › の物
+   結び方 (FrooxEngine.dll で確認: ButtonPressEventRelay は Target のスロットの IButtonPressReceiver だけを呼び、
+   ProtoFlux の ButtonEvents (Button.LocalPressed を聞く) には届かない):
+     - [次へ] を聞く ProtoFlux ButtonEvents があれば、同じ型の ButtonEvents をもう 1 つ置き、Button = ページの Button、
+       Pressed = 元と同じ行き先にする (impulse は複数から 1 つへつないでよい)
+     - 無ければ ページに ButtonPressEventRelay (Target = [次へ] のスロット) を置く (ButtonValueShift 等の受け手が動く)
+   ページのスロットに UIX Button が無ければ足す。結果は NativeLog と $itState["PageClickInfo"] に残し、
+   複製の木を %TEMP%\ResoniteRealtime\native_pdf_tree.json に 1 回だけ書く (うまく結べないときの調査用) *)
+If[!BooleanQ[ResoniteRealtime`$ResonitePDFPageClick], ResoniteRealtime`$ResonitePDFPageClick = True];
+
+(* ページの上に重ねる押し面 (子スロット、親いっぱい)。戻り値は Button のスロット (受け手 = ValueShift / 中継はここに付ける)。
+   Button.OnAttach は**同じスロットの** Image.Tint に色ドライバ (ホバー / 押下の色) を付ける:
+     - ページの Image に付けた版: ホバーでページが暗くなった (2026-09-25 実機 1)
+     - 透明 (α=0) の Image と同じスロットに付けた版: ホバーで不透明な灰色になりページが隠れた (実機 2。ハイライト色は α を保たない)
+   なので Button のスロットには Image を置かず (色ドライバが付かない)、当たり判定の透明な Image は子スロットに置く
+   (UIX は子の Graphic に当たった押下を親の Button に渡す。ボタンの文字の上を押しても効くのと同じ) *)
+itClickOverlay[parent_String, id_ : Automatic] :=
+  Module[{hit = icSlot["Mathematica PageClick", parent], face},
+    icComp[hit, $icUIX <> "RectTransform", <|"AnchorMin" -> {0., 0.}, "AnchorMax" -> {1., 1.}|>];
+    icComp[hit, $icUIX <> "Button", <|"PassThroughHorizontalMovement" -> True, "PassThroughVerticalMovement" -> True|>,
+      Replace[id, Automatic :> ResoniteRealtime`ResoniteRealtimeNewId["PageBtn"]]];
+    face = icSlot["HitArea", hit];
+    icComp[face, $icUIX <> "RectTransform", <|"AnchorMin" -> {0., 0.}, "AnchorMax" -> {1., 1.}|>];
+    icComp[face, $icUIX <> "Image", <|"Tint" -> RGBColor[1, 1, 1, 0]|>];
+    hit];
+
+itTreeSlots[s_Association, path_List : {}] :=
+  With[{p = Append[path, ToString[itVal[Lookup[s, "name", ""]]]]},
+    Prepend[Flatten[Map[itTreeSlots[#, p] &, Select[Lookup[s, "children", {}], AssociationQ]], 1],
+      <|"Id" -> Lookup[s, "id", None], "Path" -> p, "Slot" -> s,
+        "Comps" -> Select[Lookup[s, "components", {}], AssociationQ]|>]];
+
+itCompType[c_Association] := ToString[Lookup[c, "componentType", ""]];
+(* コンポーネントの参照先 (メンバの targetId) *)
+itCompRefs[c_Association] :=
+  Cases[Values[Replace[Lookup[c, "members", <||>], Except[_Association] -> <||>]],
+    m_Association /; StringQ[Lookup[m, "targetId", None]] :> m["targetId"]];
+itMemberTarget[c_Association, name_String] :=
+  With[{m = Lookup[Replace[Lookup[c, "members", <||>], Except[_Association] -> <||>], name, None]},
+    If[AssociationQ[m], Lookup[m, "targetId", None], None]];
+itMemberIdOf[c_Association, name_String] :=
+  With[{m = Lookup[Replace[Lookup[c, "members", <||>], Except[_Association] -> <||>], name, None]},
+    If[AssociationQ[m], Lookup[m, "id", None], None]];
+
+$itNextLabels = {">", "\:25b6", "\:2192", "\:203a", "\:25b8", "next", "next page", "forward", "\:6b21", "\:6b21\:3078"};
+
+itNativePageClickPlan[tree_Association] :=
+  Module[{slots, comps, slotOf, dpts, dptIds, lvl1, lvl2, pageSlot, btnSlots, pageFields, next, byShift, byLabel,
+      label, flux, grefs, nextBtn, shiftQ, minDelta, anyShift},
+    slots = itTreeSlots[tree];
+    comps = Flatten[Map[Function[s, Map[<|"Slot" -> s["Id"], "Comp" -> #|> &, s["Comps"]]], slots], 1];
+    slotOf = Association[Map[Lookup[#["Comp"], "id", None] -> #["Slot"] &, comps]];
+    dpts = Select[comps, StringEndsQ[itCompType[#["Comp"]], "DocumentPageTexture"] &];
+    If[dpts === {}, Return[<|"OK" -> False, "Why" -> "DocumentPageTexture がありません"|>]];
+    dptIds = Lookup[Lookup[dpts, "Comp"], "id"];
+    (* 1 段目: DocumentPageTexture を参照する物 (SpriteProvider / 材質)、2 段目: それを参照する UIX Image / RawImage *)
+    lvl1 = Select[comps, IntersectingQ[itCompRefs[#["Comp"]], dptIds] &];
+    lvl2 = Select[comps, StringMatchQ[itCompType[#["Comp"]], ___ ~~ ("UIX.Image" | "UIX.RawImage")] &&
+      IntersectingQ[itCompRefs[#["Comp"]], Join[dptIds, Lookup[Lookup[lvl1, "Comp"], "id", {}]]] &];
+    If[lvl2 === {}, Return[<|"OK" -> False, "Why" -> "ページを映す UIX Image が見つかりません (3D の板かもしれません)",
+      "Level1" -> Map[itCompType[#["Comp"]] &, lvl1]|>]];
+    pageSlot = First[lvl2]["Slot"];
+    (* ページ番号を持つフィールド: DocumentPageTexture.PageIndex のメンバ ID *)
+    pageFields = Select[Map[itMemberIdOf[#, "PageIndex"] &, Lookup[dpts, "Comp"]], StringQ];
+    btnSlots = Select[slots, AnyTrue[#["Comps"], StringEndsQ[itCompType[#], "UIX.Button"] &] && #["Id"] =!= pageSlot &];
+    shiftQ[c_, targets_] := StringContainsQ[itCompType[c], "ButtonValueShift"] && NumericQ[icMemberValue[c, "Delta"]] &&
+      icMemberValue[c, "Delta"] > 0 && (targets === All || MemberQ[targets, itMemberTarget[c, "TargetValue"]]);
+    minDelta[s_] := Min[Cases[s["Comps"], c_ /; StringContainsQ[itCompType[c], "ButtonValueShift"] :> icMemberValue[c, "Delta"]]];
+    (* PageIndex を直接進める物 (最優先)、それ以外の ValueShift (拡大などもありうるので名前より後) *)
+    byShift = Select[btnSlots, Function[s, AnyTrue[s["Comps"], shiftQ[#, pageFields] &]]];
+    anyShift = Select[btnSlots, Function[s, AnyTrue[s["Comps"], shiftQ[#, All] &]]];
+    (* 見出し = スロット名 + その下の UIX Text (兄弟のボタンは同じ名前のことが多いので、名前の道ではなく木で辿る) *)
+    label[s_] := ToLowerCase[StringTrim[StringRiffle[Join[{Last[s["Path"]]},
+      Cases[Flatten[Lookup[Rest[itTreeSlots[s["Slot"]]], "Comps", {}], 1],
+        c_Association /; StringEndsQ[itCompType[c], "UIX.Text"] :> ToString[icMemberValue[c, "Content"]]]], " "]]];
+    byLabel = Select[btnSlots, Function[s, With[{l = label[s]},
+      AnyTrue[$itNextLabels, StringMatchQ[l, # | (# ~~ " " ~~ ___) | (___ ~~ " " ~~ #)] &] ||
+        StringContainsQ[ToLowerCase[Last[s["Path"]]], "next"]]]];
+    next = Which[
+      (* [>] と [>>] の両方が ValueShift なら Delta の小さい方 = 1 ページ *)
+      byShift =!= {}, First[SortBy[byShift, minDelta]],
+      byLabel =!= {}, First[byLabel],
+      anyShift =!= {}, First[SortBy[anyShift, minDelta]],
+      True, None];
+    If[!AssociationQ[next], Return[<|"OK" -> False, "Why" -> "[次へ] のボタンが見つかりません", "Page" -> pageSlot,
+      "Buttons" -> Map[{StringRiffle[#["Path"], "/"], label[#]} &, btnSlots]|>]];
+    nextBtn = Lookup[SelectFirst[next["Comps"], StringEndsQ[itCompType[#], "UIX.Button"] &, <||>], "id", None];
+    (* [次へ] を聞く ProtoFlux ButtonEvents: Button (global) -> GlobalReference -> Reference = [次へ] の Button *)
+    grefs = Select[comps, StringContainsQ[itCompType[#["Comp"]], "GlobalReference"] &&
+      itMemberTarget[#["Comp"], "Reference"] === nextBtn &];
+    flux = Select[comps, StringEndsQ[itCompType[#["Comp"]], "Interaction.ButtonEvents"] &&
+      (itMemberTarget[#["Comp"], "Button"] === nextBtn || MemberQ[Lookup[Lookup[grefs, "Comp"], "id", {}], itMemberTarget[#["Comp"], "Button"]]) &];
+    <|"OK" -> True, "Page" -> pageSlot, "PagePath" -> StringRiffle[Lookup[SelectFirst[slots, #["Id"] === pageSlot &], "Path"], "/"],
+      "PageHasButton" -> AnyTrue[Lookup[SelectFirst[slots, #["Id"] === pageSlot &], "Comps"], StringEndsQ[itCompType[#], "UIX.Button"] &],
+      "Next" -> next["Id"], "NextPath" -> StringRiffle[next["Path"], "/"], "NextLabel" -> label[next], "NextButton" -> nextBtn,
+      "By" -> Which[byShift =!= {}, "PageIndexShift", byLabel =!= {}, "Label", True, "ValueShift"],
+      "Flux" -> Map[<|"Type" -> itCompType[#["Comp"]], "Pressed" -> itMemberTarget[#["Comp"], "Pressed"]|> &, flux]|>];
+
+itNativePageClick[j_Association, res_Association] :=
+  Module[{tree = Lookup[res, "data", None], plan, btn, s, gref, n = 0, how, dump},
+    If[!AssociationQ[tree], Return[itNativeLog[j["Id"], "PageClick", j["Tries"], "複製の全体が空でした"]]];
+    dump = FileNameJoin[{$TemporaryDirectory, "ResoniteRealtime", "native_pdf_tree.json"}];
+    (* カーネルごとに最初の 1 回だけ書く (上書き)。400 KB を開くたびに書かない *)
+    If[!TrueQ[$itPageClickDumped],
+      $itPageClickDumped = True;
+      Quiet @ CreateDirectory[DirectoryName[dump], CreateIntermediateDirectories -> True];
+      Quiet @ Check[With[{st = OpenWrite[dump, BinaryFormat -> True]}, BinaryWrite[st, ExportByteArray[tree, "RawJSON"]]; Close[st]], Null]];
+    plan = itNativePageClickPlan[tree];
+    $itState["PageClickInfo"] = Append[KeyDrop[plan, {}], "Time" -> DateString[]];
+    If[!TrueQ[plan["OK"]], Return[itNativeLog[j["Id"], "PageClick", j["Tries"], "結べません: " <> plan["Why"]]]];
+    itNoWait @ Block[{},
+      (* ページの上に透明な押し面を重ねる (ページの Image に Button を付けるとホバーで暗くなる。itClickOverlay) *)
+      btn = ResoniteRealtime`ResoniteRealtimeNewId["PageBtn"];
+      s = Quiet @ Check[itClickOverlay[plan["Page"], btn], None];
+      If[!StringQ[s], Return[itNativeLog[j["Id"], "PageClick", j["Tries"], "ページに押し面を足せませんでした"], Module]];
+      Which[
+        Select[plan["Flux"], StringQ[#["Pressed"]] &] =!= {},
+          (* ProtoFlux の [次へ]: 同じ行き先へつなぐ ButtonEvents を押し面用に足す (ノードは 1 つずつ子スロットに) *)
+          Do[
+            With[{ns = Quiet @ Check[icSlot["flux", s], None]},
+              gref = If[StringQ[ns], Quiet @ Check[icComp[ns, $icFE <> "ProtoFlux.GlobalReference<[FrooxEngine]FrooxEngine.IButton>",
+                <|"Reference" -> ResoniteRealtime`ResoniteRealtimeRef[btn]|>, ResoniteRealtime`ResoniteRealtimeNewId["GRef"]], None], None];
+              If[StringQ[gref] && StringQ[Quiet @ Check[icComp[ns, f["Type"],
+                  <|"Button" -> ResoniteRealtime`ResoniteRealtimeRef[gref], "Pressed" -> ResoniteRealtime`ResoniteRealtimeRef[f["Pressed"]]|>,
+                  ResoniteRealtime`ResoniteRealtimeNewId["Node"]], None]], n++]],
+            {f, Select[plan["Flux"], StringQ[#["Pressed"]] &]}];
+          how = "ProtoFlux ButtonEvents " <> ToString[n],
+        True,
+          If[StringQ[Quiet @ Check[icComp[s, $icFE <> "ButtonPressEventRelay",
+              <|"Target" -> ResoniteRealtime`ResoniteRealtimeRef[plan["Next"]]|>, ResoniteRealtime`ResoniteRealtimeNewId["Relay"]], None]],
+            n = 1];
+          how = "ButtonPressEventRelay"]];
+    $itState["PageClickInfo", "Applied"] = <|"How" -> how, "Count" -> n|>;
+    itNativeLog[j["Id"], "PageClick", j["Tries"],
+      how <> " (" <> ToString[n] <> ") ページ " <> plan["PagePath"] <> " -> 次へ " <> plan["NextPath"] <> " [" <> plan["NextLabel"] <> ", " <> plan["By"] <> "]"]];
+
+(* 保管: 複製をタブレットの子に移し、非表示にして名前を付け、以後の雛形にする *)
+itNativeStashPlace[j_Association] :=
+  Module[{g = itGadget[], target = Lookup[j, "Target", None], board},
+    If[!StringQ[target] && AssociationQ[g], target = Lookup[g, "Root", None]];
+    board = StringQ[target] && KeyExistsQ[itThumbs[], target];
+    If[!StringQ[target] || (!board && !(AssociationQ[g] && g["Root"] === target)),
+      itNoWait @ Quiet @ Check[ResoniteRealtime`ResoniteRealtimeRemoveSlot[j["Root"]], Null];
+      Return[itNativeFail[j, "保管先 (タブレット / サムネイル一覧) がありません"]]];
+    itNoWait @ Quiet @ Check[ResoniteRealtime`ResoniteRealtimeUpdateSlot[j["Root"],
+      <|"name" -> $itStashName, "isActive" -> False, "parent" -> ResoniteRealtime`ResoniteRealtimeRef[target],
+        "position" -> {0., 0., 0.}|>], Null];
+    If[board, $itState["Thumbs", target, "Stash"] = j["Root"], $itState["Gadget", "Stash"] = j["Root"]];
+    $itState["TemplateCheckedAt"] = iNow[];
+    itNativeLog[j["Id"], "Stashed", j["Tries"], j["Root"] <> " (非表示) を " <> target <> " の子に保管"];
+    None];
+
+(* やり直し (2 回まで)。複製が出なかったガジェットは壊れている可能性が高い (早すぎたトリガで永久に沈黙する) ので
+   作り直す。3 回目は失敗にして雛形も忘れる (次の走査で探し直す) *)
+itNativeRetry[j_Association, why_String] :=
+  If[j["Tries"] < 2,
+    itNativeLog[j["Id"], "Retry", j["Tries"] + 1, why];
+    itNativeDupDiscard[];
+    $itState["TemplateCheckedAt"] = 0;   (* 作り直す前に雛形を確かめ直す *)
+    Join[j, <|"Phase" -> "Init", "Tries" -> j["Tries"] + 1, "TplOK" -> False|>],
+    itNativeDupDiscard[];
+    itForgetTemplate[itNativeTemplateId[]];
+    $itState["TemplateWanted"] = True;   (* 次の PDF のために探し直しておく *)
+    itNativeFail[j, why]];
+
+(* 雛形を探す: 走査 (Root Depth 1 + 入れ物 Depth 1) を常駐監視でなくてもすぐ回し、itNoteScanSlots が見つけるのを待つ *)
+$itNativeFindSeconds = 20;
+itNativeFindTemplate[j_Association] :=
+  ($itState["TemplateWanted"] = True;
+   $itState["LastScan"] = 0;
+   Join[j, <|"Phase" -> "FindTpl", "Since" -> iNow[]|>]);
+
+(* 複製ガジェットを捨てる (置き場ごと。待たない) *)
+itNativeDupDiscard[] :=
+  With[{d = Lookup[$itState, "PDFDup", None]},
+    If[AssociationQ[d] && StringQ[Lookup[d, "Holder", None]],
+      itNoWait @ Quiet @ Check[ResoniteRealtime`ResoniteRealtimeRemoveSlot[d["Holder"]], Null]];
+    $itState["PDFDup"] = None];
 
 itHandlePDF[root_String, res_Association] :=
   Module[{v = itPDF[root], pressed},
@@ -1142,6 +2205,13 @@ itHandlePDF[root_String, res_Association] :=
     pressed = itPressed[res, v["Ids"]["Buttons"]];
     If[pressed === {}, Return[Null]];
     Scan[itSetFlag[v["Ids"]["Buttons"][#], False] &, pressed];
+    With[{p = pressed, rt = root},
+      itPressGate["PDF " <> StringRiffle[p, ", "], None, itPDFAct[rt, p]]];
+    pressed];
+
+itPDFAct[root_String, pressed_List] :=
+  Module[{},
+    If[!AssociationQ[itPDF[root]], Return[Null]];
     Which[
       MemberQ[pressed, "Close"], ResoniteRealtime`ResonitePDFViewerRemove[root],
       MemberQ[pressed, "Prev10"], ResoniteRealtime`ResonitePDFViewerPage[root, "-10"],
@@ -1290,7 +2360,13 @@ itShowPages[pages_List, title_String, pl_, o_, kind_String] :=
 
 (* PDF / 画像 / ノートブックは掴める PDF ビューアへ (2026-09-22: 板 1 枚では他のページが読めず掴めない、との指摘) *)
 itShowDocument[file_String, pl_, title_String, o_, kind_String] :=
-  Module[{pages = itPagesOfFile[file, o["MaxPages"]], r},
+  Module[{pages, r},
+    If[kind === "PDF" && itNativeTryQ[],
+      (* 機密度は web サーバへの写し (ResoniteRealtime_pdfcache.wl) を置いてよいかの判定に使う *)
+      r = Block[{$itOpenPL = itPL[pl]}, itNativeSpawn[file, title]];
+      If[FailureQ[r], Throw[r, icTag]];
+      Return[Join[<|"Kind" -> kind, "Title" -> title, "PrivacyLevel" -> itPL[pl], "File" -> file|>, r]]];
+    pages = itPagesOfFile[file, o["MaxPages"]];
     r = ResoniteRealtime`ResonitePDFViewer[pages, "Title" -> title, "PageSize" -> o["PageSize"]];
     If[FailureQ[r], Throw[r, icTag]];
     Join[<|"Kind" -> kind, "Title" -> title, "PrivacyLevel" -> itPL[pl], "Pages" -> Length[pages], "File" -> file|>,
@@ -1391,7 +2467,7 @@ Options[ResoniteRealtime`ResoniteListGadget] = {
   "Title" -> "SourceVault", "RowsPerPage" -> 8, "Placement" -> Automatic,
   "Distance" -> 1.4, "Height" -> Automatic, "User" -> Automatic,
   "Position" -> {0, 1.3, 1.4}, "Parent" -> "Root", "CanvasSize" -> {1400, 1000},
-  "PanelScale" -> 0.0006, "FontSize" -> 30, "Name" -> "SourceVault List"};
+  "PanelScale" -> 0.0006, "FontSize" -> 30, "Name" -> "SourceVault List", "View" -> Automatic};
 
 itRowsOf[rows_List] := Select[rows, AssociationQ];
 itRowsOf[ds_Dataset] := itRowsOf[Normal[ds]];
@@ -1404,11 +2480,15 @@ itRowLabel[row_Association, i_Integer, maxChars_Integer] :=
     itTruncate[ToString[i] <> ". " <> t, maxChars] <> If[k === "", "", "   (" <> k <> ")"]];
 
 (* 非同期文脈 (runtime の提案コード実行 / tick) では組み立てを予約して即返す。それ以外はその場で組む *)
+(* "View" -> Automatic: 直近のタブレットのプロンプトに「サムネ / 一覧」があればサムネイル一覧 (ResoniteThumbnailGadget)、
+   「リスト」なら今の一覧。"Thumbnails" / "List" で明示 (2026-09-24) *)
 ResoniteRealtime`ResoniteListGadget[rowsIn_, opts : OptionsPattern[]] :=
-  If[itAsyncContextQ[],
-    itDeferBuild[itListGadgetBuild[rowsIn, opts], "一覧ガジェット",
-      <|"Kind" -> "ListGadget", "Rows" -> Length[itRowsOf[rowsIn]]|>],
-    itListGadgetBuild[rowsIn, opts]];
+  If[itListView[OptionValue["View"]] === "Thumbnails",
+    ResoniteRealtime`ResoniteThumbnailGadget[rowsIn, "Title" -> OptionValue["Title"]],
+    If[itAsyncContextQ[],
+      itDeferBuild[itListGadgetBuild[rowsIn, opts], "一覧ガジェット",
+        <|"Kind" -> "ListGadget", "Rows" -> Length[itRowsOf[rowsIn]]|>],
+      itListGadgetBuild[rowsIn, opts]]];
 
 itListGadgetBuild[rowsIn_, opts : OptionsPattern[ResoniteRealtime`ResoniteListGadget]] :=
   Catch[
@@ -1437,6 +2517,7 @@ itListGadgetBuild[rowsIn_, opts : OptionsPattern[ResoniteRealtime`ResoniteListGa
       icComp[root, $icFE <> "AI_GeneratedContent",
         <|"Source" -> "Mathematica ResoniteRealtime list gadget (SourceVault rows)"|>];
       panel = icSlot["Panel", root, "Scale" -> {pscale, pscale, pscale}];
+      itBacking[root, csz*pscale];
       icComp[panel, $icUIX <> "Canvas",
         <|"Size" -> csz, "AcceptRemoteTouch" -> True, "AcceptPhysicalTouch" -> True|>];
       icMakeMaterials[panel];
@@ -1470,6 +2551,8 @@ itListGadgetBuild[rowsIn_, opts : OptionsPattern[ResoniteRealtime`ResoniteListGa
         ids["PageText"] = itText[s, "", fs*0.75, "Center", "Middle",
           ResoniteRealtime`ResoniteRealtimeNewId["ListPage"]]];
       ids["Buttons", "Next"] = itButton[row, "Next", ">", fs*2.5, fs*1.7, RGBColor[0.3, 0.32, 0.4, 1], fs];
+      (* サムネイル一覧へ切り替える小さなボタン (2026-09-24) *)
+      ids["Buttons", "View"] = itButton[row, "View", "サムネ", fs*4., fs*1.7, RGBColor[0.25, 0.4, 0.35, 1], fs*0.75];
       ids["Buttons", "Close"] = itButton[row, "Close", "閉じる", fs*4.5, fs*1.7, RGBColor[0.5, 0.25, 0.25, 1], fs*0.8];
       rec = <|"Ids" -> ids, "Rows" -> rows, "Page" -> 1, "PerPage" -> per, "Title" -> o["Title"],
         "Hidden" -> hidden, "MaxChars" -> Floor[(csz[[1]] - 40 - fs*3)/(fs*0.75*0.6)], "Created" -> DateObject[]|>;
@@ -1495,7 +2578,7 @@ itListRender[root_String] :=
         {i, per}];
       ResoniteRealtime`ResoniteRealtimeUpdateComponent[ids["PageText"],
         <|"Content" -> ToString[page] <> "/" <> ToString[total] <> "  (" <> ToString[Length[rows]] <>
-          If[rec["Hidden"] > 0, ", 非表示 " <> ToString[rec["Hidden"]], ""] <> ")"|>]), $Failed];
+          If[rec["Hidden"] > 0, ", 機密度で非表示 " <> ToString[rec["Hidden"]], ""] <> ")"|>]), $Failed];
     page];
 
 ResoniteRealtime`ResoniteListGadgetRemove[root_String] :=
@@ -1519,6 +2602,604 @@ itListOpen[root_String, i_Integer] :=
       "Result" -> r, "Seconds" -> Round[iNow[] - t0, 0.1], "LastError" -> Lookup[$itState, "LastError", None]|>;
     If[FailureQ[r], itSetStatus["開けません: " <> ToString[r["MessageTemplate"]]]];
     r];
+
+(* ============================================================
+   サムネイル一覧 (ResoniteThumbnailGadget、2026-09-24)
+
+   Eagle の項目は <lib>/images/<ID>.info/<name>_thumbnail.png を持つ。一覧の行をサムネイルの升目にして
+   **1 枚の大きな面** (Canvas 1 つ) に並べる。升目の画像は WL で 1 枚の JPEG に貼り合わせて背景に敷き
+   (テクスチャは 1 枚)、その上に升目ごとの透明なボタンと題名 (UIX Text) を重ねる。
+   <Name>                Grabbable, AI_GeneratedContent
+   ├─ State              ValueField<int> Selected (0 = なし、i = i 番目、-1 = リストへ、-2 = 閉じる、-3 = 接続、-4 = 形を変更、-5 = キャッシュ削除)
+   └─ Panel              Canvas (px), 背景 Image (Sprite <- SpriteProvider <- StaticTexture2D = 貼り合わせ JPEG)
+      ├─ Title           Text
+      ├─ Connect / Shape / ToList / Close / ClearCache  Image + Button + ButtonValueSet<int> (-3 / -4 / -1 / -2 / -5)
+      └─ Cell<i>         Image (ほぼ透明) + Button + ButtonValueSet<int> (i)、Label: Text
+   クリックの検出: ボタンごとの bool を全部読むと升目が多いと重い (一覧 8 行で 212 KB)。ButtonValueSet<int> は
+   押されると共有の Selected に自分の番号を書くので、監視は State スロット 1 つ (Depth 0) を読むだけでよい。
+   ButtonValueSet.TargetValue には Selected.Value のメンバ ID が要るので、tick の組み立ては 1 巡目で結線する
+   (結線用の getSlot は State スロットだけ: 戻り値の "WireSlot")。置き場所はタブレットの隣 (左)。
+   タブレットの子にすると監視・引き継ぎ・インベントリ保存が升目の数だけ重くなる (標準 PDF ビューアの複製と同じ理由)。
+   ============================================================ *)
+
+Options[ResoniteRealtime`ResoniteThumbnailGadget] = {
+  "Title" -> "SourceVault", "Columns" -> Automatic, "ThumbSize" -> {200, 260}, "LabelHeight" -> 70,
+  "FontSize" -> 18, "ThumbMeters" -> 0.12, "MaxItems" -> Infinity, "MaxRows" -> 7, "Name" -> "SourceVault Thumbnails",
+  "Position" -> {0, 1.3, 1.4}, "Parent" -> "Root",
+  (* 2026-09-26: 貼る面 ("Plane" | "Cylinder" | "SphereInside" | "Mobius" | ResoniteThumbnailSurface[...]、
+     ResoniteRealtime_surface.wl) と曲面の中心 (Automatic = アバターの目 / <|"Parent","Position","Rotation"|>) *)
+  "Shape" -> "Plane", "Center" -> Automatic};
+
+itThumbs[] := Replace[Lookup[$itState, "Thumbs", <||>], Except[_Association] -> <||>];
+itThumbByState[state_String] :=
+  SelectFirst[Keys[itThumbs[]], Lookup[Lookup[itThumbs[][#], "Ids", <||>], "State", None] === state &, None];
+
+(* 「サムネイル / 一覧」の依頼か (直近 30 分のタブレットのプロンプトで決める)。「リスト」は今の一覧のまま *)
+itThumbViewQ[] :=
+  Module[{t = Lookup[$itState, "Turn", None], p},
+    If[!AssociationQ[t], Return[False]];
+    p = Lookup[t, "Prompt", ""];
+    StringQ[p] && iNow[] - Lookup[t, "Start", 0] < 1800 &&
+      (StringContainsQ[p, "サムネ" | "一覧" | "ギャラリー"] || StringContainsQ[p, "thumbnail" | "gallery", IgnoreCase -> True])];
+itListView[v_] :=
+  Switch[v,
+    "Thumbnails" | "Thumbnail" | "Thumbs", "Thumbnails",
+    "List", "List",
+    _, If[TrueQ[itThumbViewQ[]], "Thumbnails", "List"]];
+
+$itImageExts = {"png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff"};
+itRowFilePath[row_Association] :=
+  With[{f = itRowGet[row, {"File", "FilePath", "Path", "path", "ファイル"}, None]},
+    If[StringQ[f] && f =!= "" && FileExistsQ[f], f, None]];
+itRowEagleId[row_Association] :=
+  Module[{uri = ToString[Lookup[row, "URI", ""]], id},
+    id = StringCases[uri, StartOfString ~~ "sv://object/eagle-" ~~ x__ :> x];
+    Which[
+      id =!= {}, First[id],
+      ToLowerCase[itRowKind[row]] === "eagle" && StringQ[Lookup[row, "Id", None]], row["Id"],
+      True, None]];
+
+(* 行のサムネイル: 明示の "Thumbnail" > 同じフォルダの Eagle の *_thumbnail.png > 画像ファイルそのもの >
+   Eagle ID から SourceVault に尋ねる > PDF の 1 ページ目 ({"PDF", file}) > None (空カード) *)
+itRowThumbSource[row_Association] :=
+  Module[{t, file, th, id, f},
+    t = itRowGet[row, {"Thumbnail", "ThumbnailPath", "サムネイル"}, None];
+    If[StringQ[t] && FileExistsQ[t], Return[t]];
+    file = itRowFilePath[row];
+    If[StringQ[file],
+      (* Eagle の名前は <原本の名前>_thumbnail.png。まず決め打ちで見る (FileExistsQ 0.2 ms、FileNames は 20 ms) *)
+      th = FileNameJoin[{DirectoryName[file], FileBaseName[file] <> "_thumbnail.png"}];
+      If[FileExistsQ[th], Return[th]];
+      If[MemberQ[$itImageExts, itExt[file]], Return[file]];
+      th = Quiet @ Check[FileNames["*_thumbnail.png", DirectoryName[file]], {}];
+      If[ListQ[th] && th =!= {}, Return[First[th]]]];
+    id = itRowEagleId[row];
+    f = icSym["SourceVault`SourceVaultEagleThumbnailPath"];
+    If[StringQ[id] && f =!= None,
+      th = Quiet @ Check[f[id], $Failed];
+      If[StringQ[th] && FileExistsQ[th], Return[th]]];
+    If[StringQ[file] && itExt[file] === "pdf", Return[{"PDF", file}]];
+    None];
+
+(* 形式を指定すると速い (実測 260 枚: Import 134 ms/枚 -> "PNG" 指定 67 ms/枚)。ただし形式は拡張子でなく先頭のバイトで決める:
+   Eagle の <name>_thumbnail.png は中身が WebP (2026-09-25 実測: SF フォルダ 289 件すべて RIFF....WEBP)。拡張子で "PNG" と
+   決め打った版は 289 件中 287 件が読めず、一覧が空カードだらけになった。形式指定で読めなければ Import に任せる *)
+itImageFormat[src_String] :=
+  Module[{b = Quiet @ Check[With[{st = OpenRead[src, BinaryFormat -> True]},
+      WithCleanup[BinaryReadList[st, "Byte", 12], Close[st]]], {}]},
+    Which[
+      !ListQ[b] || Length[b] < 4, Automatic,
+      b[[1 ;; 4]] === {137, 80, 78, 71}, "PNG",
+      b[[1 ;; 3]] === {255, 216, 255}, "JPEG",
+      b[[1 ;; 4]] === {82, 73, 70, 70} && Length[b] >= 12 && b[[9 ;; 12]] === {87, 69, 66, 80}, "WebP",
+      b[[1 ;; 3]] === {71, 73, 70}, "GIF",
+      b[[1 ;; 2]] === {66, 77}, "BMP",
+      True, Automatic]];
+itFirstImage[x_] := Which[ImageQ[x], x, ListQ[x] && x =!= {} && ImageQ[First[x]], First[x], True, $Failed];
+itThumbImage[src_String] :=
+  With[{fmt = itImageFormat[src]},
+    Replace[itFirstImage[Quiet @ Check[If[fmt === Automatic, Import[src], Import[src, fmt]], $Failed]],
+      $Failed :> If[fmt === Automatic, $Failed, itFirstImage[Quiet @ Check[Import[src], $Failed]]]]];
+(* PDF の 1 ページ目 (40 dpi)。配信ディレクトリにキャッシュする *)
+itThumbImage[{"PDF", file_String}] := idPdfFirstPage[file, ResoniteRealtime`ResoniteRealtimeAsset[]];
+itThumbImage[_] := $Failed;
+
+$itThumbColors = <|"Page" -> RGBColor[0.07, 0.08, 0.1], "Card" -> RGBColor[0.16, 0.18, 0.22],
+  "Label" -> RGBColor[0.11, 0.12, 0.15], "Header" -> RGBColor[0.12, 0.16, 0.24]|>;
+itExtColor[ext_String] :=
+  Switch[ToLowerCase[ext],
+    "pdf", RGBColor[0.55, 0.2, 0.2],
+    "mp4" | "mov" | "webm" | "mkv", RGBColor[0.2, 0.35, 0.55],
+    _, RGBColor[0.3, 0.33, 0.38]];
+itByteRGB[img_Image] := Image[ColorConvert[RemoveAlphaChannel[img, White], "RGB"], "Byte"];
+itFlat[color_, {w_Integer, h_Integer}] := Image[ConstantImage[color, {w, h}], "Byte"];
+
+(* 縦横比を保って箱 {w, h} に収め、余白を bg で埋める (小さい画像は拡大する) *)
+itFitBox[img_Image, {w_Integer, h_Integer}, bg_] :=
+  Module[{iw, ih, s, r, pw, ph},
+    {iw, ih} = ImageDimensions[img];
+    s = Min[w/iw, h/ih];
+    r = ImageResize[img, MapThread[Max[1, Min[#1, #2]] &, {Round[{iw, ih}*s], {w, h}}]];
+    {pw, ph} = ImageDimensions[r];
+    ImagePad[r, {{Floor[(w - pw)/2], Ceiling[(w - pw)/2]}, {Floor[(h - ph)/2], Ceiling[(h - ph)/2]}}, bg]];
+
+itThumbLayout[n_Integer, o_Association] :=
+  Module[{tw, th, lh, g = 16, m = 24, hh = 150, cw, ch, cols, rows},   (* hh: 見出し = 題名 + 状態欄 (2026-09-25 150 px) *)
+    {tw, th} = Round[o["ThumbSize"]]; lh = Round[o["LabelHeight"]];
+    cw = tw + g; ch = th + lh + g;
+    (* 列数: 縦は MaxRows (7) 段まで積み、それ以上は横にいくらでも広げる (2026-09-25 ユーザー指示「縦 7、横は無制限、
+       全部出す」)。段数の目安は升目の縦横比で正方形に近づける値 (25 件 = 7 列 x 4 段、49 件 = 9 x 6、289 件 = 42 x 7) *)
+    cols = If[IntegerQ[o["Columns"]] && o["Columns"] > 0, o["Columns"],
+      Max[1, Ceiling[Max[n, 1]/Clip[Ceiling[Sqrt[Max[n, 1]*cw/ch]], {1, Max[1, Lookup[o, "MaxRows", 7]]}]]]];
+    cols = Max[1, Min[cols, Max[n, 1]]];
+    rows = Max[1, Ceiling[n/cols]];
+    (* SW = 升目の貼り合わせ (帯の画像) の幅。Canvas の幅 W は見出し (接続 / 形を変更 / リスト / 閉じる + 状態) が入るよう最低 $itThumbMinWidth *)
+    <|"N" -> n, "TW" -> tw, "TH" -> th, "LH" -> lh, "G" -> g, "M" -> m, "HH" -> hh, "CW" -> cw, "CH" -> ch,
+      "Cols" -> cols, "Rows" -> rows, "SW" -> 2 m + cols cw - g, "W" -> Max[2 m + cols cw - g, $itThumbMinWidth],
+      "H" -> hh + 2 m + rows ch - g|>];
+(* 2026-09-26: 見出しのボタンが 5 つ (形を変更・キャッシュ削除 を追加) になったので 2 つ分 (320 px) 広げ、状態欄の幅を前と同じに保つ *)
+$itThumbMinWidth = 1720;
+
+(* i 番目 (1 始まり) の升目 (サムネイル + 題名) の矩形 {x0, y0, w, h} (px、左上原点) *)
+itThumbCell[L_Association, i_Integer] :=
+  With[{c = Mod[i - 1, L["Cols"]], r = Quotient[i - 1, L["Cols"]]},
+    {L["M"] + c L["CW"], L["HH"] + L["M"] + r L["CH"], L["TW"], L["TH"] + L["LH"]}];
+
+(* 矩形 (px、左上原点) -> RectTransform の anchor (UIX は左下原点、0..1) *)
+itAnchors[{x0_, y0_, w_, h_}, {W_, H_}] :=
+  <|"AnchorMin" -> N[{x0/W, 1 - (y0 + h)/H}], "AnchorMax" -> N[{(x0 + w)/W, 1 - y0/H}]|>;
+
+itThumbTile[img_, ext_String, L_Association] :=
+  Module[{box},
+    box = If[ImageQ[img],
+      Image[itFitBox[itByteRGB[img], {L["TW"], L["TH"]}, $itThumbColors["Card"]], "Byte"],
+      Image[ImageCompose[itFlat[$itThumbColors["Card"], {L["TW"], L["TH"]}],
+        itFlat[itExtColor[ext], Round[{L["TW"]*0.45, L["TH"]*0.55}]]], "Byte"]];
+    Image[ImagePad[ImageAssemble[{{box}, {itFlat[$itThumbColors["Label"], {L["TW"], L["LH"]}]}}],
+      {{0, L["G"]}, {L["G"], 0}}, $itThumbColors["Page"]], "Byte"]];
+
+(* 全升目を 1 枚に貼り合わせる (見出しの帯 + 余白込みで Canvas と同じ px) *)
+(* 横に長い面は縦帯に分ける: テクスチャ 1 枚の幅には上限がある (16384 px) ので、$itThumbStripCols 列 (36 列 = 7,776 px) ごとに
+   1 枚。戻り値 {{画像, 左端の x (px)}, ...}。帯をつなぐと Canvas と同じ px になる *)
+$itThumbStripCols = 36;
+itThumbStrips[imgs_List, exts_List, L_Association] :=
+  Module[{tiles, blank, rowsOfTiles, groups, cs, ce, grid, body},
+    tiles = MapThread[itThumbTile[#1, #2, L] &, {imgs, exts}];
+    blank = itFlat[$itThumbColors["Page"], {L["CW"], L["CH"]}];
+    tiles = PadRight[tiles, L["Cols"]*L["Rows"], blank];
+    rowsOfTiles = Partition[tiles, L["Cols"]];
+    groups = Partition[Range[L["Cols"]], UpTo[$itThumbStripCols]];
+    Map[Function[grp,
+        cs = First[grp]; ce = Last[grp];
+        grid = ImageAssemble[rowsOfTiles[[All, cs ;; ce]]];
+        body = Image[ImagePad[grid,
+          {{If[cs === 1, L["M"], 0], If[ce === L["Cols"], L["M"] - L["G"], 0]}, {L["M"] - L["G"], L["M"]}},
+          $itThumbColors["Page"]], "Byte"];
+        {ImageAssemble[{{itFlat[$itThumbColors["Header"], {ImageDimensions[body][[1]], L["HH"]}]}, {body}}],
+         If[cs === 1, 0, L["M"] + (cs - 1) L["CW"]]}],
+      groups]];
+(* 1 枚にまとめた版 (帯が 1 本のときと同じ) *)
+itThumbSheet[imgs_List, exts_List, L_Association] :=
+  With[{st = itThumbStrips[imgs, exts, L]},
+    If[Length[st] === 1, st[[1, 1]], ImageAssemble[{st[[All, 1]]}]]];
+
+(* 題名を幅 (px) で折り返す (全角 1.0、半角 0.56 文字幅の見積もり)。maxLines を超えたら末尾を … にする *)
+itWrapLabel[s_String, widthPx_, fs_, maxLines_Integer] :=
+  Module[{cwid, lines = {}, cur = "", w = 0.},
+    cwid = If[First[ToCharacterCode[#]] > 11903, 1.0, 0.56]*fs &;
+    Do[
+      With[{d = cwid[c]},
+        If[w + d > widthPx && cur =!= "", AppendTo[lines, cur]; cur = ""; w = 0.];
+        cur = cur <> c; w += d],
+      {c, Characters[StringReplace[s, {FromCharacterCode[10] -> " ", FromCharacterCode[13] -> ""}]]}];
+    If[cur =!= "", AppendTo[lines, cur]];
+    If[Length[lines] > maxLines,
+      lines = Append[Take[lines, maxLines - 1],
+        StringDrop[lines[[maxLines]], -Min[1, StringLength[lines[[maxLines]]]]] <> "…"]];
+    StringRiffle[lines, FromCharacterCode[10]]];
+
+itThumbTitle[row_Association] :=
+  With[{t = StringTrim[itRowTitle[row]]},
+    If[MemberQ[{"pdf", "png", "jpg", "jpeg", "webp", "mp4"}, ToLowerCase[FileExtension[t]]],
+      StringDrop[t, -(StringLength[FileExtension[t]] + 1)], t]];
+
+(* タブレットの左隣 (タブレットの親の子)。姿勢は監視の TabletPose (5 s ごとの Depth 0) から。まだ無ければタブレットの子 *)
+itThumbPose[wM_, hM_, o_Association] :=
+  Module[{g = itGadget[], tp = Lookup[$itState, "TabletPose", None], d, p, q, sc, parent, tw, th, off},
+    If[!AssociationQ[g], Return[<|"Parent" -> o["Parent"], "Position" -> N[o["Position"]], "Rotation" -> None|>]];
+    tw = Lookup[g, "CanvasSize", {1000, 1500}][[1]]*Lookup[g, "PanelScale", 0.0006];
+    th = Lookup[g, "CanvasSize", {1000, 1500}][[2]]*Lookup[g, "PanelScale", 0.0006];
+    off = N[{-(tw/2 + 0.12 + wM/2), hM/2 - th/2, 0.}];
+    d = If[AssociationQ[tp], Lookup[tp, "Data", None], None];
+    If[AssociationQ[d] && Lookup[d, "id", None] === g["Root"],
+      p = itSlotVec[d, "position", {"x", "y", "z"}, None];
+      q = itSlotVec[d, "rotation", {"x", "y", "z", "w"}, {0., 0., 0., 1.}];
+      sc = itSlotVec[d, "scale", {"x", "y", "z"}, {1., 1., 1.}];
+      parent = Lookup[Replace[Lookup[d, "parent", <||>], Except[_Association] -> <||>], "targetId", None];
+      If[ListQ[p] && StringQ[parent],
+        Return[<|"Parent" -> parent, "Position" -> p + itQRotate[q, sc*off], "Rotation" -> q|>]]];
+    <|"Parent" -> g["Root"], "Position" -> off, "Rotation" -> None|>];
+
+itThumbButton[panel_String, key_String, label_String, rect_List, L_Association, color_RGBColor, fs_] :=
+  Module[{s, lbl},
+    s = icSlot[key, panel];
+    icComp[s, $icUIX <> "RectTransform", itAnchors[rect, {L["W"], L["H"]}]];
+    icImage[s, color];
+    icComp[s, $icUIX <> "Button", <||>];
+    lbl = icSlot["Label", s];
+    icComp[lbl, $icUIX <> "RectTransform", <|"AnchorMin" -> {0., 0.}, "AnchorMax" -> {1., 1.}|>];
+    itText[lbl, label, fs, "Center", "Middle"];
+    s];
+
+(* 見出しの右端のボタン 5 つ (右から キャッシュ削除 -5 / 閉じる -2 / リスト -1 / 形を変更 -4 / 接続 -3)。L は見出しの Canvas の寸法 (W, HH, M)。
+   戻り値 {接続ボタン, wires (結線する {スロット, 番号} を足したもの)}。平面と曲面の見出しで共有 *)
+$itHeaderButtons = 5;
+itThumbHeaderButtons[panel_String, L_Association, fs_, wires0_List] :=
+  Module[{wires = wires0, connectBtn, y = 18, h = L["HH"] - 36, x},
+    x[k_] := L["W"] - L["M"] - 160 k + 10;   (* 右から k 番目 (1 始まり) の左端 *)
+    connectBtn = itThumbButton[panel, "Connect", "接続", {x[5], y, 150, h}, L, RGBColor[0.3, 0.35, 0.55, 1], fs*1.6];
+    AppendTo[wires, {connectBtn, -3}];
+    (* 2026-09-26: 形の切り替え (平面 -> 円筒 -> 球の内側 -> メビウスの帯 -> 平面、$ResoniteThumbnailShapes) *)
+    AppendTo[wires, {itThumbButton[panel, "Shape", "形を変更", {x[4], y, 150, h}, L,
+      RGBColor[0.42, 0.33, 0.55, 1], fs*1.45], -4}];
+    AppendTo[wires, {itThumbButton[panel, "ToList", "リスト", {x[3], y, 150, h}, L,
+      RGBColor[0.25, 0.4, 0.35, 1], fs*1.6], -1}];
+    AppendTo[wires, {itThumbButton[panel, "Close", "閉じる", {x[2], y, 150, h}, L,
+      RGBColor[0.5, 0.25, 0.25, 1], fs*1.6], -2}];
+    (* 2026-09-26: 他のユーザーと共有するサーバの PDF の写しを全部消す (ResoniteRealtime_pdfcache.wl の ipcClearAllStart) *)
+    AppendTo[wires, {itThumbButton[panel, "ClearCache", "キャッシュ
+削除", {x[1], y, 150, h}, L,
+      RGBColor[0.55, 0.38, 0.18, 1], fs*1.3], -5}];
+    {connectBtn, wires}];
+
+(* ButtonValueSet<int> -> Selected.Value (1 巡目、State を読む)。「接続」は押した瞬間に覆いの文字も書き換える
+   (ButtonValueSet<string> -> 覆いの Text.Content。2 巡目、覆いの文字のスロットを読む)。Wolfram が気付くまでの間も反応が見える。
+   tick の組み立てなら巡に回し ($itWireRounds)、トップレベルならメンバ ID を待って今足す *)
+itThumbWire[state_String, sel_String, wires_List, connectBtn_String, vt_String, vid_String] :=
+  Module[{fid},
+    If[ListQ[$itWireLater],
+      $itWireRounds = {
+        Map[<|"Action" -> "Add", "Slot" -> #[[1]], "Type" -> $icFE <> "ButtonValueSet<int>",
+          "Members" -> <|"SetValue" -> #[[2]]|>, "Refs" -> <|"TargetValue" -> {sel, "Value"}|>|> &, wires],
+        {<|"Action" -> "Add", "Slot" -> connectBtn, "Type" -> $icFE <> "ButtonValueSet<string>",
+          "Members" -> <|"SetValue" -> $idVeilPressedText|>, "Refs" -> <|"TargetValue" -> {vid, "Content"}|>|>}};
+      Return[None]];
+    fid = icMemberId[state, sel, "Value"];
+    If[!StringQ[fid], Throw[iFailure["NoMemberId", "ValueField<int>.Value のメンバ ID が取れませんでした。"], icTag]];
+    Scan[icComp[#[[1]], $icFE <> "ButtonValueSet<int>",
+      <|"SetValue" -> #[[2]], "TargetValue" -> ResoniteRealtime`ResoniteRealtimeRef[fid]|>] &, wires];
+    With[{cid = icMemberId[vt, vid, "Content"]},
+      If[StringQ[cid], icComp[connectBtn, $icFE <> "ButtonValueSet<string>",
+        <|"SetValue" -> $idVeilPressedText, "TargetValue" -> ResoniteRealtime`ResoniteRealtimeRef[cid]|>]]];
+    fid];
+
+(* 2026-09-25: 画像が帯のキャッシュに無ければ、読み込みと貼り合わせ (289 件で ~40 s) は作業用カーネルに任せ、出来てから組む
+   (ResoniteRealtime_docboard.wl の idMaybeSheetJob)。監視の tick の中で 40 s 塞ぐと FE の Dynamic が待たされ
+   「動的評価の放棄」ダイアログが出て、VR の中からは閉じられなかった *)
+(* 曲面 ("Shape" が平面以外) で中心が決まっていなければ、先にアバターの位置を読む (tick の中なら待たずに、ResoniteRealtime_surface.wl) *)
+ResoniteRealtime`ResoniteThumbnailGadget[rowsIn_, opts : OptionsPattern[]] /;
+    itSurfaceShapeQ[OptionValue["Shape"]] && !AssociationQ[OptionValue["Center"]] :=
+  If[itAsyncContextQ[],
+    itSurfaceJobStart[itRowsOf[rowsIn], {opts}, None, None],
+    ResoniteRealtime`ResoniteThumbnailGadget[rowsIn, Sequence @@ itWithCenter[{opts}, itSurfaceCenterSync[None]]]];
+ResoniteRealtime`ResoniteThumbnailGadget[rowsIn_, opts : OptionsPattern[]] :=
+  If[itAsyncContextQ[],
+    With[{w = Quiet @ Check[idMaybeSheetJob[rowsIn, {opts}], None]},
+      If[AssociationQ[w], w,
+        itDeferBuild[itThumbGadgetBuild[rowsIn, opts], "サムネイル一覧",
+          <|"Kind" -> "ThumbnailGadget", "Rows" -> Length[itRowsOf[rowsIn]]|>]]],
+    itThumbGadgetBuild[rowsIn, opts]];
+
+(* 組み立ての前半 (速い): 見せる行・配置・サムネイルの取得元・帯のキャッシュの鍵とファイル名 *)
+(* 升目 (縮小画像・題名) は開示してよい (2026-09-26 方針)。秘匿は中身だけで、開くとき (itThumbOpen -> itGate) に判定する *)
+If[!BooleanQ[ResoniteRealtime`$ResoniteThumbnailsDisclosable], ResoniteRealtime`$ResoniteThumbnailsDisclosable = True];
+itThumbsDisclosableQ[] := TrueQ[ResoniteRealtime`$ResoniteThumbnailsDisclosable];
+
+itThumbPlan[rowsIn_, o_Association] :=
+  Module[{rows, hidden, shown, over, L, srcs, exts, key, nStrips, files},
+    rows = itRowsOf[rowsIn];
+    hidden = If[itThumbsDisclosableQ[], 0, Count[rows, r_ /; !itAllowedQ[itRowPL[r]]]];
+    If[!itThumbsDisclosableQ[], rows = Select[rows, itAllowedQ[itRowPL[#]] &]];
+    shown = If[IntegerQ[o["MaxItems"]] && o["MaxItems"] > 0, Take[rows, UpTo[o["MaxItems"]]], rows];
+    over = Length[rows] - Length[shown];
+    (* 曲面が段数を決める形 (メビウスの帯) なら、その列数で並べる (ResoniteRealtime_surface.wl の itSurfaceLayoutOpts) *)
+    L = itThumbLayout[Length[shown], Quiet @ Check[itSurfaceLayoutOpts[o, Length[shown]], o]];
+    srcs = itRowThumbSource /@ shown;
+    exts = Map[With[{f = itRowFilePath[#]},
+        If[StringQ[f], itExt[f], ToLowerCase[ToString[Lookup[#, "Ext", ""]]]]] &, shown];
+    (* 帯ごとの JPEG のキャッシュ: 鍵は元画像のパス・大きさ・更新日時と配置 (画像を読まずに決まる)。揃っていれば
+       読み込みごと省く (2026-09-25: 260 件の読み込みが 17 s。開き直しのたびに読んでいた) *)
+    key = StringTake[Hash[{Map[If[StringQ[#] && FileExistsQ[#], {#, FileByteCount[#], Quiet[FileDate[#]]},
+          If[MatchQ[#, {"PDF", _String}] && FileExistsQ[#[[2]]], {#, FileByteCount[#[[2]]], Quiet[FileDate[#[[2]]]]}, #]] &, srcs],
+        exts, L, $itThumbStripCols, "v2"}, "SHA256", "HexString"], 16];   (* v2: WebP の読み違いで空カードの版を使わない *)
+    nStrips = Ceiling[L["Cols"]/$itThumbStripCols];
+    files = Table[FileNameJoin[{ResoniteRealtime`ResoniteRealtimeAsset[],
+      "thumbs_" <> key <> If[nStrips === 1, "", "_" <> ToString[k]] <> ".jpg"}], {k, nStrips}];
+    <|"Rows" -> rows, "Hidden" -> hidden, "Shown" -> shown, "Over" -> over, "Layout" -> L, "Srcs" -> srcs, "Exts" -> exts,
+      "Key" -> key, "NStrips" -> nStrips, "Files" -> files,
+      (* 打ち切った版・読めなかった画像がある版の名前 (次に開いたときキャッシュとして使わない) *)
+      "FilesP" -> StringReplace[files, "thumbs_" <> key -> "thumbs_" <> key <> "p"],
+      "StripX" -> Table[If[k === 1, 0, L["M"] + (k - 1)*$itThumbStripCols*L["CW"]], {k, nStrips}]|>];
+If[!ValueQ[$idSheetOverride], $idSheetOverride = None];
+
+itThumbGadgetBuild[rowsIn_, opts : OptionsPattern[ResoniteRealtime`ResoniteThumbnailGadget]] :=
+  Catch[
+    Module[{o, rows, hidden, shown, over, L, srcs, imgs, exts, t0, cut = False, key, files, urls, url, nStrips, stripX, texs,
+            wM, hM, ps, pose, root, state, sel, panel, tex, s, wires = {}, fid, fs, title, rec, cell, lbl,
+            content, veil, statusText, titleText, bw, connectBtn, vt, vid},
+      If[!itLinkQ[], Return[iFailure["NotConnected", "サムネイル一覧の組み立てには ResoniteLink が要ります。"]]];
+      If[!itEnsureImageServer[], Return[iFailure["NoServer", "画像配信 (ResoniteRealtimeStart[]) が要ります。"]]];
+      o = Association @ Join[Options[ResoniteRealtime`ResoniteThumbnailGadget], {opts}];
+      {rows, hidden, shown, over, L, srcs, exts, key, nStrips, files, stripX} =
+        Lookup[itThumbPlan[rowsIn, o], {"Rows", "Hidden", "Shown", "Over", "Layout", "Srcs", "Exts", "Key", "NStrips", "Files", "StripX"}];
+      fs = N[o["FontSize"]];
+      (* 作業用カーネルが作った帯 (打ち切った版なら "p" の名前) *)
+      If[AssociationQ[$idSheetOverride] && $idSheetOverride["Key"] === key && ListQ[$idSheetOverride["Files"]] &&
+         AllTrue[$idSheetOverride["Files"], FileExistsQ],
+        files = $idSheetOverride["Files"]];
+      If[!AllTrue[files, FileExistsQ],
+        (* Eagle / 画像のサムネイルはすぐ読める。PDF の 1 ページ目は時間がかかるので合計 20 s まで (以降は空カード) *)
+        t0 = iNow[];
+        imgs = Map[Which[
+            # === None, $Failed,
+            MatchQ[#, {"PDF", _String}] && iNow[] - t0 > 20, cut = True; $Failed,
+            True, itThumbImage[#]] &, srcs];
+        (* 打ち切った版・読めなかった画像がある版は別の名前で書く (次に開いたときキャッシュとして使わず、読み直す) *)
+        If[MemberQ[MapThread[#1 =!= None && !ImageQ[#2] &, {srcs, imgs}], True], cut = True];
+        If[cut, files = StringReplace[files, "thumbs_" <> key -> "thumbs_" <> key <> "p"]];
+        MapThread[Quiet @ Check[Export[#1, #2[[1]], "JPEG", "CompressionLevel" -> 0.15], Null] &,
+          {files, itThumbStrips[imgs, exts, L]}]];
+      If[!AllTrue[files, FileExistsQ], Return[iFailure["Sheet", "サムネイルの画像を作れませんでした。"]]];
+      (* 曲面 (円筒 / 球の内側 / メビウスの帯 / 任意の面): 升目ごとのタイルを面に置く (ResoniteRealtime_surface.wl) *)
+      If[itSurfaceShapeQ[o["Shape"]],
+        Return[itThumbSurfaceBuild[o, itThumbPlan[rowsIn, o], files, fs]]];
+      If[itSurfaceName[o["Shape"]] =!= "Plane",
+        Return[iFailure["UnknownShape", "形 " <> itSurfaceName[o["Shape"]] <> " は登録されていません。"]]];
+      urls = ResoniteRealtime`ResoniteRealtimeAsset /@ files;
+      url = First[urls];
+      (* 高すぎる面だけ縮める (2.4 m)。横はいくら長くてもよい *)
+      ps = N[Min[o["ThumbMeters"]/L["TW"], 2.4/L["H"]]];
+      wM = L["W"]*ps; hM = L["H"]*ps;
+      (* 曲面から平面に戻すときは、その中心 (アバター) の正面。ふだんはタブレットの左隣 *)
+      pose = If[AssociationQ[o["Center"]], itFlatPoseFromCenter[o["Center"]], itThumbPose[wM, hM, o]];
+      root = icSlot[o["Name"], pose["Parent"], "Position" -> pose["Position"],
+        Sequence @@ If[ListQ[pose["Rotation"]], {"Rotation" -> pose["Rotation"]}, {}],
+        "Id" -> ResoniteRealtime`ResoniteRealtimeNewId["Thumbs"]];
+      $itBuildRoot = root;
+      icComp[root, $icFE <> "Grabbable", <|"Scalable" -> True|>];
+      icComp[root, $icFE <> "AI_GeneratedContent",
+        <|"Source" -> "Mathematica ResoniteRealtime thumbnail gadget (SourceVault rows)"|>];
+      state = icSlot["State", root];
+      sel = icComp[state, $icFE <> "ValueField<int>", <|"Value" -> 0|>, ResoniteRealtime`ResoniteRealtimeNewId["ThumbSel"]];
+      panel = icSlot["Panel", root, "Scale" -> {ps, ps, ps}];
+      itBacking[root, {wM, hM}];
+      icComp[panel, $icUIX <> "Canvas",
+        <|"Size" -> N[{L["W"], L["H"]}], "AcceptRemoteTouch" -> True, "AcceptPhysicalTouch" -> True|>];
+      icMakeMaterials[panel];
+      icImage[panel, $itThumbColors["Page"]];
+      (* 升目 (帯の画像 + 升目のボタンと題名) は Content の下にまとめる。保存して出し直したときは Flux が Content を隠し、
+         「接続」で Wolfram が確かめてから見せる (ResoniteRealtime_docboard.wl) *)
+      content = icSlot["Content", panel, "Id" -> ResoniteRealtime`ResoniteRealtimeNewId["Content"]];
+      icComp[content, $icUIX <> "RectTransform", <|"AnchorMin" -> {0., 0.}, "AnchorMax" -> {1., 1.}|>];
+      (* 帯ごとに Image (Sprite <- SpriteProvider <- StaticTexture2D)。見出しや升目より先に作る (UIX は子の順に描く) *)
+      texs = MapThread[Function[{u, x0, k},
+          With[{sh = icSlot["Sheet" <> ToString[k], content],
+                w = If[k === nStrips, L["SW"] - x0, stripX[[k + 1]] - x0]},
+            icComp[sh, $icUIX <> "RectTransform", itAnchors[{x0, 0, w, L["H"]}, {L["W"], L["H"]}]];
+            With[{t = icComp[sh, $icFE <> "StaticTexture2D", <|"URL" -> ResoniteRealtime`ResoniteRealtimeValue["Uri", u]|>,
+                  ResoniteRealtime`ResoniteRealtimeNewId["ThumbTex"]]},
+              With[{sp = icComp[sh, $icFE <> "SpriteProvider", <|"Texture" -> ResoniteRealtime`ResoniteRealtimeRef[t]|>]},
+                icComp[sh, $icUIX <> "Image",
+                  Join[<|"Sprite" -> ResoniteRealtime`ResoniteRealtimeRef[sp], "PreserveAspect" -> False,
+                      "Tint" -> RGBColor[1, 1, 1, 1]|>,
+                    If[StringQ[Lookup[$icMats, "Image", None]],
+                      <|"Material" -> ResoniteRealtime`ResoniteRealtimeRef[$icMats["Image"]]|>, <||>]]]];
+              t]]],
+        {urls, stripX, Range[nStrips]}];
+      tex = First[texs];
+      (* 見出しとボタン *)
+      title = ToString[o["Title"]] <> "  (" <> ToString[Length[shown]] <> " 件" <>
+        If[hidden > 0, ", 機密度で非表示 " <> ToString[hidden], ""] <>
+        If[over > 0, ", ほか " <> ToString[over] <> " 件はリストで", ""] <> ")";
+      bw = L["W"] - 2 L["M"] - $itHeaderButtons*160;   (* 題名と状態欄の幅 (右にボタン 5 つ) *)
+      s = icSlot["Title", panel];
+      icComp[s, $icUIX <> "RectTransform", itAnchors[{L["M"], 8, Max[100, bw], 60}, {L["W"], L["H"]}]];
+      titleText = itText[s, itTruncate[title, 90], fs*1.8, "Left", "Middle", ResoniteRealtime`ResoniteRealtimeNewId["ThumbTitle"]];
+      (* 状態欄 (2026-09-25 ユーザー指示「接続を押したのに何も変化がないとわかりにくい。開いている PDF 名を出すステータスバーを」):
+         背景の帯 (StatusBar) の上に文字 (Status)。UIX は 1 スロットに Graphic 1 つなので分ける。経過秒は tick が書く *)
+      s = icSlot["StatusBar", panel];
+      icComp[s, $icUIX <> "RectTransform", itAnchors[{L["M"], 76, Max[100, bw], L["HH"] - 88}, {L["W"], L["H"]}]];
+      icImage[s, RGBColor[0.05, 0.07, 0.11, 1]];
+      s = icSlot["Status", panel];
+      icComp[s, $icUIX <> "RectTransform", itAnchors[{L["M"] + 12, 76, Max[100, bw] - 24, L["HH"] - 88}, {L["W"], L["H"]}]];
+      statusText = itText[s, "接続済み [" <> itAccessLabel[] <> "]", fs*1.5, "Left", "Middle",
+        ResoniteRealtime`ResoniteRealtimeNewId["ThumbStatus"], RGBColor[0.75, 0.85, 1., 1]];
+      {connectBtn, wires} = itThumbHeaderButtons[panel, L, fs, wires];
+      (* 升目: 透明なボタン + 題名 *)
+      Do[
+        cell = icSlot["Cell" <> ToString[i], content];
+        icComp[cell, $icUIX <> "RectTransform", itAnchors[itThumbCell[L, i], {L["W"], L["H"]}]];
+        icImage[cell, RGBColor[1, 1, 1, 0.01]];
+        icComp[cell, $icUIX <> "Button", <||>];
+        lbl = icSlot["Label", cell];
+        icComp[lbl, $icUIX <> "RectTransform",
+          <|"AnchorMin" -> {0., 0.}, "AnchorMax" -> {1., N[L["LH"]/(L["TH"] + L["LH"])]}|>];
+        itText[lbl, itWrapLabel[itThumbTitle[shown[[i]]], L["TW"] - 8, fs, 3], fs, "Center", "Top"];
+        AppendTo[wires, {cell, i}],
+        {i, Length[shown]}];
+      (* 覆い (保存して出し直したときだけ見える) / 行データ (署名つき) / 読み込み・複製で升目を隠す Flux *)
+      {veil, vt, vid} = idBoardVeil[panel, L, fs];   (* 覆い / その文字のスロット / Text *)
+      idBoardData[root, idBoardBody[shown, o["Title"], L, ps]];
+      (* 升目を開示してよい方針なら、出し直したときに升目を隠す Flux は付けない (インベントリから出してすぐ見える) *)
+      If[!itThumbsDisclosableQ[], idBoardFlux[root, content, veil]];
+      fid = itThumbWire[state, sel, wires, connectBtn, vt, vid];
+      rec = <|"Ids" -> <|"State" -> state, "Selected" -> sel, "Texture" -> tex, "Panel" -> panel, "Content" -> content,
+          "Veil" -> veil, "VeilText" -> vid, "StatusText" -> statusText, "TitleText" -> titleText|>,
+        "Root" -> root, "Rows" -> shown, "AllRows" -> rows, "Title" -> o["Title"], "Hidden" -> hidden, "Overflow" -> over,
+        "URL" -> url, "URLs" -> urls, "Textures" -> texs, "Layout" -> L, "Meters" -> {wM, hM}, "Scale" -> ps,
+        "Parent" -> pose["Parent"], "Phase" -> "Ready", "Level" -> itAccessLevel[], "Covers" -> <||>, "Stash" -> None, "Name" -> o["Name"],
+        "Created" -> DateObject[], "Shape" -> "Plane", "Pose" -> pose,
+        (* 曲面から戻した平面は、その中心を覚えておく (次にまた曲面にするときアバターが読めなければここ) *)
+        "Center" -> If[AssociationQ[o["Center"]], o["Center"], None]|>;
+      $itState["Thumbs"] = Append[itThumbs[], root -> rec];
+      (* 帯の画像を Resonite の資産に取り込む (インベントリに保存できるように。http の配信 URL は Wolfram が居ないと出ない) *)
+      MapThread[Quiet @ Check[idQueueTexImport[#1, #2, root], Null] &, {texs, files}];
+      itSetStatus["サムネイル一覧: " <> itTruncate[ToString[o["Title"]], 40] <> " (" <> ToString[Length[shown]] <> " 件)"];
+      <|"Root" -> root, "WireSlot" -> state, "WireSlots" -> {state, vt}, "View" -> "Thumbnails", "Count" -> Length[shown],
+        "Hidden" -> hidden, "Overflow" -> over, "Title" -> o["Title"]|>],
+    icTag];
+
+ResoniteRealtime`ResoniteThumbnailGadgetRemove[root_String] :=
+  Module[{r = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeRemoveSlot[root], $Failed]},
+    $itState["Thumbs"] = KeyDrop[itThumbs[], root];
+    r];
+ResoniteRealtime`ResoniteThumbnailGadgetRemove[] :=
+  Map[ResoniteRealtime`ResoniteThumbnailGadgetRemove, Keys[itThumbs[]]];
+
+(* 升目のクリック。結果は $itState["LastShow"] に残す (一覧の ▶ と同じ) *)
+If[!ValueQ[$itOpenAnchor], $itOpenAnchor = None];
+itThumbOpen[root_String, i_Integer] :=
+  Module[{rec = Lookup[itThumbs[], root, None], row, r, t0 = iNow[]},
+    If[!AssociationQ[rec] || i < 1 || i > Length[rec["Rows"]], Return[None]];
+    (* 接続した直後はワールドの公開範囲とオーナーを確かめ終わるまで開かない (2026-09-25 ユーザー指示)。
+       2026-09-26: 断らずに覚えておき、確かめ終わったら開く (サムネイルを押すだけで接続 -> 確認 -> 開く、になる) *)
+    If[Lookup[rec, "Phase", "Ready"] =!= "Ready",
+      $itState["Thumbs", root, "PendingOpen"] = i;
+      idBoardStatus[root, "ワールドを確認しています。済んだら「" <> itTruncate[itRowTitle[rec["Rows"][[i]]], 30] <> "」を開きます"];
+      Return[<|"Pending" -> True, "Index" -> i|>]];
+    row = rec["Rows"][[i]];
+    (* 升目は見せても中身は表示上限で守る (2026-09-26 方針: 秘匿は中身だけ)。ここで止める (itShowObject の itGate でも止まる) *)
+    If[!itAllowedQ[itRowPL[row]],
+      idBoardStatus[root, "中身は開けません: 機密度 " <> itFmt[itRowPL[row]] <> " >= 表示上限 " <> itFmt[itAccessLevel[]] <>
+        " [" <> itAccessLabel[] <> "]"];
+      itSetStatus["開けません (機密度): " <> itTruncate[itRowTitle[row], 60]];
+      Return[iFailure["PrivacyExceeded", "機密度 " <> itFmt[itRowPL[row]] <> " >= 表示上限 " <> itFmt[itAccessLevel[]]]]];
+    itSetStatus["開いています: " <> itTruncate[itRowTitle[row], 60]];
+    idBoardStatus[root, "「" <> itRowTitle[row] <> "」を開いています…"];
+    (* 押した升目の真正面に出す ("Cell" = 升目の中心。距離とずらしは idJobPose) *)
+    (* 曲面の升目なら、升目と中心 (アバター) の間に中心の方を向けて出す (itThumbAnchor、ResoniteRealtime_surface.wl) *)
+    r = Block[{$itOpenAnchor = Quiet @ Check[itThumbAnchor[root, rec, i], <|"Root" -> root, "Cell" -> {0., 0., 0.}|>]},
+      Quiet @ Check[ResoniteRealtime`ResoniteShowObject[row], $Failed]];
+    $itState["LastShow"] = <|"Time" -> DateObject[], "Row" -> KeyTake[row, {"Kind", "Title", "URI", "File", "Id", "PrivacyLevel"}],
+      "Result" -> r, "Seconds" -> Round[iNow[] - t0, 0.1], "LastError" -> Lookup[$itState, "LastError", None]|>;
+    If[FailureQ[r], itSetStatus["開けません: " <> ToString[r["MessageTemplate"]]];
+      idBoardStatus[root, "開けません: " <> ToString[r["MessageTemplate"]]]];
+    (* 開くのに時間がかかる物 (PDF のジョブ / 予約した組み立て) は tick が状態欄に経過秒を書く (ResoniteRealtime_docboard.wl) *)
+    If[KeyExistsQ[itThumbs[], root],
+      $itState["Thumbs", root, "Opening"] =
+        If[AssociationQ[r] && TrueQ[Lookup[r, "Deferred", False]] && StringQ[Lookup[r, "Id", None]],
+          <|"Title" -> itRowTitle[row], "Since" -> t0, "Job" -> r["Id"]|>, None];
+      If[AssociationQ[r] && !TrueQ[Lookup[r, "Deferred", False]],
+        idBoardStatus[root, "「" <> itRowTitle[row] <> "」を表示しました"]]];
+    r];
+
+(* 表示の切り替え: 今のガジェットを消して、同じ行でもう一方を組む (tick の中なら予約) *)
+itThumbToList[root_String] :=
+  Module[{rec = Lookup[itThumbs[], root, None]},
+    If[!AssociationQ[rec], Return[None]];
+    (* 一覧からサムネイルに戻したときに同じスロット名 ("SourceVault Thumbnails <フォルダ名>") になるよう、題名で覚えておく *)
+    If[StringQ[Lookup[rec, "Name", None]],
+      $itState["ThumbNames"] = Append[Replace[Lookup[$itState, "ThumbNames", <||>], Except[_Association] -> <||>],
+        ToString[rec["Title"]] -> rec["Name"]]];
+    ResoniteRealtime`ResoniteThumbnailGadgetRemove[root];
+    ResoniteRealtime`ResoniteListGadget[rec["AllRows"], "Title" -> rec["Title"], "View" -> "List"]];
+itListToThumbs[root_String] :=
+  Module[{rec = Lookup[$itState["Lists"], root, None], name},
+    If[!AssociationQ[rec], Return[None]];
+    name = Lookup[Replace[Lookup[$itState, "ThumbNames", <||>], Except[_Association] -> <||>], ToString[rec["Title"]],
+      Lookup[Options[ResoniteRealtime`ResoniteThumbnailGadget], "Name"]];
+    ResoniteRealtime`ResoniteListGadgetRemove[root];
+    ResoniteRealtime`ResoniteThumbnailGadget[rec["Rows"], "Title" -> rec["Title"], "Name" -> name]];
+
+(* 監視の応答 (State スロット、Depth 0): Selected が 0 以外なら処理して 0 に戻す *)
+itHandleThumbs[state_String, res_Association] :=
+  Module[{root = itThumbByState[state], rec, v},
+    If[!StringQ[root], Return[Null]];
+    rec = itThumbs[][root];
+    v = icMemberValue[icFindComponent[res, rec["Ids"]["Selected"]], "Value"];
+    If[!IntegerQ[v] || v === 0, Return[Null]];
+    itNoWait @ Quiet @ Check[
+      ResoniteRealtime`ResoniteRealtimeUpdateComponent[rec["Ids"]["Selected"], <|"Value" -> 0|>], Null];
+    With[{rt = root, vv = v},
+      itPressGate[
+        "サムネイル " <> If[1 <= vv <= Length[rec["Rows"]], "「" <> itTruncate[itRowTitle[rec["Rows"][[vv]]], 40] <> "」", ToString[vv]],
+        Function[s, idBoardStatus[rt, s]], itThumbAct[rt, vv]]];
+    v];
+
+itThumbAct[root_String, v_Integer] :=
+  Module[{rec = Lookup[itThumbs[], root, None]},
+    If[!AssociationQ[rec], Return[Null]];
+    Which[
+      v > 0, itThumbOpen[root, v],
+      v === -1, itThumbToList[root],
+      v === -2, ResoniteRealtime`ResoniteThumbnailGadgetRemove[root],
+      (* 「形を変更」: 次の形で組み直す (曲面はアバターの位置を待たずに読んでから。ResoniteRealtime_surface.wl) *)
+      v === -4, ResoniteRealtime`ResoniteThumbnailShape[root],
+      (* 「キャッシュ削除」: サーバの写しを全部消す (待たない。経過と結果はこの一覧の状態欄に。ResoniteRealtime_pdfcache.wl) *)
+      v === -5, With[{rt = root}, ipcClearAllStart[Function[s, idBoardStatus[rt, s]]]],
+      (* 「接続」をもう一度: ワールドを確かめ直す *)
+      v === -3,
+        $itState["Thumbs", root] = Join[rec, <|"Phase" -> "Checking", "ConnectAt" -> iNow[], "ConnectStart" -> iNow[]|>];
+        idBoardStatus[root, "ワールドの公開範囲とオーナーを確認しています..."];
+        idForceWorldRead[],
+      True, Null];
+    v];
+
+(* タブレット根の姿勢 (Depth 0)。サムネイル一覧をタブレットの隣に置くのに使う *)
+$itPoseSeconds = 5;
+itHandleTabletPose[res_Association] :=
+  With[{d = Lookup[res, "data", None]},
+    $itState["LastPose"] = iNow[];
+    If[AssociationQ[d],
+      $itState["TabletPose"] = <|"Data" -> KeyTake[d, {"id", "position", "rotation", "scale", "parent"}], "Time" -> iNow[]|>]];
+
+(* Eagle のフォルダをそのまま一覧 / サムネイルに (行は SourceVaultEagleSummaryRow)。
+   View は呼んだ時点で決める (Automatic = 直近のタブレットのプロンプトに「サムネ / 一覧」があればサムネイル) *)
+Options[ResoniteRealtime`ResoniteEagleFolderGadget] = {"Recursive" -> False, "View" -> Automatic, "Title" -> Automatic,
+  "Ext" -> All};
+ResoniteRealtime`ResoniteEagleFolderGadget[folder_String, opts : OptionsPattern[]] :=
+  With[{view = itListView[OptionValue["View"]]},
+    If[itAsyncContextQ[],
+      (* 2026-09-25: フォルダの一覧 (3.5-11 s) は作業用カーネルで。行と機密度はこのカーネル (SourceVault) で作る *)
+      With[{w = Quiet @ Check[idMaybeEagleJob[folder, view, {opts}], None]},
+        If[AssociationQ[w], w,
+          itDeferBuild[itEagleFolderBuild[folder, view, opts], "Eagle フォルダ " <> folder,
+            <|"Kind" -> "EagleFolder", "Folder" -> folder, "View" -> view|>]]],
+      itEagleFolderBuild[folder, view, opts]]];
+
+(* フォルダの item から行を作る (機密度は SourceVaultEagleSummaryRow。1 件 ~2 ms) *)
+itEagleRows[items_List, o_Association] :=
+  Module[{rowF = icSym["SourceVault`SourceVaultEagleSummaryRow"], rows},
+    If[rowF === None, Return[$Failed]];
+    rows = Select[Map[Quiet @ Check[rowF[#], $Failed] &, Select[items, AssociationQ]], AssociationQ];
+    If[Lookup[o, "Ext", All] =!= All,
+      rows = Select[rows, MemberQ[ToLowerCase /@ Flatten[{o["Ext"]}], ToLowerCase[ToString[Lookup[#, "Ext", ""]]]] &]];
+    rows];
+
+(* サムネイル一覧のスロット名: "SourceVault Thumbnails <フォルダ名>" (改行・制御文字は空白に、長すぎれば切る) *)
+itBoardSlotName[folder_String] :=
+  With[{f = StringTrim[StringReplace[folder, RegularExpression["[[:cntrl:]]+"] -> " "]]},
+    If[f === "", "SourceVault Thumbnails", "SourceVault Thumbnails " <> itTruncate[f, 60]]];
+
+itEagleFolderBuild[folder_String, view_String, opts : OptionsPattern[ResoniteRealtime`ResoniteEagleFolderGadget]] :=
+  Catch[
+    Module[{o = Association @ Join[Options[ResoniteRealtime`ResoniteEagleFolderGadget], {opts}], inF, rowF, items, rows, title},
+      inF = icSym["SourceVault`SourceVaultEagleItemsInFolder"];
+      rowF = icSym["SourceVault`SourceVaultEagleSummaryRow"];
+      If[inF === None || rowF === None, Return[iFailure["NoSourceVault", "SourceVault (Eagle) がロードされていません。"]]];
+      items = Quiet @ Check[inF[folder, "Recursive" -> TrueQ[o["Recursive"]]], $Failed];
+      If[!ListQ[items],
+        Return[iFailure["EagleFolder", "Eagle のフォルダ " <> folder <> " を読めませんでした: " <> ToString[Short[items, 2]]]]];
+      rows = Select[Map[Quiet @ Check[rowF[#], $Failed] &, Select[items, AssociationQ]], AssociationQ];
+      If[o["Ext"] =!= All,
+        rows = Select[rows, MemberQ[ToLowerCase /@ Flatten[{o["Ext"]}], ToLowerCase[ToString[Lookup[#, "Ext", ""]]]] &]];
+      title = Replace[o["Title"], Automatic -> "Eagle: " <> folder];
+      If[view === "Thumbnails",
+        (* スロット名にフォルダ名を付ける (2026-09-26 ユーザー指示。インベントリやインスペクタで見分けられるように)。
+           監視の候補は名前の前方一致 ($idBoardName) なので "SourceVault Thumbnails <フォルダ名>" でも拾える *)
+        itThumbGadgetBuild[rows, "Title" -> title, "Name" -> itBoardSlotName[folder]],
+        itListGadgetBuild[rows, "Title" -> title]]],
+    icTag];
 
 (* ============================================================
    クリックで色が切り替わる箱 (ResoniteColorToggleBox)
@@ -1642,6 +3323,9 @@ itPromptWithContext[prompt_String, level_] :=
   "  (kinds=[\"eagle\"], filters.ext=\"pdf\" 等) で検索し、結果の Id / URI (sv://object/eagle-...) / Title /\n" <>
   "  PrivacyLevel から行を組むのが速い。\n" <>
   "  行を自分で組むときのキーは Title / URI (sv://...) / Kind / Date / PrivacyLevel。View 関数 (…View) はワールドでは使えない。\n" <>
+  "- 「サムネイル」「一覧」を求められたら ResoniteListGadget[rows, \"Title\" -> \"...\", \"View\" -> \"Thumbnails\"]\n" <>
+  "  (サムネイルを 1 枚の大きな面に並べ、クリックで開く)。「リスト」なら \"View\" -> \"List\" (今の一覧)。\n" <>
+  "  Eagle のフォルダを求められたら ResoniteEagleFolderGadget[\"フォルダ名\"] (\"View\" の規則は同じ、\"Ext\" -> \"pdf\" で PDF だけ)。\n" <>
   "- 図やグラフはそのまま出力すればビューアに映る。文章は簡潔に (Markdown 装飾は最小限)。\n" <>
   "- 「ワールドに 3D で出して」「3D オブジェクトにして」と言われたら ResoniteGraphics3D[Plot3D[...]] のように\n" <>
   "  Graphics3D を ResoniteGraphics3D に渡す (アバターの正面に実体のメッシュができる)。言われなければ普通に出力する\n" <>
@@ -2000,13 +3684,45 @@ itWatchTurn[] :=
    監視 (ScheduledTask 1 本。chat と同じ 2 相ポーリング: 送るだけ / 応答を照合)
    ============================================================ *)
 
+(* タブレットの監視は Panel (ボタンと入力欄) だけを読む。根から読むと子に付いた一覧ガジェット (1 つ 200 KB) や
+   標準ビューアの複製 (1 枚 400 KB) まで毎回部品データごと読み、2026-09-24 実機で 1.2 MB / 往復 2.5 s になった *)
+itTabletPollRoot[] :=
+  With[{g = itGadget[]},
+    If[StringQ[Lookup[g, "Panel", None]], g["Panel"], g["Root"]]];
+
 itPollTargets[] :=
   Join[itScanTargets[],
-    If[itGadgetQ[], {<|"Kind" -> "Tablet", "Root" -> itGadget[]["Root"]|>}, {}],
+    If[itGadgetQ[], {<|"Kind" -> "Tablet", "Root" -> itTabletPollRoot[]|>}, {}],
     Map[<|"Kind" -> "PDF", "Root" -> #|> &, Keys[itPDFViewers[]]],
-    Map[<|"Kind" -> "List", "Root" -> #|> &, Keys[$itState["Lists"]]]];
+    Map[<|"Kind" -> "List", "Root" -> #|> &, Keys[$itState["Lists"]]],
+    itWorldInfoTargets[],
+    (* サムネイル一覧は State スロットだけ (Selected に押された番号が入る) *)
+    Map[<|"Kind" -> "Thumbs", "Root" -> #["Ids"]["State"], "Depth" -> 0, "Components" -> True|> &, Values[itThumbs[]]],
+    (* タブレット根の姿勢 (サムネイル一覧をタブレットの隣に置くため。5 s ごと、Depth 0 で軽い) *)
+    If[itGadgetQ[] && iNow[] - Lookup[$itState, "LastPose", 0] > $itPoseSeconds,
+      {<|"Kind" -> "TabletPose", "Root" -> itGadget[]["Root"], "Depth" -> 0, "Components" -> False|>}, {}]];
 
-itPoll[] :=
+SetAttributes[itTimed, HoldRest];
+$itSlowStepSeconds = 1.0;
+itTimed[name_String, expr_] :=
+  Module[{t0 = iNow[], r, dt},
+    r = expr;
+    dt = iNow[] - t0;
+    If[dt > $itSlowStepSeconds,
+      $itState["SlowTicks"] = Take[Append[Replace[Lookup[$itState, "SlowTicks", {}], Except[_List] -> {}],
+        <|"Time" -> DateString[{"Hour", ":", "Minute", ":", "Second"}], "Step" -> name, "Seconds" -> Round[dt, 0.01],
+          "Builds" -> Lookup[Values[$itBuilds], "Label", {}]|>], -Min[30, Length[Lookup[$itState, "SlowTicks", {}]] + 1]]];
+    r];
+
+(* tick の送信はまとめ書き (ResoniteRealtime_ws.wl の RRWSBatch)。tick は応答を待たないので 1 回の書き込みで済む *)
+(* tick の中で Throw (icCheck 等) や Abort が抜けると Busy が True のまま残り、以後の tick が何もせず戻って監視が黙って止まる。
+   自分が立てた Busy は必ず戻し、抜けた Throw は LastError に残す (2026-09-25) *)
+itPoll[] := ResoniteRealtime`RRWSBatch[
+  Module[{mine = !TrueQ[$itState["Busy"]]},
+    WithCleanup[
+      Catch[Catch[itPoll0[], _, ($itState["LastError"] = iFailure["TickThrow", "tick から Throw が抜けました: " <> ToString[Short[#2, 2]]]) &]],
+      If[mine, $itState["Busy"] = False]]]];
+itPoll0[] :=
   Module[{pending, targets, idx, target, sent, res},
     If[TrueQ[$itState["Busy"]], Return[Null]];
     If[!itLinkQ[],
@@ -2016,15 +3732,36 @@ itPoll[] :=
         $itState["Busy"] = False];
       Return[Null]];
     $itState["Busy"] = True;
-    Quiet @ Check[itWatchTurn[], $itState["LastError"] = "watch"];
-    Quiet @ Check[itProcessBuilds[], $itState["LastError"] = "build"];
+    (* 各段の時間を計る (1 s を超えたら SlowTicks に残す。tick は割り込み型の評価なので、長いと FE の Dynamic が待たされる) *)
+    itTimed["watch", Quiet @ Check[itWatchTurn[], $itState["LastError"] = "watch"]];
+    itTimed["build", Quiet @ Check[itProcessBuilds[], $itState["LastError"] = "build"]];
+    itTimed["worldinfo", Quiet @ Check[itMaybeWorldInfo[], $itState["LastError"] = "worldinfo"]];
+    itTimed["presence", Quiet @ Check[itPresenceTick[], $itState["LastError"] = "presence"]];
+    (* PDF の写し (ResoniteRealtime_pdfcache.wl): 裏の curl の終わりを拾い、置いたビューアの URL を差し替える *)
+    itTimed["pdfcache", Quiet @ Check[ipcTick[], $itState["LastError"] = "pdfcache"]];
+    itTimed["title", Quiet @ Check[itSyncTitle[], $itState["LastError"] = "title"]];
+    itTimed["backing", Quiet @ Check[itMaybeBacking[], $itState["LastError"] = "backing"]];
+    itTimed["stash", Quiet @ Check[itMaybeStash[], $itState["LastError"] = "stash"]];
+    itTimed["docjob", Quiet @ Check[itProcessDocJobs[], $itState["LastError"] = "docjob"]];
+    itTimed["chunk", Quiet @ Check[idProcessChunkJobs[], $itState["LastError"] = "chunk"]];
+    (* サムネイル一覧の形の切り替え (ResoniteRealtime_surface.wl): アバターの位置を待たずに読んでから組み直す *)
+    itTimed["surface", Quiet @ Check[itProcessSurfaceJobs[], $itState["LastError"] = "surface"]];
+    (* サムネイル一覧 (ResoniteRealtime_docboard.wl): 画像の取り込み・引き継ぎ・表示上限の適用・作業用カーネル *)
+    itTimed["worker", Quiet @ Check[idWorkerStep[], $itState["LastError"] = "worker"]];
+    itTimed["teximport", Quiet @ Check[idProcessTexImports[], $itState["LastError"] = "teximport"]];
+    itTimed["boardcand", Quiet @ Check[idPollBoardCands[], $itState["LastError"] = "boardcand"]];
+    itTimed["boardjob", Quiet @ Check[idProcessBoardJobs[], $itState["LastError"] = "boardjob"]];
+    itTimed["boards", Quiet @ Check[idMaybeBoards[], $itState["LastError"] = "boards"]];
     targets = itPollTargets[];
     If[targets === {}, $itState["Busy"] = False; Return[Null]];
     pending = Lookup[$itState, "Pending", None];
     If[!AssociationQ[pending],
-      idx = Mod[$itState["PollIndex"], Length[targets]] + 1;
-      target = targets[[idx]];
-      $itState["PollIndex"] = idx;
+      (* 急ぎ (押された操作を保留して在席の答えを待っている) は巡回を待たない *)
+      target = SelectFirst[targets, TrueQ[Lookup[#, "Urgent", False]] &, None];
+      If[!AssociationQ[target],
+        idx = Mod[$itState["PollIndex"], Length[targets]] + 1;
+        target = targets[[idx]];
+        $itState["PollIndex"] = idx];
       sent = Quiet @ Check[
         ResoniteRealtime`ResoniteRealtimeGetSlot[target["Root"], "Depth" -> Lookup[target, "Depth", -1],
           "IncludeComponentData" -> Lookup[target, "Components", True], "Wait" -> False], $Failed];
@@ -2041,7 +3778,8 @@ itPoll[] :=
         If[Lookup[res, "success", True] === False,
           $itState["LastError"] = res; itNoteTargetFailure[pending["Target"]],
           itNoteTargetOK[pending["Target"]];
-          Quiet @ Check[itHandleReply[pending["Target"], res], $itState["LastError"] = "handle"]],
+          itTimed["reply:" <> ToString[Lookup[pending["Target"], "Kind", "?"]],
+            Quiet @ Check[itHandleReply[pending["Target"], res], $itState["LastError"] = "handle"]]],
       iNow[] - pending["Time"] > 10,
         $itState["Pending"] = None;
         $itState["PollFailures"] = $itState["PollFailures"] + 1;
@@ -2080,31 +3818,97 @@ itServeConnect[] :=
     r];
 
 itScanTargets[] :=
-  If[!TrueQ[$itState["Serve"]], {},
+  If[!TrueQ[$itState["Serve"]] && !TrueQ[Lookup[$itState, "TemplateWanted", False]], {},
     Join[
-      If[iNow[] - Lookup[$itState, "LastScan", 0] > If[itGadgetQ[], $itScanSecondsAttached, $itScanSeconds],
+      If[iNow[] - Lookup[$itState, "LastScan", 0] > If[itGadgetQ[], $itScanSecondsAttached, $itScanSeconds] ||
+         (TrueQ[Lookup[$itState, "TemplateWanted", False]] && iNow[] - Lookup[$itState, "LastScan", 0] > 3),
         {<|"Kind" -> "Scan", "Root" -> "Root", "Depth" -> 1, "Components" -> False|>}, {}],
-      Map[<|"Kind" -> "Candidate", "Root" -> #, "Depth" -> -1, "Components" -> True|> &,
-        Replace[Lookup[$itState, "Candidates", {}], Except[_List] -> {}]]]];
+      (* 入れ物 ("Spawn - User Holder" 等) の中も 1 段だけ見る。Root Depth 2 は大きなワールドで 1 MB を超え、
+         純 WL の WebSocket 層がカーネルごと落ちた (2026-09-24 実機: 10,562 slot) *)
+      Map[<|"Kind" -> "HolderScan", "Root" -> #, "Depth" -> 1, "Components" -> False|> &,
+        Replace[Lookup[$itState, "ScanHolders", {}], Except[_List] -> {}]],
+      (* 候補タブレット: 根を Depth 1 (部品込み) で 1 回読んで Panel / 板 / 保管した雛形の ID を控え、以後は Panel だけ読む。
+         根ごと (Depth -1) 読むと子の雛形の保管 (400 KB) や一覧 (200 KB) まで毎回読む (2026-09-24) *)
+      If[TrueQ[$itState["Serve"]],
+        Map[With[{inf = itCandInfo[#]},
+            If[AssociationQ[inf] && StringQ[inf["Panel"]] && iNow[] - inf["Time"] < 120,
+              <|"Kind" -> "Candidate", "Root" -> inf["Panel"], "Depth" -> -1, "Components" -> True, "Tablet" -> #|>,
+              <|"Kind" -> "CandidateTop", "Root" -> #, "Depth" -> 1, "Components" -> True|>]] &,
+          Replace[Lookup[$itState, "Candidates", {}], Except[_List] -> {}]], {}],
+      (* インベントリから出したサムネイル一覧の「接続」 *)
+      Quiet @ Check[idBoardScanTargets[], {}]]];
+
+itCandInfo[root_String] := Lookup[Replace[Lookup[$itState, "CandInfo", <||>], Except[_Association] -> <||>], root, None];
+(* 根を Depth 1 で読んだ data から、Panel / 板 (部品込み) / 保管した雛形を拾う *)
+itTabletTopInfo[top_Association] :=
+  Module[{kids = Select[Lookup[top, "children", {}], AssociationQ], byName},
+    byName[n_String] := SelectFirst[kids, ToString[itVal[Lookup[#, "name", ""]]] === n &, None];
+    <|"Root" -> Lookup[top, "id", None], "Name" -> ToString[itVal[Lookup[top, "name", "Mathematica Tablet"]]],
+      "Panel" -> itSlotId[byName["Panel"]], "Board" -> byName["Tablet Viewer"], "Stash" -> itSlotId[byName[$itStashName]],
+      "Backing" -> itSlotId[byName["Backing"]],
+      "Time" -> iNow[]|>];
+(* 引き継ぎ用の木: 根 + Panel (全部) + 板。itParseTabletTree が読むのはこの 2 つだけ *)
+itComposeTablet[inf_Association, panelData_Association] :=
+  <|"data" -> <|"id" -> inf["Root"], "name" -> inf["Name"],
+      "children" -> Select[{panelData, inf["Board"]}, AssociationQ]|>|>;
+itHandleCandidateTop[root_String, res_Association] :=
+  With[{d = Lookup[res, "data", None]},
+    If[AssociationQ[d],
+      $itState["CandInfo"] = Append[Replace[Lookup[$itState, "CandInfo", <||>], Except[_Association] -> <||>],
+        root -> itTabletTopInfo[d]]]];
+
+(* 入れ物らしい Root の子: 名前に holder / spawn を含む物 + $ResoniteTabletScanHolders *)
+If[!ListQ[ResoniteRealtime`$ResoniteTabletScanHolders], ResoniteRealtime`$ResoniteTabletScanHolders = {}];
+itHolderQ[s_Association] :=
+  With[{n = ToLowerCase[ToString[itVal[Lookup[s, "name", ""]]]]},
+    StringContainsQ[n, "holder" | "spawn"] || MemberQ[ToLowerCase /@ ResoniteRealtime`$ResoniteTabletScanHolders, n]];
 
 itHandleScan[res_Association] :=
-  Module[{kids, cands},
+  Module[{kids},
     $itState["LastScan"] = iNow[];
-    kids = Lookup[Lookup[res, "data", <||>], "children", {}];
+    kids = itSlotsUpTo[Lookup[res, "data", <||>], 1];
+    (* インベントリから出した物はワールドによっては "Spawn - User Holder" のような入れ物の下に入る (2026-09-24 実機)。
+       その入れ物だけ次の tick で 1 段見る (Root Depth 2 は大きすぎる) *)
+    (* Lookup[{}, "id"] は Missing を返すので Map で拾う *)
+    $itState["ScanHolders"] = DeleteDuplicates[Map[Lookup[#, "id"] &, Select[kids, itHolderQ]]];
+    Quiet @ Check[idSweepWorldInfo[kids], Null];
+    itNoteScanSlots[kids, True]];
+
+itHandleHolderScan[root_String, res_Association] :=
+  Module[{kids = itSlotsUpTo[Lookup[res, "data", <||>], 1]},
+    $itState["ScanHolders"] = DeleteCases[Replace[Lookup[$itState, "ScanHolders", {}], Except[_List] -> {}], root];
+    (* 一覧が入っていたときだけ記録 (毎回は多すぎる) *)
+    With[{nb = Count[kids, s_Association /; StringStartsQ[ToString[itVal[Lookup[s, "name", ""]]], "SourceVault Thumbnails"]]},
+      If[nb > 0, Quiet @ Check[idBoardLog[root, "HolderScan", "入れ物の中にサムネイル一覧 " <> ToString[nb]], Null]]];
+    itNoteScanSlots[kids, False]];
+
+(* 走査で見えたスロットから、タブレット候補と標準 PDF ビューアの雛形を拾う。reset = Root の走査 (候補を作り直す) *)
+itNoteScanSlots[kids_List, reset_] :=
+  Module[{cands, prev},
     cands = Select[kids, AssociationQ[#] && StringQ[Lookup[#, "id", None]] &&
       StringStartsQ[ToString[itVal[Lookup[#, "name", ""]]], "Mathematica Tablet"] && Lookup[#, "id"] =!= itGadgetRoot[] &];
-    $itState["Candidates"] = DeleteDuplicates[Lookup[cands, "id"]];
+    prev = If[reset, {}, Replace[Lookup[$itState, "Candidates", {}], Except[_List] -> {}]];
+    $itState["Candidates"] = DeleteDuplicates[Join[prev, Map[Lookup[#, "id"] &, cands]]];
+    Quiet @ Check[idNoteBoardCands[kids, reset], Null];
+    If[ResoniteRealtime`$ResonitePDFMode === "Native" && !StringQ[itNativeTemplateId[]],
+      With[{tc = itNativeTemplateCandidates[kids]},
+        If[tc =!= {}, $itState["PDFTemplate"] = First[tc]; $itState["TemplateWanted"] = False]]];
     Length[cands]];
 
+(* root = 候補タブレットの根、res = その Panel を Depth -1 で読んだ応答 *)
 itHandleCandidate[root_String, res_Association] :=
-  Module[{ids, connect, pressed},
+  Module[{inf = itCandInfo[root], ids, connect, pressed},
     $itState["Candidates"] = DeleteCases[Replace[Lookup[$itState, "Candidates", {}], Except[_List] -> {}], root];
-    ids = itParseTabletTree[res];
+    If[!AssociationQ[inf] || !AssociationQ[Lookup[res, "data", None]], Return[None]];
+    ids = itParseTabletTree[itComposeTablet[inf, res["data"]]];
     If[!AssociationQ[ids], Return[None]];
     connect = Lookup[ids["Buttons"], "Connect", None];
     pressed = StringQ[connect] && icMemberValue[icFindComponent[res, connect], "Value"] === True;
     If[!pressed, Return[None]];
-    itAdoptIds[ids];
+    (* 旗は先に戻す (断ったときに次の走査で押されたままに見えないように。引き継ぎでも戻す) *)
+    itSetFlag[connect, False];
+    With[{all = Join[ids, <|"Stash" -> inf["Stash"], "Backing" -> inf["Backing"]|>]},
+      itPressGate["タブレットの接続", None, itAdoptIds[all]]];
     ids["Root"]];
 
 (* 引き継ぎ: 台帳に載せ、ノートブックと表示フックを用意し、板を隠し、ボタンの旗を戻す。tick の中から呼べる (待たない) *)
@@ -2200,12 +4004,23 @@ itParseTabletTree[res_Association] :=
 ResoniteRealtime`ResoniteTabletFind[] :=
   Module[{tree, kids},
     If[!itLinkQ[], Return[iFailure["NotConnected", "ResoniteLink が未接続です (ResoniteRealtimeLinkConnect[])。"]]];
-    tree = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot["Root", "Depth" -> 1, "Timeout" -> 30], $Failed];
-    If[!AssociationQ[tree], Return[iFailure["GetSlot", "Root の階層が取れませんでした。"]]];
-    kids = Lookup[Lookup[tree, "data", <||>], "children", {}];
+    kids = itScanSlotsNow[];
+    If[FailureQ[kids], Return[kids]];
     Map[<|"Id" -> #["id"], "Name" -> ToString[itVal[Lookup[#, "name", ""]]], "Attached" -> (#["id"] === itGadgetRoot[])|> &,
       Select[kids, AssociationQ[#] && StringQ[Lookup[#, "id", None]] &&
         StringStartsQ[ToString[itVal[Lookup[#, "name", ""]]], "Mathematica Tablet"] &]]];
+
+(* 待つ版の走査: Root の子 + 入れ物の子 (1 段ずつ。Root Depth 2 はカーネルが落ちる) *)
+itScanSlotsNow[] :=
+  Module[{tree, kids, holders, more},
+    tree = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot["Root", "Depth" -> 1, "Timeout" -> 60], $Failed];
+    If[!AssociationQ[tree], Return[iFailure["GetSlot", "Root の階層が取れませんでした。"]]];
+    kids = itSlotsUpTo[Lookup[tree, "data", <||>], 1];
+    holders = Select[kids, itHolderQ];
+    more = Flatten @ Map[Function[h,
+      With[{t = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[h["id"], "Depth" -> 1, "Timeout" -> 30], $Failed]},
+        If[AssociationQ[t], itSlotsUpTo[Lookup[t, "data", <||>], 1], {}]]], holders];
+    Join[kids, more]];
 
 Options[ResoniteRealtime`ResoniteTabletAdopt] = {"PollInterval" -> 1.0};
 ResoniteRealtime`ResoniteTabletAdopt[opts : OptionsPattern[]] :=
@@ -2214,13 +4029,20 @@ ResoniteRealtime`ResoniteTabletAdopt[opts : OptionsPattern[]] :=
       found === {}, iFailure["NoTablet", "ワールドにタブレット (\"Mathematica Tablet\") がありません。"],
       True, ResoniteRealtime`ResoniteTabletAdopt[Last[found]["Id"], opts]]];
 ResoniteRealtime`ResoniteTabletAdopt[root_String, opts : OptionsPattern[]] :=
-  Module[{tree, ids},
+  Module[{top, inf, tree, ids},
     If[!itLinkQ[], Return[iFailure["NotConnected", "ResoniteLink が未接続です (ResoniteRealtimeLinkConnect[])。"]]];
-    tree = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[root, "Depth" -> -1, "IncludeComponentData" -> True,
+    (* 根は Depth 1 (Panel / 板 / 保管した雛形の ID)、Panel だけ全部。子の雛形の保管や一覧までは読まない *)
+    top = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[root, "Depth" -> 1, "IncludeComponentData" -> True,
       "Timeout" -> 30], $Failed];
-    If[!AssociationQ[tree], Return[iFailure["GetSlot", root <> " が読めませんでした。"]]];
-    ids = itParseTabletTree[tree];
+    If[!AssociationQ[top] || !AssociationQ[Lookup[top, "data", None]], Return[iFailure["GetSlot", root <> " が読めませんでした。"]]];
+    inf = itTabletTopInfo[top["data"]];
+    If[!StringQ[inf["Panel"]], Return[iFailure["NotATablet", root <> " はタブレットの構造ではありません (Panel がありません)。"]]];
+    tree = Quiet @ Check[ResoniteRealtime`ResoniteRealtimeGetSlot[inf["Panel"], "Depth" -> -1, "IncludeComponentData" -> True,
+      "Timeout" -> 30], $Failed];
+    If[!AssociationQ[tree] || !AssociationQ[Lookup[tree, "data", None]], Return[iFailure["GetSlot", root <> " の Panel が読めませんでした。"]]];
+    ids = itParseTabletTree[itComposeTablet[inf, tree["data"]]];
     If[!AssociationQ[ids], Return[iFailure["NotATablet", root <> " はタブレットの構造ではありません。"]]];
+    ids = Join[ids, <|"Stash" -> inf["Stash"], "Backing" -> inf["Backing"]|>];
     itAdoptIds[ids];
     If[!MatchQ[Lookup[$itState, "Task", None], _TaskObject],
       ResoniteRealtime`ResoniteTabletStart["PollInterval" -> OptionValue["PollInterval"]];
@@ -2257,9 +4079,32 @@ itNoteTargetFailure[t_Association] :=
       $itState = Join[$itState, <|"Gadget" -> None, "Viewer" -> None, "Turn" -> None, "LastScan" -> 0|>];
       $itState["TargetFailures"] = KeyDrop[$itState["TargetFailures"], root];
       $itState["LastError"] = iFailure["GadgetGone", "タブレット " <> root <> " はワールドに無いので台帳から外しました (常駐監視は続く)。"]];
+    If[n >= 2 && t["Kind"] === "Thumbs",
+      With[{r = itThumbByState[root]},
+        If[StringQ[r], $itState["Thumbs"] = KeyDrop[itThumbs[], r]];
+        $itState["TargetFailures"] = KeyDrop[$itState["TargetFailures"], root];
+        $itState["LastError"] = iFailure["GadgetGone", "サムネイル一覧 " <> ToString[r] <> " はワールドに無いので台帳から外しました。"]]];
+    If[t["Kind"] === "TabletPose", $itState["LastPose"] = iNow[]];
+    (* 入れ物の走査の失敗は黙っていた (2026-09-26: 入れ物の下のサムネイル一覧が候補に入らなかった調査)。記録し、2 回で諦める
+       (次の Root の走査がまた入れ物を見つければやり直す) *)
+    If[t["Kind"] === "HolderScan",
+      Quiet @ Check[idBoardLog[root, "HolderScanFail", ToString[Short[Lookup[$itState, "LastError", ""], 3]]], Null];
+      If[n >= 2,
+        $itState["ScanHolders"] = DeleteCases[Replace[Lookup[$itState, "ScanHolders", {}], Except[_List] -> {}], root];
+        $itState["TargetFailures"] = KeyDrop[$itState["TargetFailures"], root]]];
+    If[t["Kind"] === "WorldInfo",
+      $itState["WorldInfo", "LastRead"] = iNow[];
+      If[n >= 2, $itState["WorldInfo"] = None; $itState["Presence"] = <||>; $itState["TargetFailures"] = KeyDrop[$itState["TargetFailures"], root];
+        itWorldInfoApply[None]]];
+    If[MemberQ[{"BoardCand", "BoardCandTop"}, t["Kind"]],
+      $itState["BoardCands"] = DeleteCases[Replace[Lookup[$itState, "BoardCands", {}], Except[_List] -> {}], Lookup[t, "Board", root]];
+      $itState["TargetFailures"] = KeyDrop[$itState["TargetFailures"], root]];
     (* Scan / Candidate の失敗は次の走査で拾い直す *)
-    If[MemberQ[{"Scan", "Candidate"}, t["Kind"]],
-      $itState["Candidates"] = DeleteCases[Replace[Lookup[$itState, "Candidates", {}], Except[_List] -> {}], root];
+    If[MemberQ[{"Scan", "Candidate", "CandidateTop"}, t["Kind"]],
+      $itState["Candidates"] = DeleteCases[Replace[Lookup[$itState, "Candidates", {}], Except[_List] -> {}],
+        Lookup[t, "Tablet", root]];
+      $itState["CandInfo"] = KeyDrop[Replace[Lookup[$itState, "CandInfo", <||>], Except[_Association] -> <||>],
+        Lookup[t, "Tablet", root]];
       $itState["TargetFailures"] = KeyDrop[$itState["TargetFailures"], root]]];
 
 (* 押されたボタン (Value = True) を集めて False に戻し、種類ごとに処理する *)
@@ -2271,17 +4116,30 @@ itHandleReply[target_Association, res_Association] :=
   Switch[target["Kind"],
     "Tablet", itHandleTablet[res],
     "List", itHandleList[target["Root"], res],
+    "Thumbs", itHandleThumbs[target["Root"], res],
+    "TabletPose", itHandleTabletPose[res],
+    "WorldInfo", itHandleWorldInfo[res],
     "PDF", itHandlePDF[target["Root"], res],
     "Scan", itHandleScan[res],
-    "Candidate", itHandleCandidate[target["Root"], res],
+    "HolderScan", itHandleHolderScan[target["Root"], res],
+    "CandidateTop", itHandleCandidateTop[target["Root"], res],
+    "Candidate", itHandleCandidate[Lookup[target, "Tablet", target["Root"]], res],
+    "BoardCandTop", idHandleBoardCandTop[target["Root"], res],
+    "BoardCand", idHandleBoardCand[Lookup[target, "Board", target["Root"]], res],
     _, Null];
 
 itHandleTablet[res_Association] :=
-  Module[{g = itGadget[], pressed, txt},
+  Module[{g = itGadget[], pressed},
     If[!AssociationQ[g], Return[Null]];
     pressed = itPressed[res, g["Buttons"]];
     If[pressed === {}, Return[Null]];
     Scan[itSetFlag[g["Buttons"][#], False] &, pressed];
+    With[{p = pressed, r = res, gg = g},
+      itPressGate["タブレット " <> StringRiffle[p, ", "], None, itTabletAct[p, r, gg]]];
+    pressed];
+
+itTabletAct[pressed_List, res_Association, g_Association] :=
+  Module[{txt},
     Which[
       MemberQ[pressed, "Cancel"],
         If[AssociationQ[$itState["Turn"]] && $itState["Turn"]["Phase"] =!= "Done",
@@ -2304,15 +4162,24 @@ itHandleTablet[res_Association] :=
     pressed];
 
 itHandleList[root_String, res_Association] :=
-  Module[{rec = Lookup[$itState["Lists"], root, None], ids, pressed, opens},
+  Module[{rec = Lookup[$itState["Lists"], root, None], ids, pressed},
     If[!AssociationQ[rec], Return[Null]];
     ids = rec["Ids"];
     pressed = itPressed[res, ids["Buttons"]];
     If[pressed === {}, Return[Null]];
     Scan[itSetFlag[ids["Buttons"][#], False] &, pressed];
+    With[{p = pressed, rt = root},
+      itPressGate["一覧 " <> StringRiffle[p, ", "], None, itListAct[rt, p]]];
+    pressed];
+
+(* 保留されてから実行されることがあるので、一覧の記録はそのとき読み直す *)
+itListAct[root_String, pressed_List] :=
+  Module[{rec = Lookup[$itState["Lists"], root, None], opens},
+    If[!AssociationQ[rec], Return[Null]];
     opens = Cases[pressed, s_String /; StringStartsQ[s, "Open"] :> ToExpression[StringDrop[s, 4]]];
     Which[
       MemberQ[pressed, "Close"], ResoniteRealtime`ResoniteListGadgetRemove[root],
+      MemberQ[pressed, "View"], itListToThumbs[root],
       MemberQ[pressed, "Prev"], $itState["Lists", root, "Page"] = rec["Page"] - 1; itListRender[root],
       MemberQ[pressed, "Next"], $itState["Lists", root, "Page"] = rec["Page"] + 1; itListRender[root],
       opens =!= {}, itListOpen[root, First[opens]],
@@ -2447,12 +4314,25 @@ ResoniteRealtime`ResoniteTabletStatus[] :=
       "Candidates" -> Replace[Lookup[$itState, "Candidates", {}], Except[_List] -> {}],
       "Adopted" -> If[itGadgetQ[], TrueQ[Lookup[itGadget[], "Adopted", False]], None],
       "AccessLevel" -> itAccessLevel[], "Owner" -> TrueQ[ResoniteRealtime`$ResoniteWorldOwner],
+      "AccessMode" -> ResoniteRealtime`$ResoniteWorldAccessMode,
+      "WorldInfo" -> With[{w = itWorldInfo[]}, If[AssociationQ[w], Join[KeyTake[w, {"Root", "Fired"}],
+        <|"Data" -> w["Data"], "Age" -> If[NumericQ[w["Time"]], Round[iNow[] - w["Time"], 0.1], None]|>], None]],
       "WorldAccess" -> icAccessName[],
+      "OwnerPresence" -> ResoniteRealtime`ResoniteOwnerPresence[],
+      "BoardLog" -> Replace[Lookup[$itState, "BoardLog", {}], Except[_List] -> {}],
       "Turn" -> If[AssociationQ[t], KeyTake[t, {"Prompt", "Phase", "RuntimeId", "LastStatus", "Start"}], None],
       "Viewer" -> If[AssociationQ[v], <|"Pages" -> Length[v["Pages"]], "Page" -> v["Page"], "Title" -> v["Title"]|>, None],
       "PDFViewer" -> With[{p = itPDF[]},
         If[AssociationQ[p], <|"Root" -> p["Ids"]["Root"], "Pages" -> Length[p["Pages"]], "Page" -> p["Page"], "Title" -> p["Title"]|>, None]],
       "PDFViewers" -> KeyValueMap[#1 -> <|"Pages" -> Length[#2["Pages"]], "Page" -> #2["Page"], "Title" -> #2["Title"]|> &, itPDFViewers[]],
+      "Thumbs" -> KeyValueMap[#1 -> <|"Count" -> Length[#2["Rows"]], "Title" -> #2["Title"], "URL" -> #2["URL"],
+        "Parent" -> #2["Parent"]|> &, itThumbs[]],
+      "TabletPose" -> Lookup[$itState, "TabletPose", None],
+      "PDFMode" -> ResoniteRealtime`$ResonitePDFMode,
+      "PDFTemplate" -> itNativeTemplate[], "Stash" -> itStashId[],
+      "NativeDocs" -> KeyValueMap[#1 -> KeyTake[#2, {"Title", "Pages"}] &, itNativeDocs[]],
+      "DocJobs" -> Map[KeyTake[#, {"Id", "Phase", "Title", "Tries"}] &, Replace[Lookup[$itState, "DocJobs", {}], Except[_List] -> {}]],
+      "NativeLog" -> Replace[Lookup[$itState, "NativeLog", {}], Except[_List] -> {}],
       "Lists" -> KeyValueMap[#1 -> <|"Title" -> #2["Title"], "Rows" -> Length[#2["Rows"]], "Page" -> #2["Page"]|> &, $itState["Lists"]],
       "Notebook" -> Lookup[$itState, "Notebook", None],
       "PollFailures" -> Lookup[$itState, "PollFailures", 0],
