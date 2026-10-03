@@ -165,7 +165,8 @@ C の弱点と対処:
    screenshot API 待ち。それまでは既存の evidence カメラ経路。
 4. **修正ループは spec-impl の流儀。** 実装器 `$ClaudeModel`、検証器 `$ClaudeAdvisaryModel`。
    ラウンド打切りは壁時計秒 (tick 数判定の失敗を繰り返さない)。診断はモデル非依存のテキストで渡す。
-5. **既存資産を触らない。** `ResoniteRealtime.wl` (L1/L2) はそのまま使い、新規は `ResoniteFlux.wl` に閉じる。
+5. **既存資産を触らない。** `ResoniteRealtime.wl` (L1/L2) はそのまま使い、新規は補助モジュール
+   (`ResoniteRealtime_flux.wl` / `ResoniteRealtime_fluxlink.wl`、いずれも `ResoniteRealtime.wl` が自動ロード) に閉じる。
 
 ---
 
@@ -175,7 +176,7 @@ C の弱点と対処:
 | --- | --- | --- |
 | **F0** 環境 | `dotnet tool install --global Papaltine.FluxSDK`、`flux-sdk new HelloUser` → `build` → 手動インポートで動作確認。`froox-docs` を JSON で出し、件数と主要ノード (If, ValueWrite, Websocket 系, DynamicVariable 系) を確認 | 半日 |
 | **F1** 知識 | skill `protograph` を作る: docs スナップショット (Basic Syntax / Expressions / Types / Impulse / Dynamics / Modules / Style) + 禁止事項 + 我々の I/O 規約 + 対訳例 5 本。`froox-docs` JSON を SourceVault に索引 | 1 日 |
-| **F2** WL ラッパ `ResoniteFlux.wl` | `ResoniteFluxBuild[dir]` (RunProcess で `flux-sdk build`、診断を Association に構造化)、`ResoniteFluxCatalogQ[src]` (未知ノード検出)、`ResoniteFluxDeploy[dir, module, parentSlot]` (`deploy.fsx` を `dotnet fsi` で起動。引数は UTF-8 ファイル経由。`$Language=Japanese` の StartProcess 罠に注意)、`ResoniteFluxDiscard[name]` | 1 日 |
+| **F2** WL ラッパ (`ResoniteRealtime_flux.wl`) | `ResoniteFluxBuild[pgFile]` (`flux-sdk build` を走らせ、診断を Association に構造化)、`ResoniteFluxUnknownNodes[src]` (未知ノード検出)、`ResoniteFluxDeploy[result]` (`deploy.fsx` を `dotnet fsi` で起動。引数は UTF-8 ファイル経由。`$Language=Japanese` の StartProcess 罠に注意)。当初案の `ResoniteFluxDiscard` は、配置済みグラフ用の `ResoniteFluxRemove` (fluxlink 側) に相当 | 1 日 |
 | **F3** 生成ループ | `ResoniteFluxGenerate[spec, opts]`: G → V1 → R を最大 N 回。spec-impl の起動関数として登録し、パレットから呼べるようにする | 1 日 |
 | **F4** 実行検証 | Mailbox/WebSocket 規約でテストベクトルを流し、WL の期待値と比較する `ResoniteFluxVerify`。最初の題材は (a) `CrossProduct` 相当、(b) TAB 行を受けて slot の色を変える、(c) 1 次元 CA 1 ステップ (WL のルールテーブルと突合) | 1〜2 日 |
 | **F5** 仕上げ | `AI_GeneratedContent` 付与、`.brson` の SourceVault 版管理、`parse-record` で既存の手作りノード群を `.pg` 対訳例に逆変換 (few-shot 増強) | 随時 |
@@ -210,15 +211,79 @@ C の弱点と対処:
 - CytraX 一覧生成器: https://github.com/CytraX-Team/Resonite-Component-List-Generator
 - ComfyBench (CVPR 2025): https://arxiv.org/abs/2409.01392 、ComfyGPT: https://arxiv.org/abs/2503.17671
 - UE Blueprint 系: https://github.com/ColtonWilley/ue-llm-toolkit 、https://github.com/prajwalshettydev/UnrealGenAISupport
+- 実装側: [ResoniteRealtime](https://github.com/transreal/ResoniteRealtime)、[ResoniteRealtime_flux](https://github.com/transreal/ResoniteRealtime_flux)、[ResoniteRealtime_fluxlink](https://github.com/transreal/ResoniteRealtime_fluxlink)、[ResoniteRealtime_chat](https://github.com/transreal/ResoniteRealtime_chat)
 
 ---
 
-## 7. 実装状況 (2026-09-06)
+## 7. 実装状況 (2026-10-03 更新)
 
-- **実装済**: `ResoniteRealtime_flux.wl` (F1〜F3 相当)。生成 → カタログ突合 → (flux-sdk があれば) build → 修正ループ。
-  カタログは flux-sdk の `froox-docs` を待たず、Resonite の DLL を直接反射して作った
-  (`resources/tools/protoflux-nodes-dump.fsx` + `protoflux-catalog-build.wl`、3,317 ノード)。
-  言語リファレンスは公式 docs の抜粋 (`references/protograph/`)。
-- **実装済**: `ResoniteRealtime_chat.wl` (Chat セルをワールド内で実現するガジェット。ProtoFlux 生成の表示先にもなる)。
-- **未**: flux-sdk の導入 (ユーザ判断待ち)、F4 の実行検証 (WL を正解器にした比較)、ResoniteLink 経由の
-  ホットデプロイ (`resources/tools/flux-deploy.fsx` は未検証)。
+### 7-A. 生成ガジェット: `ResoniteRealtime_flux.wl` (F1〜F3 相当、実装済)
+
+LLM に ResoniteLink の JSON を書かせず ProtoGraph を書かせる。生成 → 静的検査 (実在ノードのカタログと突合) →
+`flux-sdk build` (あれば) → 修正ループ、の順に回す。`flux-sdk` (dotnet tool `Papaltine.FluxSDK`) が無くても
+生成と静的検査までは動く。build と `.brson` 出力は `flux-sdk` があるときだけ。LLM 呼び出し、アクセスレベル、
+パネル表示は `ResoniteRealtime_chat.wl` のものをそのまま使う。
+
+カタログは `flux-sdk` の `froox-docs` を待たず、Resonite の DLL を直接反射して作る
+(`resources/tools/protoflux-nodes-dump.fsx` + `protoflux-catalog-build.wl`、3,317 ノード)。
+言語リファレンスは公式 docs の抜粋 (`references/protograph/protograph-skill.md`)。
+`references/` は GitHub に公開しないので、カタログと抜粋は利用者が `setup.md` の手順で作る。
+
+| 記号 / 関数 | 役割 |
+| --- | --- |
+| `$ResoniteFluxSDK` | `flux-sdk` 実行ファイルのパス。`Automatic` なら PATH と `~/.dotnet/tools` を探す |
+| `$ResoniteFluxProjects` | 生成した ProtoGraph プロジェクトの置き場 (既定 `$packageDirectory/ResoniteFlux_projects`) |
+| `ResoniteFluxCatalog[]` | ノードのカタログ。各要素は `<|"Type","Name","Category","Inputs","Outputs","Impulses","Result"|>` |
+| `ResoniteFluxCatalogSearch[query, n]` | カタログを語で検索して上位 n 件 (既定 30) |
+| `ResoniteFluxUnknownNodes[source]` | ソース中の、カタログにも予約語にも無いノード名 (設計の要点 1 の走査) |
+| `ResoniteFluxBuild[pgFile]` | `flux-sdk build` を実行し `<|"Success","Output","Diagnostics","Brson"|>` を返す。`flux-sdk` が無ければ `Failure["NoFluxSDK"]` |
+| `ResoniteFluxGenerate[spec, opts]` | 仕様から ProtoGraph モジュールを LLM に書かせ、静的検査 → build → 修正を最大 `"MaxRounds"` 回まわす。戻り値は `<|"Source","Module","File","Project","Unknown","Build","Rounds","Answer","PrivacyLevel"|>` |
+| `ResoniteFluxChat[prompt]` | `ResoniteChat` の ProtoFlux 版。生成した ProtoGraph をノートブックとワールド内パネルに出し、`.pg` をプロジェクトに保存する |
+| `ResoniteFluxCell[]` | `ResoniteFluxInput` セル (Shift+Enter で `ResoniteFluxChat`) を挿入する |
+| `ResoniteFluxDeploy[result]` | 生成結果を世界へ入れる手順を返す。`.brson` があれば Resonite へドラッグ&ドロップ。`"Method" -> "ResoniteLink"` で Flux SDK のホットデプロイ (`resources/tools/flux-deploy.fsx`、実験的) を試す |
+
+`ResoniteFluxGenerate` のオプション: `"MaxRounds" -> 3`, `"Module" -> Automatic`, `"Model" -> Automatic`,
+`"Timeout" -> 300`, `"Build" -> Automatic`, `"SourceVault" -> False`, `"Origin" -> "Notebook"`。
+`ResoniteFluxChat` のオプションは `ResoniteFluxGenerate` と同じ。
+
+### 7-B. 直接配置: `ResoniteRealtime_fluxlink.wl` (方式 A の小パッチ・結線用、実装済)
+
+方式比較表の A (ResoniteLink へ直接ノードを置く) を、LLM が書く JSON のグラフ記述として実装した補助経路。
+カタログに基づいて型名を組み立てるので、1-B の「型名を間違えると無応答」問題を避けられる。
+2026-09-06 の実機確認 (Resonite 2026.9 / ResoniteLink 0.13) では、置いたノード群はそのまま実行された
+(1+2 → 動的変数 3、入力を変えると追随)。
+
+グラフ記述は `name` / `nodes` / `probes` から成る。`nodes` の各要素は `id` / `type` / `value` / `inputs` / `impulses` / `ref` (`"$root"` | `"$panel"` | `"$user"` | 世界の ID) / `globals` を持つ。`probes` は配置後に読み戻す動的変数名。
+
+| 関数 | 役割 |
+| --- | --- |
+| `ResoniteFluxBindingType["ValueAdd<float>"]` | カタログから ProtoFluxBindings のコンポーネント型名を作る。未知なら `None` |
+| `ResoniteFluxValidateGraph[graph]` | グラフ記述を検査して `<|"OK","Errors","Warnings","Nodes"|>` を返す |
+| `ResoniteFluxPlace[graph]` | ワールドに配置・結線する。戻り値は `<|"Root","Nodes","Slots","Errors","Probes"|>`。オプション: `"Parent" -> Automatic`, `"Position" -> Automatic`, `"Name" -> Automatic`, `"Spacing" -> {0.35, 0.25}` |
+| `ResoniteFluxProbe[placed]` | 配置したグラフの probes (動的変数) を読み戻す。V2 の実行検証に使う |
+| `ResoniteFluxRemove[placed]` | 配置したグラフのルートスロットを消す |
+| `ResoniteFluxDisplay[placed, var]` | 動的変数 `var` をワールド内の 3D テキストに出す。オプション: `"Position"`, `"Scale"`, `"Color"`。戻り値は `<|"Slot","Text","Converter"|>` |
+| `ResoniteFluxDrive[placed, var, targetMemberId, type]` | 動的変数で世界のフィールドを `DynamicValueVariableDriver<type>` 経由で駆動する (`ValueFieldDrive` の駆動先は ResoniteLink で書けないための迂回) |
+| `$ResoniteFluxGraphSpec` | LLM に渡すグラフ記述の仕様文 (日本語) |
+
+### 7-C. 表示先: `ResoniteRealtime_chat.wl`
+
+Chat セルをワールド内で実現するガジェットで、ProtoFlux 生成の表示先にもなる。
+
+- `ResoniteChat[prompt]`: 答えをノートブックとワールド内パネルに出す。`ResoniteChatCell[]` は入力セルを挿入する。
+- `ResoniteChatGadget[]`: ResoniteLink だけで UIX パネルを組み立てる。
+  `ResoniteChatAttach[ids]` は別カーネルのパネルを引き継ぎ、`ResoniteChatRemoveGadget[]` はパネルを消す。
+- `ResoniteChatStart[]` / `ResoniteChatStop[]`: 世界側入力を監視する ScheduledTask を 1 本だけ起動・停止する。
+- `ResoniteChatShow[x]`, `ResoniteChatLog[n]`, `ResoniteChatStatus[]`: 表示、会話記録、状態の確認。
+- アクセスレベル: `ResoniteAccessLevel[]`、`$ResoniteWorldAccess`、`$ResoniteWorldAccessLevels`、`$ResoniteWorldOwner`、
+  `$ResoniteWorldAccessMode`、`$ResoniteOwnerUserId`。
+  ワールドの公開度とオーナー判定から表示上限 (1.0 / 0.5 / 0.25) を決め、LLM に渡す PrivacyLevel と表示の可否に使う。
+  プロンプトの機密度が上限を超えるときは LLM を呼ばずに拒否する。生成した ProtoGraph の LLM 呼び出しも同じ規則に従う。
+
+### 7-D. 未実装・未検証
+
+- **未**: `flux-sdk` の導入 (ユーザ判断待ち)。
+- **未**: F4 の実行検証 (WL を正解器にした比較。`ResoniteFluxVerify` は未作成)。fluxlink の `ResoniteFluxProbe` が読み戻しの部品になる。
+- **未検証**: ResoniteLink 経由のホットデプロイ (`resources/tools/flux-deploy.fsx`)。
+
+なお同パッケージにはこのドキュメントの対象外の補助モジュール (タブレット `ResoniteRealtime_tablet.wl`、PDF ビューア・サムネイル一覧 `ResoniteRealtime_docboard.wl` / `ResoniteRealtime_surface.wl` / `ResoniteRealtime_pdfcache.wl`、Graphics3D 変換 `ResoniteRealtime_mesh.wl`、WebSocket 層 `ResoniteRealtime_ws.wl`) もある。ProtoFlux 生成の経路とは独立している。

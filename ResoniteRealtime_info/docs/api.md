@@ -11,57 +11,70 @@ Wolfram 15.0.1 が約 4 回に 1 回 segfault する。素の SocketConnect で�
 **まとめ書き** (2026-09-25): `RRWSBatch[expr]` の間に送るフレームは接続ごとに溜め、終わりに 1 回で書く (順番は保たれる。入れ子は外側が書く。
 中断しても書く)。`RRWSFlush[]` で途中で吐き出す (ResoniteLink の応答を待つ送信は待つ前に必ず吐き出す)。受領を待つ書き込みは 1 回 ~12 ms
 かかり、タブレットの tick (応答を待たない送信だけ) は全体をまとめ書きにしている (サムネイル 260 件の組み立て 65 s → 35.5 s)。
+設計上の約束: 常駐 Dynamic でポーリングしない (Monitor は手動更新ボタン式)。SocketListen のコールバックから FrontEnd を触らない。ResoniteLink は beta (メッセージ組立は iRLMessage / iRLValue に閉じ込める)。
 
 ## L1 ブリッジ (行プロトコル)
+### $ResoniteRealtimeVersion
+型: String
+パッケージのバージョン。
 ### ResoniteRealtimeStart[] → Association (Status)
-Options: "Port" -> 17300, "Heartbeat" -> 25, "LinkPort" -> None, "BindAddress" -> "127.0.0.1", "HeartbeatMode" -> "Ping" | "Text"
+Options: "Port" -> 17300, "Heartbeat" -> 25 (秒、0 で無効), "LinkPort" -> None, "BindAddress" -> "127.0.0.1", "HeartbeatMode" -> "Ping" | "Text"
 WebSocket サーバを ws://127.0.0.1:17300/bridge に立てる。世界側は WebsocketClient の URL にこれを入れる。
+Resonite の WebsocketClient は 60 秒無通信で切るので heartbeat を送る。"Ping" (既定) はプロトコル層の ping フレームで、世界側 ProtoFlux には見えない。"Text" は `hb<TAB>時刻` を送る。
 ### ResoniteRealtimeStop[] → Association
-### ResoniteRealtimeStatus[] → <|"Running","Port","BridgeConnections","Link","LinkConnected","Events",...|>
+L1 サーバ、L2 接続、heartbeat タスクを止める。
+### ResoniteRealtimeStatus[] → <|"Running","Port","BridgeConnections","Heartbeat","Link","LinkPort","LinkConnected","Events","LinkMessages","Uptime","WebSocket"|>
 ### ResoniteRealtimeMonitor[] → DynamicModule (手動更新ボタン式。常駐ポーリングしない)
 ### ResoniteRealtimeSend[verb, args...] → Association (connId -> result) | Failure["NoBridgeConnection"]
 世界へ `verb<TAB>arg...` を送る。ProtoFlux は JSON を扱えないので WL→世界は 2 フィールドまでにする。
 ### ResoniteRealtimeSendTo[connId, verb, args...]
+connId は `ResoniteRealtimeStatus[]["BridgeConnections"]` やハンドラの "Connection" で得る。
 ### ResoniteRealtimeOn[verb, f] / ResoniteRealtimeOn[verb, None] / ResoniteRealtimeOn[]
-世界からの行 (`<|"Verb","Args","Line","Connection","Time"|>`) にハンドラを登録する。verb に All で catch-all。合成 verb "$open" / "$close"。
-ハンドラは SocketListen のコールバック内で走るので FrontEnd を触らない。
-### ResoniteRealtimeEvents[n] → 直近 n 件の受信レコード
+世界からの行 (`<|"Verb","Args","Line","Connection","Time"|>`) にハンドラを登録する。verb に All で catch-all (全行と接続/切断)。合成 verb "$open" / "$close" ("$close" の Args は {Reason})。
+解除は None、引数なしで登録一覧。ハンドラは SocketListen のコールバック内で走るので FrontEnd を触らない。
+### ResoniteRealtimeEvents[n : 50] → 直近 n 件の受信レコード
 
 ## L2 ResoniteLink
 ### ResoniteRealtimeLinkConnect[port] / ResoniteRealtimeLinkConnect[] → connId | Failure
-引数無しは `ResoniteRealtimeDiscover[]` の最初の候補に繋ぐ (無ければ Failure["NoResoniteLink"])。Options: "Host" -> "localhost", "Quiet" -> False。
+引数無しは `ResoniteRealtimeDiscover[]` の最初の候補に繋ぐ (無ければ Failure["NoResoniteLink"])。Options: "Host" -> "localhost", "Quiet" -> False (True なら Print しない)。
 ### ResoniteRealtimeDiscover[] → {<|"Port", "URL", "Process", "Source"|> ...}
 有効化されている ResoniteLink のポート。(1) http.sys 登録一覧 (`netsh http show servicestate view=requestq` で Resonite / Renderite.Host のプロセスが
-登録した `HTTP://LOCALHOST:<port>/`。即時)、(2) ResoLoop.wl があれば resoloop discover (約 12 秒)、(3) 環境変数 RESONITE_LINK_URL。
+登録した `HTTP://LOCALHOST:<port>/`。即時)、(2) ResoLoop.wl があれば resoloop discover (約 12 秒)、(3) 環境変数 RESONITE_LINK_URL。Source は "netsh" | "resoloop" | "env"。
 Options: "Host" -> "localhost" (127.0.0.1 は http.sys が 400 で弾く)
 Dashboard → Session → Settings → Enable ResoniteLink で表示された port。
 ### ResoniteRealtimeLinkDisconnect[]
+### ResoniteRealtimeLinkMessages[n : 20] → ResoniteLink から届いた直近 n 件 <|"Time","Message"|>
 ### ResoniteRealtimeLink[msg] → 応答 Association | Failure["ResoniteLinkError"|"Timeout"|"NotConnected"|"BadMessage"]
-Options: "Timeout" -> 10, "Wait" -> Automatic ($iLinkWaitDefault、既定 True。ScheduledTask 内では Block で False にして送りっぱなしにする), "Match" -> Automatic, "Raw" -> False
+Options: "Timeout" -> 10, "Wait" -> Automatic ($iLinkWaitDefault、既定 True。ScheduledTask 内では Block で False にして送りっぱなしにする), "Match" -> Automatic (述語を渡すとそれを満たすものだけを応答とする), "Raw" -> False
 生メッセージ送信。messageId を自動付与し sourceMessageId で照合する。
-### ResoniteRealtimeGetSlot[slotId] → slotData
+### ResoniteRealtimeGetSlot[slotId : "Root"] → slotData
 Options: "Depth" -> 0 (-1 で全階層), "IncludeComponentData" -> False, "Timeout" -> 10, "Wait" -> Automatic (False なら <|"Sent","MessageId"|> を返し、応答は ResoniteRealtimeLinkMessages から sourceMessageId で拾う)
 ### ResoniteRealtimeAddSlot["Name" -> ..., "Parent" -> "Root", "Position" -> {x,y,z}, "Rotation" -> {x,y,z,w}, "Scale" -> {..}, "Active" -> True, "Id" -> ...] → <|"Id", "Response"|>
+"Id" 省略で自動採番 (ResoniteRealtimeNewId)。返り値の "Id" が以後の参照 ID。
 ### ResoniteRealtimeUpdateSlot[slotId, members] / ResoniteRealtimeRemoveSlot[slotId]
+members は指定した項目だけ変わる (例 `<|"scale" -> {2,2,2}|>`)。
 ### ResoniteRealtimeAddComponent[slotId, componentType, members, componentId] → <|"Id", "Response"|>
 componentType は `[FrooxEngine]FrooxEngine.Grabbable` のような Resonite の型名。members は名前 -> WL 値 (自動で型付け)。
 ### ResoniteRealtimeUpdateComponent[componentId, members]
 ### ResoniteRealtimeRef[id] → <|"$type"->"reference","targetId"->id|>
 ### ResoniteRealtimeValue[value] / ResoniteRealtimeValue[type, value]
-String/Bool/Integer/Real/{x,y}/{x,y,z}/{x,y,z,w}/RGBColor を ResoniteLink の型付き値にする。Uri は ResoniteRealtimeValue["Uri", url]。
-### ResoniteRealtimeNewId[prefix] → "WL<kernelTag>_<prefix>_<n>" (ID はセッション中解放されないのでカーネルごとのタグ入り)
+String/Bool/Integer/Real/{x,y}/{x,y,z}/{x,y,z,w}/RGBColor を ResoniteLink の型付き値にする。型明示は `ResoniteRealtimeValue["float3", {0,1,2}]`。Uri は ResoniteRealtimeValue["Uri", url]。
+### ResoniteRealtimeNewId[prefix : "Obj"] → "WL<kernelTag>_<prefix>_<n>" (ID はセッション中解放されないのでカーネルごとのタグ入り)
+removeSlot 後も同じ ID は再利用できない。連番だけにするとカーネル再起動で衝突する。
 
 ## 表示 (板)
 ### ResoniteRealtimeBoard[] → ids Association
 Options: "Position" -> {0,1.5,1.2}, "Rotation" -> None, "Size" -> 0.6, "Name" -> "Mathematica Board", "Parent" -> "Root", "Image" -> None
-L2 だけで板 (StaticTexture2D + QuadMesh + UnlitMaterial + MeshRenderer) を作る。
+L2 だけで板 (StaticTexture2D + QuadMesh + UnlitMaterial + MeshRenderer) を作る。ids に "Texture" 等。
 ### ResoniteRealtimeShowImage[expr] → url
 Options: "Size" -> 800, "Verb" -> "img", "Send" -> True, "Target" -> Automatic | "Board" | "Bridge" | None
-式を PNG にして配信し、板があれば板の URL を差し替え、無ければ L1 で `img<TAB>url` を送る。
-### ResoniteRealtimeRemoveBoard[] / ResoniteRealtimeAsset[file]
-`ResoniteRealtimeAsset[file]` の URL はファイル名をパーセント符号化する (UTF-8、非予約文字 A-Z a-z 0-9 - . _ ~ 以外を %XX)。配信側は
-要求パスを UTF-8 として戻してから探し、戻した名前に `..` `/` `\` があれば 400 (2026-09-24。日本語名の Eagle PDF が 404 で空のビューアになっていた)。
+式を PNG にして配信し、板があれば板の URL を差し替え、無ければ L1 で `img<TAB>url` を送る。HTTP の URL アセットは各クライアントが個別に取りに行くので 127.0.0.1 は自分にしか見えない。
+### ResoniteRealtimeRemoveBoard[] / ResoniteRealtimeAsset[file] → url / ResoniteRealtimeAsset[] → 配信ディレクトリ
+`ResoniteRealtimeAsset[file]` はファイルを配信ディレクトリへ写して URL を返す (送信はしない)。URL はファイル名をパーセント符号化する (UTF-8、非予約文字 A-Z a-z 0-9 - . _ ~ 以外を %XX)。配信側は
+要求パス `/a/<name>` を UTF-8 として戻してから探し、戻した名前に `..` `/` `\` があれば 400 (2026-09-24。日本語名の Eagle PDF が 404 で空のビューアになっていた)。
 ### $ResoniteRealtimePublicBaseURL — 聴衆がいる場では公開 URL (127.0.0.1 は自分にしか見えない)
+型: String, 初期値: 未設定
+例 "https://example.com/rr"。設定すると ShowImage / Asset が localhost でなくこの URL を返す。配信ディレクトリの中身は自分でその URL 配下へアップロードすること。
 
 ## Chat ガジェット (ResoniteRealtime_chat.wl)
 ノートブックの Chat セル (ClaudeEval の ClaudeInput) をワールド内で実現する。docs/chat-gadget.md 参照。
@@ -153,7 +166,7 @@ Options: "Placement" -> "User" | "World", "Distance" -> 1.2, "Height", "User", "
 ### ResoniteTabletServe[] / ResoniteTabletServe[False] → <|"Serve", "Linked", "Gadget", "Task"|>
 常駐監視。ResoniteLink が無ければ 15 秒ごとに ResoniteRealtimeDiscover[] で探して繋ぎ、Root 直下の "Mathematica Tablet" (インベントリから出した物も)
 を 5 秒 (引き継ぎ済みなら 15 秒) ごとに探して、「接続」ボタンが押されたものを ResoniteTabletAdopt で引き継ぐ。ノートブックのセッションでは
-ロード時に自動で始まる (`$ResoniteTabletAutoServe`、既定 True)。Options: "PollInterval" -> 1.0, "Start" -> True。
+ロード時に自動で始まる (`$ResoniteTabletAutoServe`、既定 True。ヘッドレスでは始めない。False で止める)。Options: "PollInterval" -> 1.0, "Start" -> True。
 ### ResoniteTabletFind[] → {<|"Id", "Name", "Attached"|> ...} / ResoniteTabletAdopt[root | ] → ids | Failure["NotATablet" | "NoTablet"]
 ワールドにあるタブレットを名前で探す / その構造 (スロット名 + コンポーネント型) から ids を復元して引き継ぎ、監視を始める。
 ### ResoniteTabletStart[] / ResoniteTabletStop[] / ResoniteTabletTick[]
@@ -287,4 +300,3 @@ Options: "Shape" -> "Box" | "Sphere", "Size" -> 0.2 (m), "Placement" -> "User" |
 "Offset" -> {-0.55,-0.1,-0.2} (tick 内の組み立てでタブレットの子になるときの位置), "Name", "Grabbable" -> True, "ButtonComponent" -> "TouchButton"。
 LLM の提案コードから呼べる許可ヘッド (承認不要)。`ResoniteRealtimeStatus` / `ResoniteFluxCatalogSearch` / `ResoniteFluxCatalog` /
 `ResoniteRealtimeLinkMessages` / `ResoniteTabletDeferred` (読むだけ) も同日から許可ヘッド。
-

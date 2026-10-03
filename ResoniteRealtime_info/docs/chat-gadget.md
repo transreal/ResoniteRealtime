@@ -14,6 +14,51 @@
 答えに ```` ```mathematica ```` ブロックが含まれ、`"Evaluate" -> True` のときは評価して、
 図なら板 (Chat Board) に画像として出す。既定は評価しない。
 
+## 公開 API 一覧
+
+| 関数 / 変数 | 説明 |
+| --- | --- |
+| `ResoniteChat[prompt]` | プロンプトを LLM に投げ、答えをノートブックとワールド内パネルへ出す。戻り値は `<|"Answer", "PrivacyLevel", "AccessLevel", "Context", "Shown"|>` か `Failure` |
+| `ResoniteChatCell[]` | ResoniteInput セルを挿入する |
+| `ResoniteChatGadget[]` | ワールド内に Chat パネル (入力欄 / 送信ボタン / 答え / 板) を組み立てる。戻り値は ID の Association (`$icState["Gadget"]` にも保持) |
+| `ResoniteChatAttach[ids]` | 別のカーネルが作ったパネル (`ResoniteChatGadget` の戻り値) をこのカーネルで引き継ぐ |
+| `ResoniteChatRemoveGadget[]` | ワールド内の Chat パネルを消す |
+| `ResoniteChatStart[]` / `ResoniteChatStop[]` | パネル入力を監視する ScheduledTask を 1 本だけ起動 / 停止する。オプション `"PollInterval" -> 1.5` (秒)、`"Evaluate" -> False` |
+| `ResoniteChatShow[text]` | パネルの答え欄に文字列をそのまま出す。`ResoniteChatShow[expr]` (文字列以外) は板に画像として出す |
+| `ResoniteChatLog[n]` | 直近 n 件の会話レコード `<|"Time", "Origin", "Prompt", "Answer", "PrivacyLevel"|>` を返す |
+| `ResoniteChatStatus[]` | ガジェット・監視タスク・アクセスレベルの状態を返す |
+| `ResoniteAccessLevel[]` | 現在のワールドのアクセスレベル (表示上限 PL: 1.0 / 0.5 / 0.25) を返す |
+| `ResoniteAccessLevel[access, "Owner" -> True \| False]` | `$ResoniteWorldAccess` (と `$ResoniteWorldOwner`) を手動で設定して返す |
+| `ResoniteAccessLevel[Automatic]` | 自動判定に戻す |
+
+### `ResoniteChat` のオプション
+
+| オプション | 既定 | 説明 |
+| --- | --- | --- |
+| `"Notebook"` | `Automatic` | 答えをノートブックにも書く |
+| `"World"` | `True` | ワールド内パネルにも出す |
+| `"SourceVault"` | `Automatic` | SourceVault KB の文脈を付ける |
+| `"Evaluate"` | `False` | 答えの Mathematica コードを評価し、図なら板に出す |
+| `"Model"` | `Automatic` | 使うモデル |
+| `"Timeout"` | `180` | 秒 |
+| `"Origin"` | `"Notebook"` | `"Notebook"` / `"World"` / `"Bridge"` |
+
+### `ResoniteChatGadget` のオプション
+
+| オプション | 既定 | 説明 |
+| --- | --- | --- |
+| `"Placement"` | `"User"` | `"User"` (アバターの頭の正面) / `"World"` |
+| `"Distance"` | `1.5` | m |
+| `"Height"` | `Automatic` | 目の高さ − 0.25 m。数値なら足元からの高さ |
+| `"User"` | `Automatic` | 名前の一部でユーザを選ぶ |
+| `"Position"` | `{0, 1.4, 1.5}` | `Placement` が `"World"` のとき |
+| `"Parent"` | `"Root"` | 同上 |
+| `"Name"` | `"Mathematica Chat"` | |
+| `"CanvasSize"` | `{1200, 800}` | 単位 |
+| `"PanelScale"` | `0.001` | m/単位 |
+| `"FontSize"` | `28` | |
+| `"Board"` | `True` | 図を出す板も作る |
+
 ## 手順
 
 1. Resonite で Dashboard → Session → Settings → **Enable ResoniteLink** (ホストであること)。
@@ -22,11 +67,12 @@
 ```mathematica
 Block[{$CharacterEncoding = "UTF-8"}, Get["ResoniteRealtime.wl"]];
 ResoniteRealtimeLinkConnect[41234];           (* Dashboard に出た port *)
-ResoniteAccessLevel["Public"];                (* ワールドの公開度。既定 Public *)
 ResoniteChatGadget[];                         (* パネル + 板をワールドに出す *)
 ResoniteChatStart[];                          (* 世界側入力の監視 (1.5 s ポーリング) *)
 ResoniteChatCell[];                           (* ノートブックに ResoniteInput セルを挿入 *)
 ```
+
+ワールドの公開度とオーナーは、タブレットの監視が自動で読む (下の「アクセスレベル」参照)。手で決めるときは `ResoniteAccessLevel["Private", "Owner" -> True]`。
 
 3. 終わるとき: `ResoniteChatStop[]` → `ResoniteChatRemoveGadget[]`。
 
@@ -60,19 +106,25 @@ Mathematica Chat            Grabbable, AI_GeneratedContent
 送信は **Button + ValueField<bool> + ButtonToggle**。ButtonToggle の TargetValue には ValueField の `Value`
 メンバの ID (getSlot の応答に入っている) を参照で入れる。WL は Value を読んで処理し、False に戻す。
 
-## アクセスレベル (2026-09-22 に 4 段化。正本は tablet.md)
+## アクセスレベル (4 段。正本は tablet.md)
 
-> 2026-09-22: `$ResoniteWorldAccessLevels` は Private 1.0 / Contacts 0.5 / ContactsPlus 0.25 / Public 0.25、非オーナー (`$ResoniteWorldOwner = False`、既定) は一律 0.25。`ResoniteAccessLevel[kind, "Owner" -> True]` で設定。以下は 2 段だった頃の記述。
+ワールドの公開度は 4 段 (`"Private"` / `"Contacts"` / `"ContactsPlus"` / `"Public"`)。アクセスレベル (表示上限 PL) は `$ResoniteWorldAccessLevels` の表で決まる。
 
+| ワールド | `$ResoniteWorldAccess` | アクセスレベル (オーナーのとき) |
+| --- | --- | --- |
+| 非公開 | `"Private"` | **1.0** |
+| フレンド | `"Contacts"` | **0.5** |
+| フレンド+ | `"ContactsPlus"` | **0.25** |
+| 公開 | `"Public"` (既定) | **0.25** |
 
-| ワールド | `$ResoniteWorldAccess` | アクセスレベル | SourceVault release context |
-| --- | --- | --- | --- |
-| 公開 | `"Public"` (既定) | **0.25** | `resonite-public` (MaxPrivacyLevel 0.25) |
-| 非公開 | `"Private"` | **1.0** | `resonite-private` (MaxPrivacyLevel 1.0) |
-
+- **オーナー判定**: `$ResoniteWorldOwner` が `True` のときだけ上の表が効く。`False` (既定、厳しい側) なら公開度に関わらず一律 **0.25**。
+- **自動判定** (`$ResoniteWorldAccessMode = Automatic`、既定): タブレットの監視がワールドを読む。Root 直下の `"Mathematica World Info"` (SessionInfoSource + ProtoFlux の WorldSessionID) から公開度 / ホスト / ワールド記録の所有者を得て、ホスト = 所有者ならオーナーとみなす。
+- **`$ResoniteOwnerUserId`**: `"U-..."` を置くと、ホストがその ID のときだけオーナーとみなす。既定 `Automatic` (ホスト = ワールド記録の所有者ならオーナー)。
+- **手動**: `ResoniteAccessLevel["Private", "Owner" -> True]` で設定すると `$ResoniteWorldAccessMode` が `"Manual"` になる。`ResoniteAccessLevel[Automatic]` で自動に戻る。
 - 表は `$ResoniteWorldAccessLevels` で変えられる (再ロードで既定に戻る)。
 - 不明な値は Public 扱い (厳しい側)。
-- **LLM への PrivacyLevel** = Max[プロンプトの機密度, SourceVault 文脈の機密度]。
+- SourceVault の文脈は release context `resonite-public` (MaxPrivacyLevel 0.25) / `resonite-private` (1.0) で引く。
+- **LLM への PrivacyLevel** = Max[プロンプトの機密度, SourceVault 文脈の機密度, (Private ワールドなら 1.0)]。
   - プロンプトの機密度: ノートブック起点は NBAccess の宣言 (Private ノート = 1.0) とセルの機密マーク。
     世界起点は、Private ワールドなら 1.0 (その世界で打たれた文字はその世界の水準)、Public なら 0。
   - 0.5 を越えると claudecode が `$ClaudePrivateModel` (ローカル LLM) へ回す。未設定なら送らない。
@@ -80,6 +132,16 @@ Mathematica Chat            Grabbable, AI_GeneratedContent
   LLM を呼ばずに `Failure["WorldAccessDenied"]`。
 - SourceVault 文脈は `SourceVaultKBAnswer` (LLM を呼ばない根拠文の組み立て) を release context 付きで呼ぶ。
   KB が無ければ黙って文脈なしで進む。release context は初回に登録する (登録簿は永続化される)。
+
+## 同じパッケージの関連モジュール
+
+Chat ガジェットの UIX ヘルパ・LLM 呼び出し・アクセスレベルは、次の補助モジュールからも使われる。詳細は各 `api_<module>.md` を参照。
+
+- `ResoniteRealtime_tablet.wl`: ClaudeEval をワールド内で走らせるタブレット (`ResoniteTablet`)。`ResoniteShowObject` / `ResoniteListGadget` も含む。ワールド公開度とオーナーの自動判定の監視もここ。
+- `ResoniteRealtime_flux.wl`, `ResoniteRealtime_fluxlink.wl`: ProtoFlux 生成 (`ResoniteFluxChat`、`ResoniteFluxPlace` など)。Chat のパネル表示とアクセスレベルを再利用する。
+- `ResoniteRealtime_mesh.wl`: Graphics3D をワールド内の 3D オブジェクトにする (`ResoniteGraphics3D`)。
+- `ResoniteRealtime_docboard.wl`, `ResoniteRealtime_surface.wl`, `ResoniteRealtime_pdfcache.wl`: PDF ビューア、サムネイル一覧 (曲面表示を含む)、フレンド用 PDF キャッシュ。
+- `ResoniteRealtime_ws.wl`: 純 Wolfram の WebSocket 層 (`RRWSServe` など)。
 
 ## 設計上の約束
 
@@ -116,7 +178,7 @@ Resonite も LLM も要らない (アクセスレベル・応答パーサ・ガ�
 | 文字も行も見えない | Canvas の `Size` は**メートル**。文字サイズ 28 = 28 m、行の高さ 112 = 112 m で外へ飛ぶ | Canvas を 1200×800 単位にして Panel スロットを 0.001 倍にする (`"CanvasSize"`, `"PanelScale"`) |
 | 真っ黒で文字が消える | UI マテリアルの `BlendMode` を Opaque にすると、同じ平面の文字と Z ファイト | UI マテリアルは Alpha のまま。見た目は半透明で我慢 (背景板 `"Backdrop"` は前後どちらに置いても覆うので既定 off) |
 | 四角をクリックしても反応しない | `Checkbox` は **Button ではない** (UIComponent)。しかも同じスロットに Button を足すと、`ButtonToggle` が先にある Checkbox を IButton として掴んでしまう | 送信は Button + `ValueField<bool>` + `ButtonToggle` (TargetValue → **メンバ ID**)。Checkbox は置かない |
-| 監視が途中で黙る | 別のカーネルから ResoniteLink に繋ぐと、先に繋いでいた接続の応答が止まる (実質 **同時 1 接続**)。それ以外でも回答の約 1 分後から getSlot がタイムアウトし続けた例あり | 監視中は別の接続で触らない。`ResoniteChatStatus[]` の `PollFailures` が増え続けたら `ResoniteRealtimeLinkConnect[port]` で繋ぎ直す |
+| 監視が途中で黙る | 別のカーネルから ResoniteLink に繋ぐと、先に繋いでいた接続の応答が止まる (実質 **同時 1 接続**)。それ以外でも回答の約 1 分後から getSlot がタイムアウトし続けた例あり | 監視中は別の接続で触らない。`ResoniteChatStatus[]` の `PollFailures` が増え続けたら `ResoniteRealtimeLinkConnect[port]` で繋ぎ直す。別カーネルが作ったパネルは `ResoniteChatAttach[ids]` で引き継ぐ |
 | 答え欄が文字化け | `wolframscript -file` は非 ASCII リテラルをバイト列で読む (既知の罠) | パッケージ経由の文字列は正しい。テストスクリプトに日本語リテラルを書かない |
 | slot の有効/無効が効かない | キー名は応答と同じ **`isActive`** (`active` は無視される) | AddSlot / UpdateSlot とも `isActive` |
 

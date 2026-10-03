@@ -1,7 +1,7 @@
 # ResoniteRealtime セットアップ手順書
 
 ResoniteRealtime は Mathematica (Wolfram Language) から VR プラットフォーム Resonite を制御するブリッジパッケージです。
-純 Wolfram の WebSocket 層の上に、世界とのリアルタイム経路 (L1)、ResoniteLink による構造の読み書き (L2)、画像配信 (L3) を持ち、その上にワールド内の Chat ガジェット・ProtoFlux 生成・ClaudeEval タブレット・3D 生成・PDF ビューアを載せています。
+純 Wolfram の WebSocket 層の上に、世界とのリアルタイム経路 (L1)、ResoniteLink による構造の読み書き (L2)、画像配信 (L3) を持ち、その上にワールド内の Chat ガジェット・ProtoFlux 生成・ClaudeEval タブレット・3D 生成・PDF ビューア・サムネイル一覧 (平面 / 曲面) を載せています。
 
 macOS/Linux ではパス区切りやシェルコマンドを適宜読み替えてください (本書は Windows 11 を前提とします)。
 
@@ -10,12 +10,13 @@ macOS/Linux ではパス区切りやシェルコマンドを適宜読み替え�
 - **Wolfram Language / Mathematica**: 14.x 以降を推奨します (`SocketListen` / `SocketConnect`、`ScheduledTask`、`Rasterize`、`Import[..., "PageImages"]` を多用します)。
 - **OS**: Windows 11 を前提としています。
 - **Resonite**: デスクトップクライアント。
-  - L2 (ResoniteLink) を使う機能 (Chat ガジェット / タブレット / ProtoFlux 配置 / 板の生成) では、そのセッションの **ホスト** であり、Dashboard → Session → Settings で **Enable ResoniteLink** を押しておく必要があります (ResoniteLink 0.13 系で確認)。
+  - L2 (ResoniteLink) を使う機能 (Chat ガジェット / タブレット / ProtoFlux 配置 / 板の生成 / サムネイル一覧) では、そのセッションの **ホスト** であり、Dashboard → Session → Settings で **Enable ResoniteLink** を押しておく必要があります (ResoniteLink 0.13 系で確認)。
   - L1 (リアルタイム経路) はホストでなくても動きますが、世界側に `WebsocketClient` を持つブリッジオブジェクトを 1 回作る必要があります ([in-world-bridge-setup.md](in-world-bridge-setup.md))。
 - **外部ツール (任意)**:
   - **resoloop** + **.NET 10 SDK**: 3D 生成 (`ResoniteGraphics3D`、タブレットの「3D生成」ボタン) が、別パッケージ [ResoLoop](https://github.com/transreal/ResoLoop) を通して resoloop を呼びます。resoloop は AGPL-3.0 の別プロジェクトで **本リポジトリには含まれません**。導入は ResoLoop 側の setup.md に従ってください。
   - **Flux-SDK** (`Papaltine.FluxSDK` 1.9.0): ProtoGraph の build を使うときだけ。無くてもグラフ記述の生成・配置は動きます。
   - **dotnet fsi**: ProtoFlux ノードカタログを自分の Resonite から作り直すときだけ (5 節)。
+  - **sftp 対応の curl** (Git for Windows 同梱): フレンド用の PDF キャッシュサーバを使うときだけ (7 節)。
 
 ## 2. 前提パッケージ (先にセットアップしてください)
 
@@ -78,7 +79,7 @@ WebSocket 層 (`ResoniteRealtime_ws.wl`) は依存ゼロで、L1 / L2 / 板の�
 
 4. (ClaudeEval 連携を使う場合) `ResoniteRealtime_info/directives/110-resonite-tablet.md` を `Claude Directives/rules/` にコピーします。
 
-5. (PDF を Resonite 標準のビューアで開く場合) ワールドに標準の PDF ビューアを 1 つ置いておきます (任意の PDF を一度 Resonite にインポートした物。名前を `PDF Template` にしておくと確実です)。パッケージはこれを雛形として ProtoFlux で複製し、配信 URL を差し替えます。無いときは自前のページ画像パネルで開きます。
+5. (任意) PDF を Resonite 標準のビューアで開きたい場合は、ワールドに標準の PDF ビューアを 1 つ置いておきます (任意の PDF を一度 Resonite にインポートした物。名前を `PDF Template` にしておくと確実です)。パッケージはこれを雛形として ProtoFlux で複製し、配信 URL を差し替えます。**雛形が無くても** `ResoniteDocViewer` が Resonite 自身の文書表示部品 (`StaticDocument` + `DocumentPageTexture`) でビューアを組むので、PDF は開けます (`$ResonitePDFLite` が既定 `True`)。ページ送りと閉じるはワールドの中だけで動きます。`$ResonitePDFLite = False` にすると、従来どおり Wolfram でページを画像にする自前パネルに落ちます。
 
 ## 4. Resonite 側の準備
 
@@ -86,7 +87,7 @@ WebSocket 層 (`ResoniteRealtime_ws.wl`) は依存ゼロで、L1 / L2 / 板の�
 
 1. 操作したいワールドのセッションを自分がホストします。
 2. Dashboard → Session → Settings → **Enable ResoniteLink**。表示された **ポート番号** を控えます。
-3. Mathematica から `ResoniteRealtimeLinkConnect[port]` で接続します。接続先は `localhost` です (`127.0.0.1` は http.sys が 400 で弾きます)。ポートは Resonite の起動毎に変わります。実機で分かった注意点は [resonitelink-notes.md](resonitelink-notes.md)。
+3. Mathematica から `ResoniteRealtimeLinkConnect[port]` で接続します。接続先は `localhost` です (`127.0.0.1` は http.sys が 400 で弾きます)。ポートは Resonite の起動毎に変わります (`ResoniteRealtimeLinkConnect[]` は `ResoniteRealtimeDiscover[]` でポートを自動検出します)。実機で分かった注意点は [resonitelink-notes.md](resonitelink-notes.md)。
 
 ### L1: ブリッジオブジェクト (任意)
 
@@ -135,30 +136,42 @@ ResoniteTablet[]                                     (* アバターの正面に
 作ったタブレットは Resonite のインベントリに保存しておけます。2 回目からは `Get["ResoniteRealtime.wl"]` だけで常駐監視 (`ResoniteTabletServe[]`) が
 自動で始まるので、ResoniteLink を有効化し、インベントリからタブレットを出して「接続」を押すだけで使えます (ポートは自動検出)。
 
+サムネイル一覧 (`ResoniteThumbnailGadget`) もインベントリに保存して使い回せます。インベントリから出した一覧は、Wolfram が確かめるまで升目を覆いで隠し、「接続」を押すと署名 (HMAC-SHA256。鍵は `$ResoniteBoardKeyFile`、既定 `$UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key`、この PC だけ) とワールドの公開度・オーナーを確かめた上で、表示上限未満の升目だけを見せます。別の PC で作った一覧や、行データが書き換えられた一覧は接続を断ります。「接続」が効かないときは `ResoniteBoardDiagnose[]` で診断できます。一覧の「形を変更」ボタン (または `ResoniteThumbnailShape[root, shape]`) で、平面 → 円筒 → 球の内側 → メビウスの帯の順に曲面へ貼り替えられます (巡回の順は `$ResoniteThumbnailShapes`)。`ResoniteThumbnailSurface[Function[{x, y, g}, {X, Y, Z}]]` で任意の面も定義できます。
+
 ## 7. 主な設定 (抜粋)
 
 | 変数 / 関数 | 意味 |
 | --- | --- |
-| `ResoniteAccessLevel["Private" \| "Contacts" \| "ContactsPlus" \| "Public", "Owner" -> True \| False]` | ワールドに出してよい情報の上限 (PL 1.0 / 0.5 / 0.25 / 0.25)。既定はワールドから自動で読みます (Root 直下の "Mathematica World Info")。明示で呼ぶと手動になり、`ResoniteAccessLevel[Automatic]` で自動に戻ります。非オーナーの既定は一律 0.25 |
+| `ResoniteAccessLevel["Private" \| "Contacts" \| "ContactsPlus" \| "Public", "Owner" -> True \| False]` | ワールドに出してよい情報の上限 (PL 1.0 / 0.5 / 0.25 / 0.25)。既定はワールドから自動で読みます (Root 直下の "Mathematica World Info")。明示で呼ぶと手動になり (`$ResoniteWorldAccessMode` が `"Manual"`)、`ResoniteAccessLevel[Automatic]` で自動に戻ります。非オーナーの既定は一律 0.25 |
+| `$ResoniteOwnerUserId` (Automatic) | `"U-..."` を置くと、自動判定でオーナーとみなすのはホストがその ID のときだけになる。既定はホスト = ワールド記録の所有者ならオーナー |
 | `$ResoniteTabletCloudMaxLevel` (0.5) | タブレットの ClaudeEval に渡す AccessLevel の上限 (クラウド LLM に出す機密度の天井) |
 | `$ResoniteTabletBuildMode` (Automatic) | 予約したガジェット組み立てを監視 tick の中で行う ("Tick") か専用ノートブックのセルで行う ("Notebook") か |
+| `$ResoniteTabletWorker` (True) | サムネイルの帯・Eagle フォルダの一覧・大きな PDF のページ数を作業用カーネル (常駐サブカーネル) で作る。tick の中で長く塞ぐと FE の「動的評価の放棄」ダイアログが出るため。`False` なら従来どおりこのカーネルで。状態は `ResoniteTabletWorkerStatus[]`、停止は `ResoniteTabletWorkerStop[]` |
+| `$ResonitePDFLite` (True) | 標準ビューアの雛形が無い / 複製に失敗したとき、`ResoniteDocViewer` (Resonite の文書表示) で開く。`False` なら Wolfram でページを画像にする自前パネル |
+| `$ResoniteBoardKeyFile` | サムネイル一覧の行データに付ける署名の鍵ファイル (32 バイト、無ければ作る) |
 | `$ResoniteRealtimePublicBaseURL` | 聴衆がいる場での画像 URL (127.0.0.1 は自分にしか見えない) |
 | `$ResoniteGraphics3DDirectory` | 3D 生成の作業フォルダ (既定 `%LOCALAPPDATA%\ResoLoop\g3d`。同期フォルダの外) |
 | `$ResoniteFluxSDK` / `$ResoniteFluxProjects` | flux-sdk のパスと ProtoGraph プロジェクトの置き場 |
 | `$ResoniteTabletShowCode` (False) | タブレットの出力欄に提案コード (Input セル) も出すか |
 | `ResonitePDFCacheSetup["sftp://user@host/path/www/cache", "https://host/cache"]` | **フレンドにも PDF を見せるためのキャッシュサーバ** (任意)。Private / Contacts のワールドでは `http://127.0.0.1` の PDF は自分にしか見えないので、自分の web サーバ (sftp で書けて https で読めるディレクトリ) を設定します。設定はこの PC の `$UserBaseDirectory/ApplicationData/ResoniteRealtime/pdfcache_server.json` に保存され、リポジトリには含まれません。続けて `ResonitePDFCacheCredential[]` でパスワードを保存します (NBAccess 経由で SystemCredential に。NBAccess が必要)。この設定は他のパッケージ (SlideWorkflow 等) と独立で、別々のサーバも指定できます。同じアカウントのパスワードは既定で共有され、分けたいときは `"Credential" -> "専用の名前"` を付けます。未設定なら写しは置かず、PDF はオーナーにだけ見えます。sftp 対応の curl (Git for Windows 同梱) が必要です |
+| `$ResonitePDFCache` (True) / `$ResonitePDFCacheMaxLevel` (0.5) | キャッシュを使うか / 機密度がこれを超える PDF は外のサーバに置かない (オーナーにだけ見える。機密度が数値で取れない物も置かない) |
+| `ResonitePDFCacheStatus[]` / `ResonitePDFCacheRetry[]` / `ResonitePDFCacheList[]` / `ResonitePDFCacheClear[]` | 写しの状態の確認 (`"Skipped"` で置かなかった PDF) / 失敗した写しの送り直し / サーバ上の写しの一覧 / 写しの削除 (`All`、`"OlderThan" -> days`、名前のリストも可)。写しの名前は中身の SHA-256 です。使い終わったら `ResonitePDFCacheClear[]` で消してください |
 
 ## 8. トラブルシューティング
 
 | 症状 | 原因と対処 |
 | --- | --- |
-| `ResoniteRealtimeLinkConnect` が失敗する | ResoniteLink が無効、ホストでない、ポートが古い (起動毎に変わる)、または `"Host" -> "127.0.0.1"` にしている (`localhost` が正) |
+| `ResoniteRealtimeLinkConnect` が失敗する | ResoniteLink が無効、ホストでない、ポートが古い (起動毎に変わる)、または `"Host" -> "127.0.0.1"` にしている (`localhost` が正)。`ResoniteRealtimeDiscover[]` で有効なポートの候補 (netsh / resoloop discover / 環境変数 `RESONITE_LINK_URL`) を確認できます |
 | ScheduledTask / 提案コードの中で `Failure["Timeout"]` | ResoniteLink の応答待ちは非同期ハンドラが走れない文脈では必ずタイムアウトします。書き込みは待たずに送り (`"Wait" -> False`)、組み立ては予約 (`Deferred`) されます。設計どおりで、ガジェットは数秒後に tick が組み上げます |
 | カーネル再起動後にワールドに残骸が残る | `ResoniteTabletCleanup[]` が Root 直下の "Mathematica Tablet" / "SourceVault List" / "PDF Viewer" 等を名前で消し、状態を空にします。その後 `ResoniteTablet[]` |
 | 板やビューアが市松模様 | テクスチャ URL が無い/届いていない。`ResoniteRealtimeStart[]` (画像配信) が動いているか、`$ResoniteRealtimePublicBaseURL` が正しいかを確認。空の板は最初のページを出すまで非表示になります |
 | ResoniteLink に繋ぐ瞬間にカーネルが落ちる | 新しいカーネルで最初のソケット操作が接続だと、Wolfram 15.0.1 がまれに落ちます (約 4 回に 1 回)。2026-09-24 版から読み込み時に下準備をしているので、パッケージを読み直してください |
-| 標準 PDF ビューアが空で、ページ表示が「1/-1」 | 文書を受け取れていない。2026-09-24 より前の版には 2 つの原因がありました。約 1 MB を超えるファイルを配信の途中で切っていた (Resonite のログに `Failed gather`) ことと、日本語や空白を含むファイル名を 404 にしていたことです。パッケージを読み直してから開き直してください。空のビューアは `ResonitePDFViewerRemove[All]` か手で消せます |
+| 標準 PDF ビューアが空で、ページ表示が「1/-1」 | 文書を受け取れていない。2026-09-24 より前の版には 2 つの原因がありました。約 1 MB を超えるファイルを配信の途中で切っていた (Resonite のログに `Failed gather`) ことと、日本語や空白を含むファイル名を 404 にしていたことです。パッケージを読み直してから開き直してください。空のビューアは `ResonitePDFViewerRemove[All]` か手で消せます。文書ビューア (`ResoniteDocViewer`) は `ResoniteDocViewerRemove[]` で消せます |
+| 標準 PDF ビューアの雛形が無く、ワールドを開き直すと元に戻る | 雛形はワールドごとに必要です。雛形が無いときは `ResoniteDocViewer` が自動で使われます (`$ResonitePDFLite = True`)。標準ビューアにこだわるなら 3 節 5. の手順で雛形を置いてください |
+| サムネイル一覧を出しても升目が隠れたまま / 「接続」が効かない | 接続が済むまで升目は覆いで隠れます。監視 (`ResoniteTabletServe[]`) が動いているか、署名鍵 (`$ResoniteBoardKeyFile`) がこの PC のものか、ワールドの公開度から決まる表示上限を確認し、`ResoniteBoardDiagnose[]` で状態 (State の値、候補 / 引き継ぎ中 / 接続済み、直近の記録) を見てください |
+| フレンドに PDF が見えない | Private / Contacts のワールドで `http://127.0.0.1` の URL は本人にしか見えません。7 節の `ResonitePDFCacheSetup` と `ResonitePDFCacheCredential[]` を設定し、`ResonitePDFCacheStatus[]` で状態 (パスワード未保存・通信失敗・機密度超過での不送信) を確認してください |
 | 3D 生成が `APPLY_STATE_WRITE_FAILED` | resoloop の checkpoint を同期ソフト (Dropbox 等) が掴んだ。作業フォルダは既定で `%LOCALAPPDATA%\ResoLoop\g3d` (同期外) で、同じ apply を最大 3 回再実行します |
 | 3D 生成が `Failure["NoResoLoop"]` | `ResoLoop.wl` が `$packageDirectory` に無い、または resoloop 未導入 (3 節 2.) |
 | `sv://` の資料が `Failure["NoSourceVault"]` / `PrivacyExceeded` | SourceVault が無い、または行の機密度が表示上限を超えている (fail-closed。機密度が数値で取れない行も出しません) |
 | ProtoFlux 生成でノードが見つからない | 5 節のカタログが無い。作り直すか、`ResoniteFluxCatalogSearch` で名前を確かめる |
+| FE が止まる / 「動的評価の放棄」ダイアログが出る | 監視 tick が重い仕事で塞がっている可能性があります。`ResoniteTabletWorkerStatus[]` の `"SlowTicks"` (1 秒を超えた tick の段) で原因を確かめ、`$ResoniteTabletWorker` が `True` であることを確認してください |

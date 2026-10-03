@@ -8,16 +8,19 @@
 
 - **L1 リアルタイム**: WL が WebSocket サーバになり、世界の `WebsocketClient` (ProtoFlux) が繋いできます。ProtoFlux は JSON を扱えないので TAB 区切りの行プロトコル (`evt<TAB>...` / `cmd<TAB>...`) にしました。往復が速く、セッションのホストである必要がありません。
 - **L2 ResoniteLink**: WL が公式 ResoniteLink (WebSocket + JSON) のクライアントになり、Slot / Component を読み書きします。ホストである必要があり、リアルタイム制御には使いません。
-- **L3 画像配信**: 同じポートで PNG などを HTTP 配信し、板 (`StaticTexture2D`) の URL に使います。
+- **L3 画像配信**: 同じポートで PNG・PDF・動画などを HTTP 配信し、板 (`StaticTexture2D`) や文書ビューアの URL に使います。
 
 この経路の上に、ワールド内で完結するガジェット群を載せています。
 
 - **Chat ガジェット**: ノートブックの Chat セルをワールド内の UIX パネルで実現します。
 - **ProtoFlux ガジェット**: プロンプトからグラフ記述を LLM に書かせ、ResoniteLink でノードを直接配置・結線し、動的変数 (probes) を読み戻して検証する修正ループです。Flux SDK のテキスト言語 ProtoGraph での生成にも対応します。
-- **タブレット**: ワールド内の UIX タブレットから ClaudeEval (runtime 経路) を走らせます。承認・拒否・中止はタブレットのボタンから行え、結果は表示上限でふるって平文とページ画像に描かれます。PDF は Resonite 標準のドキュメントビューア (ワールドにある雛形を ProtoFlux で複製し、配信 URL を差し替える) で開き、画像 / ノートブックは掴めるページパネルへ、検索結果の行リストは ▶ 付きの一覧パネルへ出ます。
+- **タブレット**: ワールド内の UIX タブレットから ClaudeEval (runtime 経路) を走らせます。承認・拒否・中止はタブレットのボタンから行え、結果は表示上限でふるって平文とページ画像に描かれます。一度作ったタブレットは Resonite のインベントリに保存でき、「接続」ボタンを押すと常駐監視が引き継ぎます。
+- **資料の表示**: PDF は Resonite 標準のドキュメントビューア (ワールドの雛形を複製して URL を差し替える) か、雛形なしで Resonite の部品だけで組む自前ビューア (`ResoniteDocViewer`) で開きます。画像 / ノートブックは掴めるページパネルへ、検索結果の行リストは ▶ 付きの一覧パネルへ出ます。
+- **サムネイル一覧**: 行のサムネイルを大きな面に升目で並べ、クリックで PDF / 画像を開きます (Eagle フォルダにも対応)。インベントリに保存して再利用でき、行データは HMAC 署名で改ざんを検出します。面は平面のほか円筒・球の内側・メビウスの帯・任意の曲面にも貼れます。
+- **PDF キャッシュ**: プライベート / フレンド限定ワールドで、PDF の一時的な写し (SHA-256 名) を自分の web サーバへ sftp で置き、フレンドにも PDF が見えるようにします。
 - **3D 生成**: `Plot3D` / `ArrayPlot3D` / `Graphics3D` を三角形メッシュにし、ResoniteLink の ImportMeshJSON 形式で resoloop (別パッケージ ResoLoop 経由) に渡して、ワールド内の掴めるオブジェクトにします。
 
-設計上の要点は 3 つです。第一に **プライバシーは fail-closed** です。ワールドに出してよい情報の上限 (アクセスレベル: 自分のプライベートワールドなら 1.0、公開ワールドなら 0.25) を宣言し、上限を超える資料やセル、機密度が数値で取れないものは出しません。クラウド LLM に渡す機密度もさらに天井 (0.5) を設けています。第二に **監視は待たない** ことです。ResoniteLink の応答待ちは ScheduledTask やコールバックの中では成立しないため、ガジェットの監視は 1 本の tick が「送るだけ」「次の tick で照合」の 2 相で回り、LLM の提案コードが頼むガジェットの組み立ても予約して tick が待たずに組みます。第三に **FrontEnd を守る** ことです。常駐 Dynamic でポーリングせず、SocketListen のコールバックからは FrontEnd を触りません。
+設計上の要点は 3 つです。第一に **プライバシーは fail-closed** です。ワールドに出してよい情報の上限 (アクセスレベル: 自分のプライベートワールドなら 1.0、フレンド限定なら 0.5、公開ワールドや他人のワールドなら 0.25) を宣言し、上限以上の資料やセル、機密度が数値で取れないものは出しません。クラウド LLM に渡す機密度もさらに天井 (0.5) を設けています。PDF キャッシュも機密度が上限を超える PDF は置きません。第二に **監視は待たない** ことです。ResoniteLink の応答待ちは ScheduledTask やコールバックの中では成立しないため、ガジェットの監視は 1 本の tick が「送るだけ」「次の tick で照合」の 2 相で回り、LLM の提案コードが頼むガジェットの組み立ても予約して tick が待たずに組みます。重い処理 (サムネイルの合成など) は常駐のワーカーカーネルに逃がします。第三に **FrontEnd を守る** ことです。常駐 Dynamic でポーリングせず、SocketListen のコールバックからは FrontEnd を触りません。
 
 **前提パッケージ**: ワールド内のタブレット・一覧 / サムネイル一覧・PDF ビューアなど本パッケージの主な機能は、同じ作者の
 [NBAccess](https://github.com/transreal/NBAccess) / [claudecode](https://github.com/transreal/claudecode) / [ClaudeRuntime](https://github.com/transreal/ClaudeRuntime) /
@@ -32,8 +35,8 @@
 
 - **Wolfram Language / Mathematica**: 14.x 以降を推奨します (`SocketListen` / `SocketConnect`、`ScheduledTask`、`Rasterize`、PDF の `PageImages` import を多用します)。
 - **OS**: Windows 11 を前提としています。
-- **Resonite**: デスクトップクライアント。L2 を使う機能では、そのセッションのホストであり、Dashboard → Session → Settings で **Enable ResoniteLink** を押しておく必要があります (ResoniteLink 0.13 系で確認)。
-- **外部ツール (任意)**: resoloop + .NET 10 SDK (3D 生成)、Flux-SDK 1.9.0 (ProtoGraph の build)、dotnet fsi (ノードカタログの再生成)。
+- **Resonite**: デスクトップクライアント。L2 を使う機能では、そのセッションのホストであり、Dashboard → Session → Settings で **Enable ResoniteLink** を押しておく必要があります (ResoniteLink 0.13 系で確認)。ポートは自動検出されます (`ResoniteRealtimeDiscover[]`)。
+- **外部ツール (任意)**: resoloop + .NET 10 SDK (3D 生成)、Flux-SDK 1.9.0 (ProtoGraph の build)、dotnet fsi (ノードカタログの再生成)、sftp 対応の curl (Git for Windows 同梱。PDF キャッシュ)。
 - **前提パッケージ**: 下の表の 5 つ。先にそれぞれの setup.md に従って導入してください (NBAccess → claudecode → ClaudeRuntime →
   ClaudeOrchestrator → SourceVault の順)。3D 生成を使う場合は [ResoLoop](https://github.com/transreal/ResoLoop) も。WebSocket 層と L1 / L2 / 板の表示だけなら
   本パッケージ単体でも動きますが、タブレット・一覧・PDF 表示はこれらが無いと fail-closed で止まります (`Failure["NoClaudeCode"]` /
@@ -79,6 +82,13 @@
    ResoniteRealtimeLinkConnect[];            (* ポートは自動検出 (netsh の http.sys 登録一覧)。明示なら [port] *)
    ```
 
+5. (フレンドにも PDF を見せる場合) 自分の web サーバ用に PDF キャッシュを設定します (サーバ名やパスワードはソースに含まれず、PC ごとの設定ファイルと NBAccess に保存されます)。
+
+   ```wolfram
+   ResonitePDFCacheSetup["sftp://user@www.example.org/path", "https://www.example.org/cache"];
+   ResonitePDFCacheCredential[];
+   ```
+
 詳細 (L1 ブリッジオブジェクトの作り方、含めていない参照データの作り方、トラブルシューティング) は [setup.md](setup.md) を参照してください。
 
 ### クイックスタート
@@ -95,21 +105,25 @@ ResoniteGraphics3D[Plot3D[Sin[x y], {x, 0, 3}, {y, 0, 3}]]   (* 掴めるメッ�
 
 ### 主な機能
 
-- **L1 / L2 / L3**: `ResoniteRealtimeStart` / `ResoniteRealtimeOn` / `ResoniteRealtimeSend`、`ResoniteRealtimeLinkConnect` / `ResoniteRealtimeGetSlot` / `ResoniteRealtimeAddSlot` / `ResoniteRealtimeAddComponent` / `ResoniteRealtimeUpdateSlot` / `ResoniteRealtimeUpdateComponent`、`ResoniteRealtimeBoard` / `ResoniteRealtimeShowImage` / `ResoniteRealtimeAsset`。
+- **WebSocket 層**: 純 Wolfram の RFC 6455 サーバ / クライアント (`RRWSServe` / `RRWSConnect` / `RRWSSend` / `RRWSBatch` ほか)。送信のまとめ書きで書き込みを高速化します。
+- **L1 / L2 / L3**: `ResoniteRealtimeStart` / `ResoniteRealtimeOn` / `ResoniteRealtimeSend`、`ResoniteRealtimeDiscover` / `ResoniteRealtimeLinkConnect` / `ResoniteRealtimeGetSlot` / `ResoniteRealtimeAddSlot` / `ResoniteRealtimeAddComponent` / `ResoniteRealtimeUpdateSlot` / `ResoniteRealtimeUpdateComponent`、`ResoniteRealtimeBoard` / `ResoniteRealtimeShowImage` / `ResoniteRealtimeAsset`。
 - **表示上限**: `ResoniteAccessLevel` (Private 1.0 / Contacts 0.5 / ContactsPlus 0.25 / Public 0.25、非オーナーは一律 0.25)。既定はワールドの公開度とホスト / 所有者から自動で決まる。
 - **Chat**: `ResoniteChatGadget` / `ResoniteChatStart` / `ResoniteChat` / `ResoniteChatCell`。
 - **ProtoFlux**: `ResoniteFluxGenerate` / `ResoniteFluxChat` / `ResoniteFluxCatalogSearch` / `ResoniteFluxPlace` / `ResoniteFluxProbe` / `ResoniteFluxBuild`。
-- **タブレット**: `ResoniteTablet` / `ResoniteTabletEval` / `ResoniteTabletApprove` / `ResoniteTabletDeny` / `ResoniteTabletCancel` / `ResoniteTabletMake3D` / `ResoniteTabletCleanup`。
-- **資料の表示**: `ResoniteShowObject` / `ResoniteListGadget` / `ResonitePDFViewer` / `ResoniteViewerShow` / `ResoniteVideoBoard`。
+- **タブレット**: `ResoniteTablet` / `ResoniteTabletEval` / `ResoniteTabletApprove` / `ResoniteTabletDeny` / `ResoniteTabletCancel` / `ResoniteTabletMake3D` / `ResoniteTabletCleanup`。インベントリに保存したタブレットは常駐監視 (`ResoniteTabletServe`) が「接続」ボタンで引き継ぎます (`ResoniteTabletFind` / `ResoniteTabletAdopt`)。
+- **資料の表示**: `ResoniteShowObject` / `ResoniteListGadget` / `ResonitePDFViewer` / `ResoniteDocViewer` / `ResoniteViewerShow` / `ResoniteVideoBoard`。
+- **サムネイル一覧**: `ResoniteThumbnailGadget` / `ResoniteEagleFolderGadget`。インベントリに保存でき、接続時に署名とワールドの公開度・所有者を検証します (`ResoniteBoardAdopt` / `ResoniteBoardDiagnose`)。
+- **曲面**: `ResoniteThumbnailShape` / `ResoniteThumbnailSurface` で平面・円筒・球の内側・メビウスの帯・任意の曲面に切り替え、`ResoniteThumbnailSurfaceHit` でクリック位置を判定します。
+- **PDF キャッシュ**: `ResonitePDFCacheSetup` / `ResonitePDFCacheCredential` / `ResonitePDFCacheStatus` / `ResonitePDFCacheRetry` / `ResonitePDFCacheList` / `ResonitePDFCacheClear`。
 - **3D**: `ResoniteGraphics3DMesh` / `ResoniteMeshJSON` / `ResoniteGraphics3D` / `ResoniteGraphics3DRemove`。
 
 ### ドキュメント一覧
 
-- [api.md](api.md) — オプションを含む API リファレンス
+- [api.md](api.md) — オプションを含む API リファレンス (補助モジュールごとに `api_chat.md` / `api_flux.md` / `api_fluxlink.md` / `api_docboard.md` / `api_surface.md` / `api_pdfcache.md` / `api_mesh.md` / `api_tablet.md` / `api_ws.md`)
 - [setup.md](setup.md) — セットアップ手順書 (外部ツールと参照データの用意を含む)
 - [user_manual.md](user_manual.md) — ユーザーマニュアル
 - [example.md](examples/example.md) — 使用例集
-- [tablet.md](tablet.md) — タブレット (ClaudeEval / 承認 / 予約した組み立て / 3D 生成 / PDF ビューア) の仕組みと実機メモ
+- [tablet.md](tablet.md) — タブレット (ClaudeEval / 承認 / 予約した組み立て / 3D 生成 / PDF ビューア / サムネイル一覧) の仕組みと実機メモ
 - [chat-gadget.md](chat-gadget.md) — Chat ガジェット
 - [protoflux-gadget.md](protoflux-gadget.md) — ProtoFlux ガジェット (グラフ記述の配置と検証、カタログの作り方)
 - [protoflux-llm-generation-proposal.md](protoflux-llm-generation-proposal.md) — ProtoFlux 生成の方式検討
@@ -120,7 +134,7 @@ ResoniteGraphics3D[Plot3D[Sin[x y], {x, 0, 3}, {y, 0, 3}]]   (* 掴めるメッ�
 
 ## 使用例・デモ
 
-ワールド内のタブレットに「SourceVault の arXiv の論文のリスト」と入力して Eval を押すと、専用ノートブックで ClaudeEval が SourceVault を検索し、▶ 付きの一覧パネルがタブレットの左隣に組み上がります。▶ を押すと、その論文の PDF が掴めるビューアで開き、ページ送りできます。`Plot3D` を頼んだあとに「3D生成」を押すと、そのプロットがアバターの正面に掴めるメッシュとして現れます。
+ワールド内のタブレットに「SourceVault の arXiv の論文のリスト」と入力して Eval を押すと、専用ノートブックで ClaudeEval が SourceVault を検索し、▶ 付きの一覧パネルがタブレットの左隣に組み上がります。▶ を押すと、その論文の PDF が掴めるビューアで開き、ページ送りできます。「サムネ」を含めて頼むと、サムネイルの升目が出てクリックで PDF が開き、「形を変える」で円筒や球の内側にも貼り替えられます。`Plot3D` を頼んだあとに「3D生成」を押すと、そのプロットがアバターの正面に掴めるメッシュとして現れます。
 
 ```wolfram
 Block[{$CharacterEncoding = "UTF-8"}, Get["ResoniteRealtime.wl"]];
@@ -129,13 +143,24 @@ ResoniteTablet[]                (* 表示上限はワールドの公開度と所
 ```
 
 一度作ったタブレットは Resonite のインベントリに保存できます。以後は `Get["ResoniteRealtime.wl"]` だけで常駐監視が始まり (ノートブックのセッション)、
-ResoniteLink を有効化してインベントリからタブレットを出し、「接続」を押せば使えます (ポート指定も `ResoniteTablet[]` も不要)。
+ResoniteLink を有効化してインベントリからタブレットを出し、「接続」を押せば使えます (ポート指定も `ResoniteTablet[]` も不要)。サムネイル一覧も同様にインベントリへ保存でき、「接続」で署名と公開度を検証してから表示されます。
+
+## 参考文献
+
+- [ResoniteLink (Resonite Wiki)](https://wiki.resonite.com/ResoniteLink) — Resonite の公式外部連携 API。WebSocket + JSON でワールドのデータモデルを読み書きする仕様の解説。
+- [ResoLoop](https://github.com/transreal/ResoLoop) — resoloop を Wolfram Language から呼ぶ同作者のパッケージ。3D 生成の適用 (validate / apply) を担う。
+- [resoloop (orange3134)](https://github.com/orange3134/resoloop) — ResoniteLink 経由でワールドの内容を宣言的に適用する外部ツール (AGPL-3.0)。
+- [Flux SDK](https://flux-sdk.samsmucny.com/) — ProtoFlux と 1:1 のテキスト言語 ProtoGraph とコンパイラ `flux-sdk` の公式ドキュメント。
+
+---
 
 ## 謝辞
 
-- 3D 生成は ResoLoop.wl を介して resoloop (orange3134 氏、AGPL-3.0-or-later) を利用します。resoloop 本体は本リポジトリに含まれません。
-- ProtoFlux 生成の言語リファレンスは Flux SDK (Papaltine、AGPL-3.0) 公式ドキュメントの抜粋を利用者側で用意します (本リポジトリには含まれません)。
-- Resonite / ResoniteLink は Yellow Dog Man Studios の製品です。
+3D 生成は ResoLoop.wl を介して resoloop (orange3134 氏、AGPL-3.0-or-later) を利用します。resoloop 本体は本リポジトリに含まれません。
+
+ProtoFlux 生成の言語リファレンスは Flux SDK (Papaltine、AGPL-3.0) 公式ドキュメントの抜粋を利用者側で用意します (本リポジトリには含まれません)。
+
+Resonite / ResoniteLink は Yellow Dog Man Studios の製品です。
 
 ---
 
@@ -162,5 +187,3 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
-
-上記ライセンスは本リポジトリのコードとドキュメントに適用されます。外部ツールとして利用する resoloop と Flux SDK、およびそれらから作る参照データは本リポジトリに含まれていません。
