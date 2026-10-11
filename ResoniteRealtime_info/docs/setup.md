@@ -66,7 +66,7 @@ WebSocket 層 (`ResoniteRealtime_ws.wl`) は依存ゼロで、L1 / L2 / 板の�
 
    ```powershell
    winget install Microsoft.DotNet.SDK.10
-   dotnet tool install --global ResoLoop --version 0.1.0-preview.13
+   dotnet tool install --global ResoLoop --version 0.1.0-preview.17
    ```
 
    環境変数 `RESONITE_MANAGED_DATA_PATH` / `RESONITE_LOG_PATH` の設定と、プロジェクトの作成 (`ResoLoopProject["MyResoniteProject", "Create" -> True]`) は ResoLoop の setup.md を参照してください。3D 生成は `ResoLoop.wl` の既定プロジェクトの `content/g3d/` に mesh.json と apply.json を書きます。

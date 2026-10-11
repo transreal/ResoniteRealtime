@@ -70,7 +70,7 @@
 
    ```powershell
    winget install Microsoft.DotNet.SDK.10
-   dotnet tool install --global ResoLoop --version 0.1.0-preview.13
+   dotnet tool install --global ResoLoop --version 0.1.0-preview.17
    ```
 
 3. (ClaudeEval 連携を使う場合) `ResoniteRealtime_info/directives/110-resonite-tablet.md` を `Claude Directives/rules/` にコピーします。
