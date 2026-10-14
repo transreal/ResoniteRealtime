@@ -33,13 +33,18 @@ When the standard-viewer template is missing or cloning fails, open with Resonit
 ## 2. Thumbnail board saved to the inventory
 Requirements: the board can be saved and reused; it has a "Connect" button like the tablet; if ResoniteRealtime is loaded, PDFs open without the tablet (template built in). On connect, the world privacy and owner are checked first, and the board refuses to open if the proper privacy level (PL) is not reached.
 - Strip images are imported with importTexture2DFile into Resonite assets (local://) and the StaticTexture2D URL is swapped (saving uploads to the cloud; an http URL would need Wolfram running).
-- Rows (title / file / URI / sensitivity) and layout are stored as JSON in a ValueField<string> of child "Data". It is HMAC-SHA256 signed (key = $ResoniteBoardKeyFile, this PC only). If someone in the world edits file paths or sensitivity, the signature fails and the connection is refused (required, because Wolfram opens local files and shows them in the world). Signed string: line 1 = 64 hex chars signature, lines 2+ = JSON (v = 1, rows, layout, scale, builtLevel, built, title).
+- Rows (title / file / URI / sensitivity) and layout are stored as JSON in a ValueField<string> of child "Data". It is HMAC-SHA256 signed (key = $ResoniteBoardKeyFile, this PC only; see key ring below). If someone in the world edits file paths or sensitivity, the signature fails and the connection is refused (required, because Wolfram opens local files and shows them in the world). Signed string: line 1 = 64 hex chars signature, lines 2+ = JSON (v = 1, rows, layout, scale, builtLevel, built, title).
 - Child "Flux": OnLoaded / OnDuplicate -> SetSlotActiveSelf(Content, False) -> SetSlotActiveSelf(Veil, True). A board taken out of the inventory or duplicated hides its grid (images and titles) until Wolfram verifies, showing only "Press Connect to display".
 - "Connect" (Selected = -3) is noticed by the resident monitor, which takes over: reads the root at Depth 1 and Panel at Depth 1, verifies the signature, re-reads world info (privacy, host, owner), then shows only rows below the display limit. Cells at or above the limit stay covered by the veil and refuse to open. The veil is re-applied if the privacy level changes later.
 - If the standard-viewer template is known, a clone is stored hidden as a child of the board (same as the tablet; it is saved with the board).
 - A PDF opened from the board appears in front of the board's cells.
 - Candidate boards are polled every 2 s ($idCandPollSeconds) without waiting; board named "SourceVault Thumbnails". Connection stages are logged (BoardLog, last 40 entries; see ResoniteTabletStatus[]["BoardLog"]).
-- Status line shows elapsed time while checking (e.g. "Checking world privacy and owner… n s") and while opening a PDF ("Opening <title>… n s"). Check timeout 30 s: if no world info arrives, the stricter limit applies.
+- Status line shows elapsed time while checking (e.g. "Checking world privacy and owner… n s") and while opening a PDF ("Opening <title>… n s"). Check timeout 30 s ($idBoardCheckSeconds): if no world info arrives, the stricter limit applies.
+
+### Boards made on another PC (key ring)
+The key is per PC ($UserBaseDirectory), so a board made on another PC fails the signature on this PC.
+- Key ring: each PC puts its own key at <SourceVault PrivateVault>/keys/resonite-board/<PC name>-<fingerprint>.key (synced by Dropbox between own PCs only). Verification tries own key -> key ring keys. Signing always uses own key (earlier boards still pass).
+- If the board's PC has no key in the ring yet, rows are not trusted and only Eagle items are re-fetched: only rows with URI sv://object/eagle-<Id> are kept; file path is discarded (SourceVault resolves it from this PC's Eagle at open time); sensitivity = max(this PC's SourceVault value, the written value) (1.0 if no SourceVault). Other rows become unopenable cells (sensitivity 1.0). sv://file/ rows are not taken (sensitivity 0.0 could point to any file). If no row can be taken, the connection is refused as before.
 
 ### ResoniteBoardAdopt[root] → Null
 Takes over a thumbnail board placed in the world from the inventory (same as the Connect button; needs the monitor tick). Verifies signature, re-reads world privacy and owner, then shows only cells below the display limit.
@@ -51,7 +56,11 @@ Returns: name, parent, and State ValueField<int> value in the world (Connect pre
 
 ### $ResoniteBoardKeyFile
 型: String, 初期値: FileNameJoin[{$UserBaseDirectory, "ApplicationData", "ResoniteRealtime", "board.key"}]
-Key file (32 bytes, created if missing) for signing board row data. This PC only; boards built on another PC are refused.
+Key file (32 bytes, created if missing) for signing board row data. This PC only. Boards built on another PC pass only if their key is in $ResoniteBoardKeyRing.
+
+### $ResoniteBoardKeyRing
+型: String | Automatic | None, 初期値: Automatic
+Folder shared among own PCs holding each PC's key as <PC name>-<fingerprint>.key. Verification tries own key -> ring keys. Automatic = <SourceVault PrivateVault>/keys/resonite-board (not used if SourceVault is absent). None: not used. A board from a PC with no key in the ring gets only its Eagle items (sv://object/eagle-) re-fetched from this PC's SourceVault.
 
 ## 3. Worker kernel
 A resident subkernel moves heavy jobs out of the monitor tick. The tick is an interrupt-type evaluation; blocking it makes the FE show "dynamic evaluation abandoned" dialogs, which cannot be closed from VR.

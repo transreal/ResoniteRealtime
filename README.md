@@ -20,7 +20,7 @@
 - **PDF キャッシュ**: プライベート / フレンド限定ワールドで、PDF の一時的な写し (SHA-256 名) を自分の web サーバへ sftp で置き、フレンドにも PDF が見えるようにします。
 - **3D 生成**: `Plot3D` / `ArrayPlot3D` / `Graphics3D` を三角形メッシュにし、ResoniteLink の ImportMeshJSON 形式で resoloop (別パッケージ ResoLoop 経由) に渡して、ワールド内の掴めるオブジェクトにします。
 
-設計上の要点は 3 つです。第一に **プライバシーは fail-closed** です。ワールドに出してよい情報の上限 (アクセスレベル: 自分のプライベートワールドなら 1.0、フレンド限定なら 0.5、公開ワールドや他人のワールドなら 0.25) を宣言し、上限以上の資料やセル、機密度が数値で取れないものは出しません。クラウド LLM に渡す機密度もさらに天井 (0.5) を設けています。PDF キャッシュも機密度が上限を超える PDF は置きません。第二に **監視は待たない** ことです。ResoniteLink の応答待ちは ScheduledTask やコールバックの中では成立しないため、ガジェットの監視は 1 本の tick が「送るだけ」「次の tick で照合」の 2 相で回り、LLM の提案コードが頼むガジェットの組み立ても予約して tick が待たずに組みます。重い処理 (サムネイルの合成など) は常駐のワーカーカーネルに逃がします。第三に **FrontEnd を守る** ことです。常駐 Dynamic でポーリングせず、SocketListen のコールバックからは FrontEnd を触りません。
+設計上の要点は 3 つです。第一に **プライバシーは fail-closed** です。ワールドに出してよい情報の上限 (アクセスレベル: 自分のプライベートワールドなら 1.0、フレンド限定なら 0.5、公開ワールドや他人のワールドなら 0.25) を宣言し、上限以上の資料やセル、機密度が数値で取れないものは出しません。クラウド LLM に渡す機密度もさらに天井 (0.5) を設けています。PDF キャッシュも機密度が上限を超える PDF は置きません。第二に **監視は待たない** ことです。ResoniteLink の応答待ちは ScheduledTask やコールバックの中では成立しないため、ガジェットの監視は 1 本の tick が「送るだけ」「次の tick で照合」の 2 相で回り、LLM の提案コードが頼むガジェットの組み立ても予約して tick が待たずに組みます。重い処理 (サムネイルの合成など) は常駐のワーカーカーネルに逃がし、WebSocket 層の送信は `RRWSBatch` でまとめ書きにして大量メッセージの組み立てを速くしています。第三に **FrontEnd を守る** ことです。常駐 Dynamic でポーリングせず、SocketListen のコールバックからは FrontEnd を触りません。
 
 **前提パッケージ**: ワールド内のタブレット・一覧 / サムネイル一覧・PDF ビューアなど本パッケージの主な機能は、同じ作者の
 [NBAccess](https://github.com/transreal/NBAccess) / [claudecode](https://github.com/transreal/claudecode) / [ClaudeRuntime](https://github.com/transreal/ClaudeRuntime) /
@@ -48,7 +48,7 @@
 | **claudecode** | タブレット・Chat ガジェットの ClaudeEval / LLM 呼び出し、ProtoFlux 生成、承認ボタン (`ClaudeRuntimeDecide`) | [claudecode](https://github.com/transreal/claudecode) / [setup.md](https://github.com/transreal/claudecode/blob/main/claudecode_info/docs/setup.md) |
 | **ClaudeRuntime** | タブレットのターンの実行と状態 (承認待ち / 実行中 / 完了) の監視、承認・拒否・中止 | [ClaudeRuntime](https://github.com/transreal/ClaudeRuntime) / [setup.md](https://github.com/transreal/ClaudeRuntime/blob/main/ClaudeRuntime_info/docs/setup.md) |
 | **ClaudeOrchestrator** | タブレットのターンがオーケストレーション (複数ステップのジョブ) に回ったときの進行の監視 | [ClaudeOrchestrator](https://github.com/transreal/ClaudeOrchestrator) / [setup.md](https://github.com/transreal/ClaudeOrchestrator/blob/main/ClaudeOrchestrator_info/docs/setup.md) |
-| **SourceVault** | `sv://` 資料・検索結果の一覧、Eagle フォルダのサムネイル一覧と PDF、資料ごとの機密度、KB 応答 | [SourceVault](https://github.com/transreal/SourceVault) / [setup.md](https://github.com/transreal/SourceVault/blob/main/SourceVault_info/docs/setup.md) |
+| **SourceVault** | `sv://` 資料・検索結果の一覧、Eagle フォルダのサムネイル一覧と PDF、資料ごとの機密度、KB 応答、サムネイル一覧の署名鍵束の置き場 (PrivateVault) | [SourceVault](https://github.com/transreal/SourceVault) / [setup.md](https://github.com/transreal/SourceVault/blob/main/SourceVault_info/docs/setup.md) |
 
 
 ### インストール
@@ -105,13 +105,13 @@ ResoniteGraphics3D[Plot3D[Sin[x y], {x, 0, 3}, {y, 0, 3}]]   (* 掴めるメッ�
 
 ### 主な機能
 
-- **WebSocket 層**: 純 Wolfram の RFC 6455 サーバ / クライアント (`RRWSServe` / `RRWSConnect` / `RRWSSend` / `RRWSBatch` ほか)。送信のまとめ書きで書き込みを高速化します。
+- **WebSocket 層**: 純 Wolfram の RFC 6455 サーバ / クライアント (`RRWSServe` / `RRWSConnect` / `RRWSSend` / `RRWSBatch` / `RRWSFlush` ほか)。`RRWSBatch` で送信をまとめ書きにして書き込みを高速化します。
 - **L1 / L2 / L3**: `ResoniteRealtimeStart` / `ResoniteRealtimeOn` / `ResoniteRealtimeSend`、`ResoniteRealtimeDiscover` / `ResoniteRealtimeLinkConnect` / `ResoniteRealtimeGetSlot` / `ResoniteRealtimeAddSlot` / `ResoniteRealtimeAddComponent` / `ResoniteRealtimeUpdateSlot` / `ResoniteRealtimeUpdateComponent`、`ResoniteRealtimeBoard` / `ResoniteRealtimeShowImage` / `ResoniteRealtimeAsset`。
-- **表示上限**: `ResoniteAccessLevel` (Private 1.0 / Contacts 0.5 / ContactsPlus 0.25 / Public 0.25、非オーナーは一律 0.25)。既定はワールドの公開度とホスト / 所有者から自動で決まる。
-- **Chat**: `ResoniteChatGadget` / `ResoniteChatStart` / `ResoniteChat` / `ResoniteChatCell`。
-- **ProtoFlux**: `ResoniteFluxGenerate` / `ResoniteFluxChat` / `ResoniteFluxCatalogSearch` / `ResoniteFluxPlace` / `ResoniteFluxProbe` / `ResoniteFluxBuild`。
+- **表示上限**: `ResoniteAccessLevel` (Private 1.0 / Contacts 0.5 / ContactsPlus 0.25 / Public 0.25、非オーナーは一律 0.25)。既定はワールドの公開度とホスト / 所有者から自動で決まる (`ResoniteAccessLevel[Automatic]` で自動に戻す)。
+- **Chat**: `ResoniteChatGadget` / `ResoniteChatStart` / `ResoniteChat` / `ResoniteChatCell` / `ResoniteChatAttach` (別カーネルが作ったパネルの引き継ぎ)。
+- **ProtoFlux**: `ResoniteFluxGenerate` / `ResoniteFluxChat` / `ResoniteFluxCatalogSearch` / `ResoniteFluxPlace` / `ResoniteFluxProbe` / `ResoniteFluxRemove` / `ResoniteFluxDisplay` / `ResoniteFluxDrive` / `ResoniteFluxBuild`。
 - **タブレット**: `ResoniteTablet` / `ResoniteTabletEval` / `ResoniteTabletApprove` / `ResoniteTabletDeny` / `ResoniteTabletCancel` / `ResoniteTabletMake3D` / `ResoniteTabletCleanup`。インベントリに保存したタブレットは常駐監視 (`ResoniteTabletServe`) が「接続」ボタンで引き継ぎます (`ResoniteTabletFind` / `ResoniteTabletAdopt`)。
-- **資料の表示**: `ResoniteShowObject` / `ResoniteListGadget` / `ResonitePDFViewer` / `ResoniteDocViewer` / `ResoniteViewerShow` / `ResoniteVideoBoard`。
+- **資料の表示**: `ResoniteShowObject` / `ResoniteListGadget` / `ResonitePDFViewer` / `ResoniteDocViewer` (雛形なしの自前ビューア。`$ResonitePDFLite` で切り替え) / `ResoniteViewerShow` / `ResoniteVideoBoard`。
 - **サムネイル一覧**: `ResoniteThumbnailGadget` / `ResoniteEagleFolderGadget`。インベントリに保存でき、接続時に署名とワールドの公開度・所有者を検証します (`ResoniteBoardAdopt` / `ResoniteBoardDiagnose`)。
 - **曲面**: `ResoniteThumbnailShape` / `ResoniteThumbnailSurface` で平面・円筒・球の内側・メビウスの帯・任意の曲面に切り替え、`ResoniteThumbnailSurfaceHit` でクリック位置を判定します。
 - **PDF キャッシュ**: `ResonitePDFCacheSetup` / `ResonitePDFCacheCredential` / `ResonitePDFCacheStatus` / `ResonitePDFCacheRetry` / `ResonitePDFCacheList` / `ResonitePDFCacheClear`。

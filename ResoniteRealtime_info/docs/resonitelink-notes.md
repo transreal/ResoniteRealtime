@@ -156,13 +156,37 @@ L2 だけで UIX パネル (入力欄 / 送信 / 答え / 板) を組み立て�
 - `ResoniteTabletMake3D[]`: 直前の結果の Graphics3D を 3D オブジェクトにする (「3D生成」ボタン)。
 - `ResoniteShowObject[x]`: sv:// URI / SourceVault の行 / ファイル / 画像 / 式をワールド内に出す一般 API。`ResoniteListGadget[rows]` は行リストをボタン付き一覧にする。
 - 表示上限: 機密度が上限**以上**のものは出さない (等しくても出さない)。数値が取れないものは fail-closed。LLM に渡す AccessLevel は `Min[表示上限, 0.5]`。
+- 升目を開くのを断ったときは理由 (機密度と上限) を `BoardLog` (`"OpenRefused"`) に残す。ワールド情報がまだ読めていないときは、状態欄に「ワールドの情報待ち。数秒後に押し直してください」と出す。
+- 状態欄は幅で切れるので、経過・結果を先に、題名は最後に出す (例: 「開いています… n 秒 … 題名」)。
 
 ### 文書ビューアとサムネイル一覧 (`ResoniteRealtime_docboard.wl`)
 
 - `ResoniteDocViewer[file]` / `ResoniteDocViewerRemove[]`: 標準ビューアの雛形が無くても、Resonite 自身の部品 (`StaticDocument` → `DocumentPageTexture` → `SpriteProvider`) で PDF を開く。ページ送り (`<<` `<` `>` `>>`) と閉じるはワールド内の `ButtonValueShift<int>` / `ButtonValueSet<int>` / `ButtonDestroy` だけで動く。`$ResonitePDFLite` (既定 True) が False なら従来どおり Wolfram でページを画像にする自前パネルに落ちる。
-- サムネイル一覧はインベントリに保存して使い回せる。帯の画像は `importTexture2DFile` で Resonite の資産 (`local://`) に取り込む。行データと配置は HMAC-SHA256 署名つきの JSON として子 `"Data"` の `ValueField<string>` に入れ、鍵は `$ResoniteBoardKeyFile` (この PC だけ)。署名が合わなければ「接続」を断る。
+- サムネイル一覧はインベントリに保存して使い回せる。帯の画像は `importTexture2DFile` で Resonite の資産 (`local://`) に取り込む。行データと配置は HMAC-SHA256 署名つきの JSON として子 `"Data"` の `ValueField<string>` に入れる。署名が合わなければ、後述の別の PC の一覧の扱いになる (合わない行は信用しない)。
 - インベントリから出した一覧は、「接続」(State の `Selected = -3`) を押して監視が署名とワールド情報 (公開度・ホスト・所有者) を確かめるまで升目を隠す。`ResoniteBoardAdopt[root]` が同じ引き継ぎ、`ResoniteBoardDiagnose[]` が「接続」が効かないときの診断。
 - 重い仕事 (帯の画像化・Eagle フォルダ一覧・大きな PDF のページ数) は作業用サブカーネルに回す (`$ResoniteTabletWorker`、既定 True)。tick を長く塞ぐと FE の Dynamic が待たされ「動的評価の放棄」ダイアログが出るため。`ResoniteTabletWorkerStatus[]` / `ResoniteTabletWorkerStop[]` で状態確認・停止。
+
+#### 鍵束と別の PC で作った一覧 (2026-10-11)
+
+署名の鍵は PC ごとなので、以前は別の PC で作った一覧の「接続」が `行データの署名が合いません` で必ず断られていた (ユーザー報告。同じ PC で作った一覧は全部一致、別の PC の一覧は全部不一致だった)。次のように直した。
+
+- **鍵束**: 各 PC が自分の鍵を `<SourceVault の PrivateVault>/keys/resonite-board/<PC 名>-<指紋>.key` に置く (Dropbox で自分の PC 同士だけに同期。クラウド LLM / MCP の許可外で、`.key` は MCP も拒否)。検証は自分の鍵 → 鍵束の鍵の順に試す。署名は今までどおり自分の鍵なので、前に作った一覧もそのまま通る。
+- **`$ResoniteBoardKeyFile`** の既定は `Automatic` で、`<SourceVault の PrivateVault>/keys/resonite-board` を使う (SourceVault が無ければ鍵束は使わない)。`None` で使わない。自分の鍵は `$UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key` (この PC だけ)。
+- **鍵束にまだ無い PC の一覧** (その PC で新しい版を一度も読んでいない) は、行を信用せず Eagle の項目だけ引き直す。URI が `sv://object/eagle-<Id>` の行だけ採り、ファイルのパスは捨てる (開くときに SourceVault がこの PC の Eagle から解決する)。機密度はこの PC の SourceVault の値と書いてある値の大きい方 (SourceVault が無ければ 1.0)。それ以外の行は開けない升目 (機密度 1.0) にする。`sv://file/` は機密度 0.0 で任意のファイルを指せるので採らない。採れる行が 1 つも無ければ従来どおり断る。行の順は変えないので、升目の番号 = 行の番号のまま。
+- 記録の署名の種別 (`"Signer"`) は `Local` / `Ring` / `Foreign`。状態欄は別の PC の一覧なら「接続済み (別PCの一覧)」と出し、`ResoniteBoardDiagnose[]` にも署名の種別と引き直しの済 / 途中が出る。
+
+#### 機密度の引き直しを小分けにする
+
+`SourceVaultObjectPrivacyLevel` は Eagle 1 件あたり約 130 ms かかる。以前は接続の 1 tick で全行を引き直しており、468 件で約 1 分 tick を塞いでいた。今は接続は即座に終わり、引き直しは作業用の小分け処理 (`idBoardRecheckStart`) が続ける。
+
+- 終わるまでの機密度は、署名の通った一覧なら署名の値 (引き直しは上げるだけ)、別の PC の一覧なら 1.0。
+- 升目を押したときは、その行だけ先に引き直して開く (`idRowForOpen`)。これが無かったころは、最初の 1 件で雛形探しに約 20 秒かかり、押しても開かないように読めて押し直されていた (2026-10-11 ユーザー報告)。
+- 引き直しの結果は `rec["Created"]` と件数が一致したときだけ採り入れ、待つ間に閉じた / 引き継ぎ直した一覧には当てない。
+- 一覧の開示の方針は従来どおり、升目は全部見せ、中身を開けない件数を知らせる。状態欄は幅で切られるので、詳しい説明はタブレットとノートブックの状態に出す。
+
+#### 状態欄の文言
+
+状態欄は幅 (全角 1、半角 0.55) で切るようにした。以前は文字数で切っていたため、半角の多い `[PL<1.00 Private]` で枠を使い切り、肝心の経過が見えなかった。経過と段階を先に出し、題名は最後にする (例: 「開いています… n 秒 (ビューアを組み立てています) 題名」「開きました (n 秒) 題名」「開けませんでした: 理由 題名」)。
 
 ### 曲面に貼る (`ResoniteRealtime_surface.wl`)
 

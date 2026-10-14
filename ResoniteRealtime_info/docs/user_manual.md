@@ -230,10 +230,28 @@ ResoniteDocViewerRemove[root] ; ResoniteDocViewerRemove[]    (* 1 つ / 全部�
 構成したサムネイル一覧 (`ResoniteThumbnailGadget[rows, ...]`) は、そのままインベントリに保存して使い回せます。タブレットと同様に「接続」ボタンが付き、ResoniteRealtime がロードされていればタブレットが無くても PDF を開けます。
 
 - 帯の画像は Resonite の資産 (`local://`) に取り込まれるので、保存するとクラウドに上がり、Wolfram が居なくても帯が出ます。
-- 行 (題名 / ファイル / URI / 機密度) と配置は JSON として一覧の子 `Data` に入り、**署名つき** (HMAC-SHA256、鍵は `$ResoniteBoardKeyFile`) です。ワールドの誰かがファイルのパスや機密度を書き換えると署名が合わず、接続を断ります。鍵は既定で `$UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key` (32 バイト、無ければ作る) で、この PC だけのものです。別の PC で作った一覧は接続を断ります。
+- 行 (題名 / ファイル / URI / 機密度) と配置は JSON として一覧の子 `Data` に入り、**署名つき** (HMAC-SHA256、鍵は `$ResoniteBoardKeyFile`) です。ワールドの誰かがファイルのパスや機密度を書き換えると署名が合わず、接続を断ります。署名は常にこの PC の自分の鍵で付けます。鍵は既定で `$UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key` (32 バイト、無ければ作る) です。
+- 自分の PC 同士で鍵を共有する「鍵束」があり、別の PC で作った一覧も確かめられます (次項)。
 - インベントリから出した / 複製した一覧は、Wolfram が確かめるまで升目 (画像と題名) を隠し、「接続を押すと表示」だけを見せます。
-- 「接続」を押すと、常駐監視が見つけて引き継ぎます。署名を確かめ、ワールド情報 (公開度・ホスト・所有者) を読み直してから、表示上限未満の行だけを見せます (上限以上の升目は覆いで隠し、開こうとしても断ります。公開度があとで変わっても覆いを付け直します)。
+- 「接続」を押すと、常駐監視が見つけて引き継ぎます。署名を確かめ、ワールド情報 (公開度・ホスト・所有者) を読み直してから、表示上限未満の行だけを見せます (上限以上の升目は覆いで隠し、開こうとしても断ります。公開度があとで変わっても覆いを付け直します)。ワールドの情報がまだ読めていないときは「ワールドの情報待ち」と出るので、数秒後に押し直してください。
 - 標準ビューアの雛形が分かっていれば、複製を一覧の子に非表示で保管します (保存すると一緒に入ります)。一覧から開いた PDF は一覧の升目の前に出ます。
+
+#### 鍵束と別の PC で作った一覧
+
+鍵は PC ごとに別なので、以前は別の PC で作った一覧の「接続」が「行データの署名が合いません」で断られていました。現在は次のように扱います。
+
+- **鍵束**: 各 PC が自分の鍵を `<SourceVault の PrivateVault>/keys/resonite-board/<PC 名>-<指紋>.key` に置きます (Dropbox で自分の PC 同士だけに同期されます。クラウド LLM / MCP の許可外で、`.key` は MCP も拒否します)。SourceVault が無ければ鍵束は使いません (`None` でも使わない設定にできます)。署名の検証は、自分の鍵 → 鍵束の鍵の順に試します。署名は今までどおり自分の鍵なので、前に作った一覧もそのまま通ります。
+- **鍵束にまだ鍵が無い PC の一覧** (その PC で新しい版を一度も読んでいない一覧) は、行を信用せず、Eagle の項目だけをこの PC の SourceVault から引き直します。
+  - URI が `sv://object/eagle-<Id>` の行だけを採り、ファイルのパスは捨てます (開くときに SourceVault がこの PC の Eagle から解決します)。
+  - 機密度は、この PC の SourceVault の値と一覧に書いてある値の大きい方です (SourceVault が無ければ 1.0)。
+  - それ以外の行は開けない升目 (機密度 1.0) にします。`sv://file/` は機密度 0.0 で任意のファイルを指せるので採りません。行の順は変えません (升目の番号 = 行の番号)。
+  - 採れる行が 1 つも無ければ、今までどおり接続を断ります。
+- 接続した状態欄には、別の PC の一覧なら「接続済み (別PCの一覧)」と出ます。詳しい説明 (鍵束にその PC の鍵がまだ無いこと、引き直す件数) はタブレット / ノートブックの状態に出ます。
+- **機密度の引き直しは小分け**で行います。以前は接続の 1 tick で全行を引き直していたため、468 件で約 1 分塞いでいました。現在は作業用カーネルへ小分けに投げ、終わるまでの機密度は、署名の通った一覧なら署名の値 (引き直しは上げるだけ)、別の PC の一覧なら 1.0 です。
+- 引き直しが終わる前でも、押した升目はその行だけ先に引き直して開きます。引き直しに失敗したら控えの行 (別の PC の一覧なら機密度 1.0 = 開けない側) を使います。
+- 開示の方針: 升目は全部見せ、中身を開けない件数を状態欄で知らせます。
+
+状態欄は幅 (全角 1、半角 0.55) で切れるので、経過・結果を先に、題名は最後に出します。たとえば「開いています… 3 秒 (ビューアを組み立てています)」「開きました (2 秒) 題名」「開けませんでした: …」の形です。文字数ではなく幅で切るので、半角の多い `[PL<1.00 Private]` のような表示でも枠を使い切りません。機密度が表示上限以上で断ったときは「中身は開けません: 機密度 … >= 表示上限 …」と出し、理由は記録 (BoardLog の `OpenRefused`) にも残ります。
 
 ```wolfram
 ResoniteBoardAdopt[root]          (* 「接続」ボタンと同じ。ワールドの一覧を引き継ぐ (監視 tick が要る) *)
@@ -241,7 +259,7 @@ ResoniteBoardDiagnose[root]       (* 「接続」が効かないときの診断 
 ResoniteBoardDiagnose[]           (* Root 直下と入れ物の中の一覧を探して全部診断 *)
 ```
 
-`ResoniteBoardDiagnose` は、ワールドでの名前・親・State の `ValueField<int>` の値 (接続を押すと -3)、監視の候補 / 引き継ぎ中 / 接続済みか、直近の記録 (BoardLog) を返します。読めなかったときは `"Reply"` に応答そのものが入ります。
+`ResoniteBoardDiagnose` は、ワールドでの名前・親・State の `ValueField<int>` の値 (接続を押すと -3)、監視の候補 / 引き継ぎ中 / 接続済みか、直近の記録 (BoardLog) を返します。記録には引き継ぎ (`Adopted`: 件数と署名の出所)、引き直しの完了 (`Rechecked`)、開くのを断った理由 (`OpenRefused`: 升目の番号・機密度・上限) が入ります。引き直しが済んだか途中か、ワールドの情報を読めているかも状態に出ます。読めなかったときは `"Reply"` に応答そのものが入ります。
 
 ## サムネイル一覧を曲面に貼る
 
@@ -345,9 +363,9 @@ ResoniteGraphics3DRemove[r]
 
 - 常駐 Dynamic でポーリングしない (パレット常駐 UpdateInterval は FrontEnd を殺す)。監視は ScheduledTask 1 本、Monitor は手動更新ボタン式。
 - SocketListen のコールバックからは FrontEnd を触らない。コールバック内で Close / Pause しない。
-- ScheduledTask / SessionSubmit / runtime のジョブの中では ResoniteLink の応答を待たない (`"Wait" -> False` + `sourceMessageId` 照合)。重い仕事は作業用カーネルへ回す。
+- ScheduledTask / SessionSubmit / runtime のジョブの中では ResoniteLink の応答を待たない (`"Wait" -> False` + `sourceMessageId` 照合)。重い仕事は作業用カーネルへ回す (サムネイル一覧の機密度の引き直しも小分けにして回す)。
 - 機密度は fail-closed。上限以上のもの、数値で取れないものは出さない。外のサーバに置く写しにも別の上限 (`$ResonitePDFCacheMaxLevel`) がある。
-- インベントリから出した一覧は、署名と公開度を確かめるまで中身を隠す。
+- インベントリから出した一覧は、署名と公開度を確かめるまで中身を隠す。署名が確かめられない一覧 (別の PC で作った一覧) は行を信用せず、Eagle の項目だけをこの PC の SourceVault から引き直し、それ以外は開けない升目にする。
 - ResoniteLink は beta。メッセージ組み立ては 1 箇所 (`ResoniteRealtimeValue` / `ResoniteRealtimeLink`) に閉じ込め、スキーマ変更に追随しやすくする。
 
 ## 変数
@@ -362,7 +380,7 @@ ResoniteGraphics3DRemove[r]
 | `$ResoniteTabletWorker` (True) | サムネイルの帯・フォルダ一覧・PDF ページ数を作業用カーネルで作る |
 | `$ResoniteTabletPagePoints` (480) / `$ResoniteTabletPageResolution` (192) | ビューアのページ幅 (pt) と解像度 (dpi) |
 | `$ResonitePDFMode` / `$ResonitePDFLite` (True) | PDF の開き方 (`"Native"`)、雛形が無いとき `ResoniteDocViewer` を使うか |
-| `$ResoniteBoardKeyFile` | サムネイル一覧の署名鍵ファイル |
+| `$ResoniteBoardKeyFile` | サムネイル一覧の署名鍵ファイル (既定はこの PC だけの `board.key`。各 PC の鍵は SourceVault の PrivateVault の鍵束にも置かれ、別の PC の一覧の検証に使う) |
 | `$ResoniteThumbnailShapes` / `$ResoniteThumbnailSurfaces` | 「形を変更」の巡回順、名前 → 面の定義の登録簿 |
 | `$ResonitePDFCache` (True) / `$ResonitePDFCacheBaseURL` / `$ResonitePDFCacheUploadURL` / `$ResonitePDFCacheMaxLevel` (0.5) | フレンド向け PDF キャッシュの有効化、読む URL、書き込み先 (sftp)、置いてよい機密度の上限 |
 | `$ResoniteGraphics3DDirectory` / `$ResoniteGraphics3DProject` | 3D 生成の作業フォルダと resoloop プロジェクト |

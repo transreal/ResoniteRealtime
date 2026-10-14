@@ -35,6 +35,19 @@
        開こうとしても断る)。公開度が後で変わっても覆いを付け直す。
      - 標準ビューアの雛形が分かっていれば、複製を一覧の子に非表示で保管する (タブレットと同じ。保存すると一緒に入る)。
      - 一覧から開いた PDF は一覧の升目の前に出す。
+
+   ---- 3. 別の PC で作った一覧 (2026-10-11 ユーザー報告「ワールド保存した一覧の「接続」が『行データの署名が合いません』」) ----
+   原因: 鍵は PC ごと ($UserBaseDirectory) なので、別の PC (Dropbox が C:/Users/imai_/Dropbox) で 9/26 に作った一覧は
+   この PC (F:/Dropbox) では必ず署名が合わない (保存・読み戻しで中身は変わっていない。Resonite のキャッシュの
+   保存データを取り出して確かめた: 同じ PC で作った一覧は全部一致、別の PC の 10 件は全部不一致)。
+     - 鍵束: 各 PC が自分の鍵を <SourceVault PrivateVault>/keys/resonite-board/<PC 名>-<指紋>.key に置き
+       (Dropbox で自分の PC 同士だけに同期。クラウド LLM / MCP の許可外で .key は MCP も拒否)、検証は
+       自分の鍵 -> 鍵束の鍵の順に試す。署名は今までどおり自分の鍵 (前に作った一覧もそのまま通る)。
+     - 鍵束にまだ無い PC の一覧 (その PC で新しい版を一度も読んでいない) は、行を信用せず Eagle の項目だけ引き直す:
+       URI が sv://object/eagle-<Id> の行だけ採り、ファイルのパスは捨て (開くときに SourceVault がこの PC の Eagle から
+       解決する)、機密度はこの PC の SourceVault の値と書いてある値の大きい方 (SourceVault が無ければ 1.0)。
+       それ以外の行は開けない升目 (機密度 1.0) にする。sv://file/ は機密度 0.0 で任意のファイルを指せるので採らない。
+       採れる行が 1 つも無ければ今までどおり断る。
 *)
 
 BeginPackage["ResoniteRealtime`"];
@@ -66,7 +79,13 @@ ResoniteRealtime`$ResoniteTabletWorker::usage =
   "監視の tick の中で長く塞ぐと FE の Dynamic が待たされ「動的評価の放棄」ダイアログが出るため。False なら従来どおりこのカーネルで。";
 ResoniteRealtime`$ResoniteBoardKeyFile::usage =
   "$ResoniteBoardKeyFile はサムネイル一覧の行データに付ける署名の鍵ファイル (32 バイト、無ければ作る)。\n" <>
-  "既定は $UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key (この PC だけ。別の PC で作った一覧は接続を断る)。";
+  "既定は $UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key (この PC の鍵)。\n" <>
+  "別の PC で作った一覧は $ResoniteBoardKeyRing (自分の PC 同士で共有する鍵束) にその PC の鍵があれば通る。";
+ResoniteRealtime`$ResoniteBoardKeyRing::usage =
+  "$ResoniteBoardKeyRing はサムネイル一覧の署名の鍵束 (自分の PC 同士で共有するフォルダ)。各 PC が自分の鍵を\n" <>
+  "<PC 名>-<指紋>.key で置き、検証は自分の鍵 -> 鍵束の鍵の順に試す。\n" <>
+  "既定 Automatic = <SourceVault の PrivateVault>/keys/resonite-board (Dropbox。SourceVault が無ければ使わない)。None で使わない。\n" <>
+  "鍵束にまだ鍵が無い PC で作った一覧は、Eagle の項目 (sv://object/eagle-) だけこの PC の SourceVault から引き直して接続する。";
 
 Begin["`Private`"];
 
@@ -76,11 +95,14 @@ Begin["`Private`"];
 If[!StringQ[ResoniteRealtime`$ResoniteBoardKeyFile],
   ResoniteRealtime`$ResoniteBoardKeyFile =
     FileNameJoin[{$UserBaseDirectory, "ApplicationData", "ResoniteRealtime", "board.key"}]];
+If[!ValueQ[ResoniteRealtime`$ResoniteBoardKeyRing], ResoniteRealtime`$ResoniteBoardKeyRing = Automatic];
 If[!ValueQ[$idKeyCache], $idKeyCache = None];
+If[!ValueQ[$idKeyPublished], $idKeyPublished = None];
 
 idKey[] :=
   Module[{f = ResoniteRealtime`$ResoniteBoardKeyFile, k, st},
-    If[ByteArrayQ[$idKeyCache] && Lookup[$idKeyCacheFor, "File", None] === f, Return[$idKeyCache]];
+    If[ByteArrayQ[$idKeyCache] && Lookup[$idKeyCacheFor, "File", None] === f,
+      idPublishKey[$idKeyCache]; Return[$idKeyCache]];
     k = If[FileExistsQ[f], Quiet @ Check[ReadByteArray[f], $Failed], $Failed];
     If[!ByteArrayQ[k] || Length[k] < 32,
       k = Quiet @ Check[GenerateSymmetricKey[]["Key"], $Failed];
@@ -89,8 +111,49 @@ idKey[] :=
       st = Quiet @ Check[OpenWrite[f, BinaryFormat -> True], $Failed];
       If[!FailureQ[st] && st =!= $Failed, BinaryWrite[st, Normal[k]]; Close[st]]];
     $idKeyCacheFor = <|"File" -> f|>;
-    $idKeyCache = k];
+    $idKeyCache = k;
+    idPublishKey[k];
+    k];
 If[!AssociationQ[$idKeyCacheFor], $idKeyCacheFor = <||>];
+
+(* ---- 鍵束 (2026-10-11): 自分の PC 同士で共有するフォルダに各 PC の鍵を置き、別の PC で作った一覧も確かめられるように ----
+   既定は SourceVault の PrivateVault (Dropbox。クラウド LLM / MCP の許可外) の keys/resonite-board。
+   SourceVault の変数は名前で引く (このファイルが先にロードされても SourceVault` に記号を作らない) *)
+idKeyRingDir[] :=
+  Module[{d = ResoniteRealtime`$ResoniteBoardKeyRing, roots, pv},
+    Which[
+      StringQ[d] && d =!= "", d,
+      d === Automatic,
+        roots = icSym["SourceVault`$SourceVaultRoots"];
+        pv = If[AssociationQ[roots], Lookup[roots, "PrivateVault", None], None];
+        If[StringQ[pv] && DirectoryQ[pv], FileNameJoin[{pv, "keys", "resonite-board"}], None],
+      True, None]];
+
+(* 鍵束でのファイル名: <PC 名>-<鍵の SHA-256 の先頭 8 桁>.key (同じ名前の PC があっても鍵が違えば別のファイル) *)
+idKeyRingName[k_ByteArray] :=
+  StringReplace[ToLowerCase[ToString[$MachineName]], Except[WordCharacter | "-"] -> "_"] <> "-" <>
+    StringTake[StringJoin[IntegerString[#, 16, 2] & /@ idSHA[Normal[k]]], 8] <> ".key";
+
+(* この PC の鍵を鍵束に置く (無ければ。他の PC のファイルには触らない)。1 回置けばこのセッションでは見に行かない *)
+idPublishKey[k_ByteArray] :=
+  Module[{dir = idKeyRingDir[], f, st},
+    If[!StringQ[dir], Return[None]];
+    f = FileNameJoin[{dir, idKeyRingName[k]}];
+    If[$idKeyPublished === f, Return[f]];
+    If[!FileExistsQ[f],
+      Quiet[CreateDirectory[dir, CreateIntermediateDirectories -> True]];
+      st = Quiet @ Check[OpenWrite[f, BinaryFormat -> True], $Failed];
+      If[Head[st] =!= OutputStream, Return[None]];
+      BinaryWrite[st, Normal[k]]; Close[st]];
+    $idKeyPublished = f];
+idPublishKey[_] := None;
+
+(* 鍵束の鍵 (この PC の鍵を除く)。Dropbox の競合コピーも鍵として読む *)
+idRingKeys[] :=
+  Module[{dir = idKeyRingDir[], own = idKey[]},
+    If[!StringQ[dir] || !DirectoryQ[dir], Return[{}]];
+    DeleteDuplicates @ Select[Map[Quiet @ Check[ReadByteArray[#], $Failed] &, FileNames["*.key", dir]],
+      ByteArrayQ[#] && Length[#] >= 32 && # =!= own &]];
 
 idSHA[b_List] := Normal[Hash[ByteArray[b], "SHA256", "ByteArray"]];
 idHMAC[key_ByteArray, msg_ByteArray] :=
@@ -100,20 +163,77 @@ idHMAC[key_ByteArray, msg_ByteArray] :=
     StringJoin[IntegerString[#, 16, 2] & /@
       idSHA[Join[BitXor[k, 92], idSHA[Join[BitXor[k, 54], Normal[msg]]]]]]];
 
+(* ロード時: この PC の鍵がもうあれば鍵束に置く (鍵は作らない。SourceVault が後からロードされたなら、最初の署名 / 検証で置く) *)
+If[FileExistsQ[ResoniteRealtime`$ResoniteBoardKeyFile], Quiet @ Check[idKey[], Null]];
+
 (* 署名つきの文字列: 1 行目 = 署名 (16 進 64 文字)、2 行目以降 = JSON *)
 idEncode[body_Association] :=
   Module[{json = ByteArrayToString[ExportByteArray[body, "RawJSON", "Compact" -> True], "UTF-8"]},
     idHMAC[idKey[], StringToByteArray[json, "UTF-8"]] <> "\n" <> json];
-idDecode[s_String] :=
-  Module[{parts = StringSplit[s, "\n", 2], body},
-    If[Length[parts] =!= 2, Return[iFailure["BadData", "行データの形が違います。"]]];
-    If[idHMAC[idKey[], StringToByteArray[parts[[2]], "UTF-8"]] =!= parts[[1]],
-      Return[iFailure["BadSignature", "行データの署名が合いません (書き換えられた / 別の PC で作った一覧)。"]]];
-    body = Quiet @ Check[ImportByteArray[StringToByteArray[parts[[2]], "UTF-8"], "RawJSON"], $Failed];
+(* 署名を確かめる: この PC の鍵 -> 鍵束の鍵。合った鍵の出どころ "Local" | "Ring"、合わなければ None *)
+idSigSource[json_String, sig_String] :=
+  With[{msg = StringToByteArray[json, "UTF-8"]},
+    Which[
+      idHMAC[idKey[], msg] === sig, "Local",
+      AnyTrue[idRingKeys[], idHMAC[#, msg] === sig &], "Ring",
+      True, None]];
+idParseBody[json_String] :=
+  With[{body = Quiet @ Check[ImportByteArray[StringToByteArray[json, "UTF-8"], "RawJSON"], $Failed]},
     If[!AssociationQ[body] || Lookup[body, "v", 0] =!= 1 || !ListQ[Lookup[body, "rows", None]],
-      Return[iFailure["BadData", "行データを読めません。"]]];
-    body];
+      iFailure["BadData", "行データを読めません。"], body]];
+(* 戻り値の "$Signer" は確かめた鍵 ("Local" = この PC / "Ring" = 鍵束にある別の PC)。署名する本体には入らない *)
+idDecode[s_String] :=
+  Module[{parts = StringSplit[s, "\n", 2], src, body},
+    If[Length[parts] =!= 2, Return[iFailure["BadData", "行データの形が違います。"]]];
+    src = idSigSource[parts[[2]], parts[[1]]];
+    If[src === None,
+      Return[iFailure["BadSignature", "行データの署名が合いません (書き換えられた / 鍵束にまだ鍵が無い別の PC で作った一覧)。"]]];
+    body = idParseBody[parts[[2]]];
+    If[FailureQ[body], body, Append[body, "$Signer" -> src]]];
 idDecode[_] := iFailure["BadData", "行データがありません。"];
+
+(* ---- 署名を確かめられない一覧 (2026-10-11): 行を信用せず、Eagle の項目だけこの PC の SourceVault から引き直す ----
+   採るのは URI が sv://object/eagle-<Id> の行だけ (Eagle の ID は英大文字と数字。わざと狭く書く)。ファイルのパスは捨てる
+   (開くときに itShowObject が URI から SourceVault 経由でこの PC の Eagle のファイルを引く)。機密度は書いてある値で、
+   接続時に idRowRecheck が SourceVault の今の値と大きい方を採る (SourceVault が無ければ 1.0)。それ以外の行は開けない升目
+   (機密度 1.0)。行の順は変えない (升目の番号 = 行の番号)。sv://file/ は機密度 0.0 で任意のファイルを指せるので採らない *)
+$idForeignURI = RegularExpression["^sv://object/eagle-([A-Za-z0-9]+)$"];
+idForeignRow[row_] :=
+  Module[{r = Replace[row, Except[_Association] -> <||>], str, uri, id},
+    str[k_, n_] := With[{v = Lookup[r, k, ""]}, If[StringQ[v], StringTake[v, UpTo[n]], ""]];
+    uri = Lookup[r, "URI", None];
+    id = If[StringQ[uri], StringCases[uri, $idForeignURI -> "$1"], {}];
+    If[Length[id] === 1 && ToLowerCase[str["Kind", 20]] === "eagle",
+      <|"Kind" -> "eagle", "Title" -> str["Title", 300], "URI" -> "sv://object/eagle-" <> First[id], "Id" -> First[id],
+        "Ext" -> str["Ext", 16], "Date" -> str["Date", 32],
+        "PrivacyLevel" -> If[icSym["SourceVault`SourceVaultObjectPrivacyLevel"] === None, 1.0,
+          itPL[Lookup[r, "PrivacyLevel", 1.0]]]|>,
+      <|"Kind" -> str["Kind", 20], "Title" -> str["Title", 300], "PrivacyLevel" -> 1.0, "Locked" -> True|>]];
+idForeignBody[s_String] :=
+  Module[{parts = StringSplit[s, "\n", 2], body, rows, n, num},
+    If[Length[parts] =!= 2, Return[iFailure["BadData", "行データの形が違います。"]]];
+    body = idParseBody[parts[[2]]];
+    If[FailureQ[body], Return[body]];
+    rows = Map[idForeignRow, body["rows"]];
+    n = Count[rows, r_ /; !TrueQ[Lookup[r, "Locked", False]]];
+    If[n === 0,
+      Return[iFailure["BadSignature",
+        "行データの署名が合いません (書き換えられた / 鍵束にまだ鍵が無い別の PC で作った一覧。Eagle の項目が無いので引き直せません)。"]]];
+    num[a_] := Select[Replace[a, Except[_Association] -> <||>], NumericQ];
+    Join[<|"v" -> 1, "title" -> StringTake[ToString[Lookup[body, "title", ""]], UpTo[200]], "rows" -> rows,
+        "layout" -> num[KeyTake[Replace[Lookup[body, "layout", <||>], Except[_Association] -> <||>], $idLayoutKeys]],
+        "scale" -> Replace[Lookup[body, "scale", 0.0006], Except[_?NumericQ] -> 0.0006]|>,
+      (* 曲面の一覧の形と寸法 (itSurfaceAdoptRec) *)
+      If[StringQ[Lookup[body, "shape", None]], <|"shape" -> StringTake[body["shape"], UpTo[40]]|>, <||>],
+      If[AssociationQ[Lookup[body, "geometry", None]], <|"geometry" -> num[body["geometry"]]|>, <||>],
+      If[NumericQ[Lookup[body, "headerW", None]], <|"headerW" -> body["headerW"]|>, <||>],
+      <|"$Signer" -> "Foreign", "ForeignRows" -> n|>]];
+idForeignBody[_] := iFailure["BadData", "行データがありません。"];
+
+(* 接続で使う: 署名が合えばそのまま、合わなければ Eagle の項目だけ引き直す (それも無ければ BadSignature) *)
+idDecodeBoard[s_] :=
+  With[{b = idDecode[s]},
+    If[MatchQ[b, Failure["BadSignature", _]], idForeignBody[s], b]];
 
 (* 行は必要なキーだけ、値は文字列 / 数 / 真偽だけ。機密度は必ず数で入れる (fail-closed の itRowPL の結果) *)
 $idRowKeys = {"Kind", "Title", "URI", "File", "Id", "Ext", "Date", "URL", "PDF", "Library", "Name"};
@@ -131,6 +251,41 @@ idRowRecheck[row_Association] :=
     If[StringQ[uri] && StringStartsQ[uri, "sv://"] && icSym["SourceVault`SourceVaultObjectPrivacyLevel"] =!= None,
       now = itObjectPL[uri]; pl = Max[pl, now]];
     Append[row, "PrivacyLevel" -> pl]];
+
+(* ---- 引き直しを小分けに (2026-10-11)。SourceVaultObjectPrivacyLevel は Eagle 1 件 ~130 ms (SourceVaultEagleSummaryRow) で、
+   前は接続の 1 tick で全行やっていた (468 件で ~1 分塞ぐ)。終わるまでの機密度: 署名の通った一覧は署名の値 (引き直しは上げるだけ)、
+   別の PC の一覧 (idForeignBody) は 1.0。升目を開くときはその行だけ先に引き直す (idRowForOpen) ので、開く判定は常に引き直し後。
+   引き直しの前に「形を変更」で組み直すと、別の PC の一覧の行は 1.0 のまま新しい一覧に入る (開けない側に倒れる) *)
+idRowsBeforeRecheck[body_Association] :=
+  If[Lookup[body, "$Signer", "Local"] === "Foreign",
+    Map[Append[#, "PrivacyLevel" -> 1.0] &, body["rows"]], body["rows"]];
+
+idBoardRecheckStart[root_String] :=
+  Module[{rec = Lookup[itThumbs[], root, None]},
+    If[!AssociationQ[rec] || !ListQ[Lookup[rec, "RowsSigned", None]], Return[None]];
+    With[{rt = root, created = rec["Created"]},
+      idChunkSubmit[rec["RowsSigned"], idRowRecheck, Function[out, idBoardRecheckDone[rt, created, out]],
+        "サムネイル一覧の機密度を確かめています"]]];
+
+idBoardRecheckDone[root_String, created_, out_List] :=
+  Module[{rec = Lookup[itThumbs[], root, None]},
+    (* 待つ間に閉じた / 引き継ぎ直した一覧には当てない *)
+    If[!AssociationQ[rec] || Lookup[rec, "Created", None] =!= created || Length[out] =!= Length[rec["Rows"]], Return[None]];
+    $itState["Thumbs", root] = Join[rec, <|"Rows" -> out, "AllRows" -> out, "RecheckDone" -> True|>];
+    idBoardLog[root, "Rechecked", ToString[Length[out]] <> " 件"];
+    If[Lookup[rec, "Phase", "Ready"] === "Ready", idApplyLevel[root]];
+    Length[out]];
+
+(* 升目を開く前: 引き直しがまだならその行だけ今やる (itThumbOpen から) *)
+idRowForOpen[root_String, i_Integer] :=
+  Module[{rec = Lookup[itThumbs[], root, None], signed, row},
+    If[!AssociationQ[rec] || !(1 <= i <= Length[rec["Rows"]]), Return[$Failed]];
+    signed = Lookup[rec, "RowsSigned", None];
+    If[TrueQ[Lookup[rec, "RecheckDone", True]] || !ListQ[signed] || Length[signed] =!= Length[rec["Rows"]],
+      Return[rec["Rows"][[i]]]];
+    row = idRowRecheck[signed[[i]]];
+    $itState["Thumbs", root] = Join[rec, <|"Rows" -> ReplacePart[rec["Rows"], i -> row]|>];
+    row];
 
 (* ============================================================
    参照つき部品: tick の組み立てなら巡に回し、トップレベルならメンバ ID を待って今足す
@@ -473,7 +628,11 @@ idBoardStatus[root_String, text_String] :=
     t = Lookup[Lookup[rec, "Ids", <||>], "StatusText", None];
     If[!StringQ[t], Return[None]];
     n = idStatusChars[rec];
-    s = If[itLineWidth[text, 1.] <= n, text, StringTake[text, UpTo[n - 1]] <> "…"];
+    (* 幅 (全角 1、半角 0.55) で切る。前は文字数で n - 1 字に切っていたので、半角の多い「[PL<1.00 Private]」で枠を使い切り、
+       後ろの「機密度を確認中」「開いています… n 秒」が見えなかった (2026-10-11) *)
+    s = If[itLineWidth[text, 1.] <= n, text,
+      With[{w = Accumulate[Map[If[# > 255, 1.0, 0.55] &, ToCharacterCode[text]]]},
+        StringTake[text, Max[1, LengthWhile[w, # <= n - 1 &]]] <> "…"]];
     If[Lookup[rec, "StatusShown", None] === s, Return[s]];   (* 同じ文字は書かない (毎 tick 呼ばれる) *)
     itNoWait @ Quiet @ Check[ResoniteRealtime`ResoniteRealtimeUpdateComponent[t, <|"Content" -> s|>], Null];
     If[KeyExistsQ[itThumbs[], root], $itState["Thumbs", root, "StatusShown"] = s];
@@ -634,6 +793,9 @@ ResoniteRealtime`ResoniteBoardDiagnose[root_String] :=
       "State" -> If[AssociationQ[st], st["id"], None], "StateValues" -> vals,
       "Candidate" -> MemberQ[idBoardCands[], root], "CandInfo" -> KeyDrop[Lookup[idBoardCandInfo[], root, <||>], "Pending"],
       "Adopting" -> KeyExistsQ[idBoardJobs[], root], "Attached" -> KeyExistsQ[itThumbs[], root],
+      (* 署名を確かめた鍵 ("Local" / "Ring" / "Foreign" = Eagle だけ引き直し) と鍵束 (別の PC の一覧が通らないとき) *)
+      "Signer" -> Lookup[Lookup[itThumbs[], root, <||>], "Signer", None],
+      "KeyRing" -> <|"Dir" -> idKeyRingDir[], "OtherKeys" -> Length[Quiet @ Check[idRingKeys[], {}]], "Published" -> $idKeyPublished|>,
       "ScanHolders" -> Lookup[$itState, "ScanHolders", None], "LastScanSecondsAgo" -> Round[iNow[] - Lookup[$itState, "LastScan", 0], 0.1],
       "Serve" -> TrueQ[Lookup[$itState, "Serve", False]],
       "BoardLog" -> Select[Replace[Lookup[$itState, "BoardLog", {}], Except[_List] -> {}], #["Root"] === root &]|>];
@@ -672,7 +834,8 @@ idBoardStep[j_Association] :=
         dv = itCompOf[data, "ValueField<string>"];
         If[!StringQ[sel] || !AssociationQ[panel],
           itSetStatus["サムネイル一覧の構造ではありません: " <> j["Root"]]; idBoardLog[j["Root"], "AdoptFail", "構造が違います (State / Panel)"]; Return[None]];
-        body = idDecode[If[AssociationQ[dv], icMemberValue[dv, "Value"], None]];
+        (* 2026-10-11: 署名が合わなければ (鍵束にまだ鍵が無い別の PC の一覧) Eagle の項目だけ引き直す *)
+        body = idDecodeBoard[If[AssociationQ[dv], icMemberValue[dv, "Value"], None]];
         Join[j, <|"Phase" -> "PanelWait", "MessageId" -> itSendGet[panel["id"], 1, True], "Sent" -> iNow[],
           "State" -> st["id"], "Selected" -> sel, "Panel" -> panel["id"], "Body" -> body,
           "Stash" -> If[AssociationQ[stash], stash["id"], None], "Scale" -> itSlotScaleX[panel, None],
@@ -700,11 +863,14 @@ idBoardStep[j_Association] :=
         body = j["Body"];
         rec = <|"Ids" -> <|"State" -> j["State"], "Selected" -> j["Selected"], "Panel" -> j["Panel"], "Content" -> content,
             "Veil" -> veil, "StatusText" -> status, "TitleText" -> title|>,
-          "Root" -> j["Root"], "Rows" -> Map[idRowRecheck, body["rows"]], "Title" -> body["title"],
+          (* 機密度の引き直し (SourceVault。Eagle は 1 件 ~130 ms で 468 件なら 1 分 tick を塞いで FE が固まる) は小分けに回す
+             (idBoardRecheckStart)。終わるまでは署名の値 (別の PC の一覧は 1.0)。開く升目はその行だけ先に引き直す (idRowForOpen) *)
+          "Root" -> j["Root"], "Rows" -> idRowsBeforeRecheck[body], "RowsSigned" -> body["rows"], "RecheckDone" -> False,
+          "Title" -> body["title"],
           "Layout" -> body["layout"], "Scale" -> Replace[j["Scale"], Except[_?NumericQ] -> Lookup[body, "scale", 0.0006]],
           "Hidden" -> 0, "Overflow" -> 0, "Stash" -> j["Stash"], "Adopted" -> True, "Name" -> Lookup[j, "Name", $idBoardName],
           "Phase" -> "Checking", "ConnectAt" -> iNow[], "ConnectStart" -> j["Time"], "Level" -> None, "Covers" -> <||>,
-          "Created" -> DateObject[]|>;
+          "Created" -> DateObject[], "Signer" -> Lookup[body, "$Signer", "Local"]|>;
         rec["AllRows"] = rec["Rows"];
         (* 曲面の一覧なら形と寸法 (升目から開いた PDF の置き場所・形の切り替えに使う) *)
         rec = Quiet @ Check[itSurfaceAdoptRec[rec, body], rec];
@@ -712,6 +878,7 @@ idBoardStep[j_Association] :=
         rec["PendingOpen"] = Lookup[Replace[Lookup[$itState, "BoardPendingOpen", <||>], Except[_Association] -> <||>], j["Root"], None];
         $itState["BoardPendingOpen"] = KeyDrop[Replace[Lookup[$itState, "BoardPendingOpen", <||>], Except[_Association] -> <||>], j["Root"]];
         $itState["Thumbs"] = Append[itThumbs[], j["Root"] -> rec];
+        idBoardRecheckStart[j["Root"]];
         If[itThumbsDisclosableQ[],
           (* 升目は開示してよい: 確認を待たずに見せ、前の版の隠す Flux を外す (このまま保存し直せば次からは出してすぐ見える) *)
           If[StringQ[content], itNoWait @ Quiet @ Check[ResoniteRealtime`ResoniteRealtimeUpdateSlot[content, <|"isActive" -> True|>], Null]];
@@ -721,7 +888,14 @@ idBoardStep[j_Association] :=
             idBoardLog[j["Root"], "FluxRemoved", "出し直したら升目を隠す Flux を外しました"]]];
         idBoardProgress[j["Root"]];
         idForceWorldRead[];
-        itSetStatus["サムネイル一覧を接続しました: " <> itTruncate[ToString[body["title"]], 40] <> " (確認中)"]; idBoardLog[j["Root"], "Adopted", ToString[Length[rec["Rows"]]] <> " 件"];
+        itSetStatus["サムネイル一覧を接続しました: " <> itTruncate[ToString[body["title"]], 40] <> " (確認中)" <>
+          Switch[rec["Signer"],
+            "Ring", "。別の PC で作った一覧 (鍵束の鍵で確認)",
+            "Foreign", "。別の PC で作った一覧: 鍵束にその PC の鍵がまだ無いので、Eagle の " <> ToString[body["ForeignRows"]] <> " 件を" <>
+              "この PC の SourceVault から引き直します" <>
+              With[{nx = Length[rec["Rows"]] - body["ForeignRows"]}, If[nx > 0, " (他の " <> ToString[nx] <> " 件は開けません)", ""]],
+            _, ""]];
+        idBoardLog[j["Root"], "Adopted", ToString[Length[rec["Rows"]]] <> " 件 (署名: " <> ToString[rec["Signer"]] <> ")"];
         (* 覆いの文字 (「接続を要求しました」を元に戻し、確認中の経過を出す) は覆いの子。もう 1 回読む *)
         If[StringQ[veil], Join[j, <|"Phase" -> "VeilWait", "MessageId" -> itSendGet[veil, 1, True], "Sent" -> iNow[]|>], None],
       "VeilWait",
@@ -741,6 +915,12 @@ idForceWorldRead[] :=
    2. サムネイル一覧: 表示上限の適用 (接続時・公開度が変わったとき)
    ============================================================ *)
 $idBoardCheckSeconds = 30;
+
+(* 公開範囲を自動で読むときに、ワールドの情報 (SessionInfoSource) がもう読めているか。読めていなければ表示上限は厳しい側 *)
+idWorldKnownQ[] :=
+  !itAutoAccessQ[] ||
+    With[{d = Lookup[Replace[itWorldInfo[], Except[_Association] -> <||>], "Data", None]},
+      AssociationQ[d] && StringQ[Lookup[d, "SessionId", None]] && d["SessionId"] =!= ""];
 
 idWorldFreshQ[since_] :=
   Module[{w = itWorldInfo[]},
@@ -783,27 +963,30 @@ idBoardProgress[root_String] :=
     op = Lookup[rec, "Opening", None];
     If[!AssociationQ[op], Return[None]];
     n = Round[iNow[] - op["Since"]];
+    (* 経過と段階を先に、題名は最後 (2026-10-11 ユーザー報告「クリックしても開かない、何度か押し直してやっと開いた」:
+       小さい一覧・曲面の一覧は状態欄が全角 30 字ほどで切れ、「「長い題名」…」だけ見えて経過が見えなかった。
+       最初の 1 件は雛形探しに 20 秒かかるので、押せていないと思って押し直していた) *)
     t = "「" <> op["Title"] <> "」";
     job = SelectFirst[Replace[Lookup[$itState, "DocJobs", {}], Except[_List] -> {}], Lookup[#, "Id", None] === op["Job"] &, None];
     bid = Lookup[Replace[Lookup[$itState, "LiteBuilds", <||>], Except[_Association] -> <||>], op["Job"], op["Job"]];
     b = Lookup[$itDeferred, bid, None];
     Which[
       AssociationQ[job],
-        idBoardStatus[root, t <> "を開いています… " <> ToString[n] <> " 秒  (" <>
-          If[TrueQ[Lookup[job, "WaitCount", False]], "ページ数を数えています", Lookup[$idPhaseHint, job["Phase"], job["Phase"]]] <> ")"],
+        idBoardStatus[root, "開いています… " <> ToString[n] <> " 秒 (" <>
+          If[TrueQ[Lookup[job, "WaitCount", False]], "ページ数を数えています", Lookup[$idPhaseHint, job["Phase"], job["Phase"]]] <> ") " <> t],
       AssociationQ[b] && Lookup[b, "Status", None] === "Pending",
-        idBoardStatus[root, t <> "を開いています… " <> ToString[n] <> " 秒  (ビューアを組み立てています)"],
+        idBoardStatus[root, "開いています… " <> ToString[n] <> " 秒 (ビューアを組み立てています) " <> t],
       AssociationQ[b] && Lookup[b, "Status", None] === "Done",
-        idBoardStatus[root, t <> "を開きました (" <> ToString[n] <> " 秒)"]; $itState["Thumbs", root, "Opening"] = None,
+        idBoardStatus[root, "開きました (" <> ToString[n] <> " 秒) " <> t]; $itState["Thumbs", root, "Opening"] = None,
       AssociationQ[b],
-        idBoardStatus[root, t <> "を開けませんでした: " <>
-          With[{r = Lookup[b, "Result", None]}, If[FailureQ[r], ToString[r["MessageTemplate"]], ToString[Lookup[b, "Status", ""]]]]];
+        idBoardStatus[root, "開けませんでした: " <>
+          With[{r = Lookup[b, "Result", None]}, If[FailureQ[r], ToString[r["MessageTemplate"]], ToString[Lookup[b, "Status", ""]]]] <> " " <> t];
         $itState["Thumbs", root, "Opening"] = None,
       AnyTrue[Values[itNativeDocs[]], Lookup[#, "Title", None] === op["Title"] && Lookup[#, "Created", 0] >= op["Since"] &],
-        idBoardStatus[root, t <> "を開きました (" <> ToString[n] <> " 秒、標準ビューア)"]; $itState["Thumbs", root, "Opening"] = None,
+        idBoardStatus[root, "開きました (" <> ToString[n] <> " 秒、標準ビューア) " <> t]; $itState["Thumbs", root, "Opening"] = None,
       True,
-        idBoardStatus[root, t <> "を開けませんでした" <>
-          With[{e = Lookup[$itState, "LastError", None]}, If[FailureQ[e], ": " <> ToString[e["MessageTemplate"]], ""]]];
+        idBoardStatus[root, "開けませんでした" <>
+          With[{e = Lookup[$itState, "LastError", None]}, If[FailureQ[e], ": " <> ToString[e["MessageTemplate"]], ""]] <> " " <> t];
         $itState["Thumbs", root, "Opening"] = None];
     n];
 
@@ -833,13 +1016,22 @@ idApplyLevel[root_String, note_String : ""] :=
     (* 覆いの文字を元に戻す (押した跡や経過のまま保存されると、次に出したとき紛らわしい) *)
     If[Lookup[rec, "VeilShown", $idVeilText] =!= $idVeilText,
       idVeilSay[root, $idVeilText]; $itState["Thumbs", root, "VeilShown"] = $idVeilText];
-    idBoardStatus[root, "接続済み [" <> itAccessLabel[] <> "]" <>
+    (* 署名を確かめられなかった別の PC の一覧 (Eagle の項目だけこの PC で引き直した、idForeignBody) は先頭近くに出す
+       (状態欄は幅で切られる。詳しい説明はタブレット / ノートブックの状態に出している) *)
+    idBoardStatus[root, "接続済み" <> If[Lookup[rec, "Signer", "Local"] === "Foreign", " (別PCの一覧)", ""] <>
+      " [" <> itAccessLabel[] <> "]" <>
+      (* 開示してよい方針: 升目は全部見せ、中身を開けない件数を知らせる。
+         引き直し (小分け) の途中は数えない: 別の PC の一覧は全行 1.0 から始まるので「中身は開けない 45」と出て、
+         押しても開かないように読めた (2026-10-11)。押した升目はその行だけ先に引き直して開く (idRowForOpen)。
+         状態欄は幅で切れるので、接続にかかった秒数より前に出す *)
+      Which[
+        !TrueQ[Lookup[rec, "RecheckDone", True]], "  機密度を確認中",
+        True,
+          With[{nLock = If[itThumbsDisclosableQ[], Count[rows, r_ /; !itAllowedQ[Lookup[r, "PrivacyLevel", 1.0]]], 0]},
+            If[nLock > 0, "  中身は開けない " <> ToString[nLock], ""]]] <>
+      If[nBad > 0, "  機密度で非表示 " <> ToString[nBad], ""] <>
       If[Lookup[rec, "Phase", "Ready"] === "Checking",
         "  (" <> ToString[Round[iNow[] - Lookup[rec, "ConnectStart", rec["ConnectAt"]]]] <> " 秒)", ""] <>
-      If[nBad > 0, "  機密度で非表示 " <> ToString[nBad], ""] <>
-      (* 開示してよい方針: 升目は全部見せ、中身を開けない件数を知らせる *)
-      With[{nLock = If[itThumbsDisclosableQ[], Count[rows, r_ /; !itAllowedQ[Lookup[r, "PrivacyLevel", 1.0]]], 0]},
-        If[nLock > 0, "  中身は開けない " <> ToString[nLock], ""]] <>
       If[note =!= "", "  " <> note, ""]];
     nBad];
 

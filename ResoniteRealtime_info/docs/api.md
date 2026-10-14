@@ -255,6 +255,9 @@ Options: "View" -> Automatic | "List" | "Thumbnails", "Recursive" -> False, "Ext
 待たずに組む (Send → getSlot → ButtonToggle 結線。失敗時は組みかけを消す)、無ければ専用ノートブックのセル `ResoniteTabletRunDeferred["id"]`。
 台帳 `ResoniteTabletDeferred[]`、進行中 `ResoniteTabletStatus[]["Builds"]`。
 ### ResoniteTabletCleanup[] → 消した {<|"Id","Name"|>..} — Root 直下の "Mathematica Tablet" / "SourceVault List" / "PDF Viewer" 等を名前で消し、状態と予約を空にする (カーネル再起動後の残骸掃除)
+### $ResoniteTabletAutoServe
+型: Boolean, 初期値: True
+ロード時、ノートブックのセッション (`$Notebooks` が True) で `ResoniteTabletServe[]` を自動で始めるか。ヘッドレスでは始めない。False で止める。
 
 ## 3D オブジェクト (ResoniteRealtime_mesh.wl) — Graphics3D をワールド内のメッシュに
 ### ResoniteGraphics3DMesh[g] → <|"Points", "Triangles", "Colors", "Normals", "Ignored", "Bounds", "Source"|> | Failure["NotGraphics3D" | "NoSurface" | "TooManyTriangles"]

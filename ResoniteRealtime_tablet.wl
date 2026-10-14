@@ -3067,15 +3067,24 @@ itThumbOpen[root_String, i_Integer] :=
       $itState["Thumbs", root, "PendingOpen"] = i;
       idBoardStatus[root, "ワールドを確認しています。済んだら「" <> itTruncate[itRowTitle[rec["Rows"][[i]]], 30] <> "」を開きます"];
       Return[<|"Pending" -> True, "Index" -> i|>]];
-    row = rec["Rows"][[i]];
+    (* 引き継いだ一覧で機密度の引き直し (小分け) がまだなら、この行だけ先に引き直す (ResoniteRealtime_docboard.wl の idRowForOpen)。
+       失敗したら控えの行 (別の PC の一覧なら機密度 1.0 = 開けない側) *)
+    row = Replace[Quiet @ Check[idRowForOpen[root, i], $Failed], Except[_Association] :> rec["Rows"][[i]]];
     (* 升目は見せても中身は表示上限で守る (2026-09-26 方針: 秘匿は中身だけ)。ここで止める (itShowObject の itGate でも止まる) *)
     If[!itAllowedQ[itRowPL[row]],
-      idBoardStatus[root, "中身は開けません: 機密度 " <> itFmt[itRowPL[row]] <> " >= 表示上限 " <> itFmt[itAccessLevel[]] <>
-        " [" <> itAccessLabel[] <> "]"];
+      (* 2026-10-11: 断った理由を記録に残す (BoardLog、ResoniteBoardDiagnose で見える)。ワールドの情報がまだ読めていない
+         (自動の公開範囲で厳しい側) ならそう出す *)
+      With[{wk = TrueQ[Quiet @ Check[idWorldKnownQ[], True]]},
+        idBoardStatus[root, "中身は開けません: 機密度 " <> itFmt[itRowPL[row]] <> " >= 表示上限 " <> itFmt[itAccessLevel[]] <>
+          " [" <> itAccessLabel[] <> "]" <> If[wk, "", " (ワールドの情報待ち。数秒後に押し直してください)"]];
+        Quiet @ Check[idBoardLog[root, "OpenRefused", "升目 " <> ToString[i] <> " 機密度 " <> itFmt[itRowPL[row]] <> " >= 上限 " <>
+          itFmt[itAccessLevel[]] <> " [" <> itAccessLabel[] <> "] 署名 " <> ToString[Lookup[rec, "Signer", "Local"]] <>
+          " 引き直し " <> If[TrueQ[Lookup[rec, "RecheckDone", True]], "済", "途中"] <> If[wk, "", " ワールド情報なし"]], Null]];
       itSetStatus["開けません (機密度): " <> itTruncate[itRowTitle[row], 60]];
       Return[iFailure["PrivacyExceeded", "機密度 " <> itFmt[itRowPL[row]] <> " >= 表示上限 " <> itFmt[itAccessLevel[]]]]];
     itSetStatus["開いています: " <> itTruncate[itRowTitle[row], 60]];
-    idBoardStatus[root, "「" <> itRowTitle[row] <> "」を開いています…"];
+    (* 経過・結果を先に、題名は最後 (状態欄は幅で切れる。ResoniteRealtime_docboard.wl の idBoardProgress と同じ) *)
+    idBoardStatus[root, "開いています…「" <> itRowTitle[row] <> "」"];
     (* 押した升目の真正面に出す ("Cell" = 升目の中心。距離とずらしは idJobPose) *)
     (* 曲面の升目なら、升目と中心 (アバター) の間に中心の方を向けて出す (itThumbAnchor、ResoniteRealtime_surface.wl) *)
     r = Block[{$itOpenAnchor = Quiet @ Check[itThumbAnchor[root, rec, i], <|"Root" -> root, "Cell" -> {0., 0., 0.}|>]},
@@ -3090,7 +3099,7 @@ itThumbOpen[root_String, i_Integer] :=
         If[AssociationQ[r] && TrueQ[Lookup[r, "Deferred", False]] && StringQ[Lookup[r, "Id", None]],
           <|"Title" -> itRowTitle[row], "Since" -> t0, "Job" -> r["Id"]|>, None];
       If[AssociationQ[r] && !TrueQ[Lookup[r, "Deferred", False]],
-        idBoardStatus[root, "「" <> itRowTitle[row] <> "」を表示しました"]]];
+        idBoardStatus[root, "表示しました「" <> itRowTitle[row] <> "」"]]];
     r];
 
 (* 表示の切り替え: 今のガジェットを消して、同じ行でもう一方を組む (tick の中なら予約) *)

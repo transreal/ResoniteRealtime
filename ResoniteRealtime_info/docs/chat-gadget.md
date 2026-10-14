@@ -137,10 +137,10 @@ Mathematica Chat            Grabbable, AI_GeneratedContent
 
 Chat ガジェットの UIX ヘルパ・LLM 呼び出し・アクセスレベルは、次の補助モジュールからも使われる。詳細は各 `api_<module>.md` を参照。
 
-- `ResoniteRealtime_tablet.wl`: ClaudeEval をワールド内で走らせるタブレット (`ResoniteTablet`)。`ResoniteShowObject` / `ResoniteListGadget` も含む。ワールド公開度とオーナーの自動判定の監視もここ。
+- `ResoniteRealtime_tablet.wl`: ClaudeEval をワールド内で走らせるタブレット (`ResoniteTablet`)。`ResoniteShowObject` / `ResoniteListGadget` も含む。ワールド公開度とオーナーの自動判定の監視もここ。サムネイル一覧の升目を開くときは、機密度の引き直しがまだなら、その行だけ先に引き直す。開けない理由 (機密度 ≧ 表示上限) は記録に残り、ワールド情報がまだ読めていないときは状態欄で押し直しを案内する。
 - `ResoniteRealtime_flux.wl`, `ResoniteRealtime_fluxlink.wl`: ProtoFlux 生成 (`ResoniteFluxChat`、`ResoniteFluxPlace` など)。Chat のパネル表示とアクセスレベルを再利用する。
 - `ResoniteRealtime_mesh.wl`: Graphics3D をワールド内の 3D オブジェクトにする (`ResoniteGraphics3D`)。
-- `ResoniteRealtime_docboard.wl`, `ResoniteRealtime_surface.wl`, `ResoniteRealtime_pdfcache.wl`: PDF ビューア、サムネイル一覧 (曲面表示を含む)、フレンド用 PDF キャッシュ。
+- `ResoniteRealtime_docboard.wl`, `ResoniteRealtime_surface.wl`, `ResoniteRealtime_pdfcache.wl`: PDF ビューア、サムネイル一覧 (曲面表示を含む)、フレンド用 PDF キャッシュ。保存したサムネイル一覧の行データは署名つきで、検証は自分の鍵 → **鍵束** (SourceVault の PrivateVault の `keys/resonite-board/` に各 PC が置く鍵。Dropbox で自分の PC 同士だけに同期) の順に試す。鍵束にまだ無い別の PC で作った一覧は、行を信用せず Eagle の項目 (`sv://object/eagle-<Id>`) だけこの PC の SourceVault から引き直し、それ以外の行は開けない升目 (機密度 1.0) にする。引き直しは小分けに進み、状態欄には経過と結果を先に、題名を最後に出す。
 - `ResoniteRealtime_ws.wl`: 純 Wolfram の WebSocket 層 (`RRWSServe` など)。
 
 ## 設計上の約束

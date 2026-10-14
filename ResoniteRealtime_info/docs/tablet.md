@@ -231,8 +231,12 @@ ResonitePDFCacheSetup[]        (* 今の設定と、次にすること *)
 - 組み立て (`itThumbPlan`): 表示上限で行を落とさない (Hidden = 0)。一覧 (文字だけの `ResoniteListGadget`) は従来どおり落とす。
 - 「出し直したら升目を隠して覆いを出す」Flux (`idBoardFlux`: OnLoaded / OnDuplicate) を付けない。前の版の一覧は、一度接続すると
   その Flux を外す (`FluxRemoved`)。そのまま保存し直せば次からは出してすぐ見える。
-- 表示上限以上の升目に覆い (非表示 PL …) を付けない (前に付けた覆いは外す)。状態欄に「中身は開けない n」。
-- **中身は開くときに判定** (`itThumbOpen`): 機密度 >= 表示上限なら「中身は開けません」で止める (`itShowObject` の `itGate` でも止まる)。
+- 表示上限以上の升目に覆い (非表示 PL …) を付けない (前に付けた覆いは外す)。中身を開けない升目の件数は、状態欄は幅で切れるので
+  詳しい説明をタブレット / ノートブックの状態 (`ResoniteBoardDiagnose` など) の側に出す (2026-10-11)。
+- **中身は開くときに判定** (`itThumbOpen`): 機密度 >= 表示上限なら「中身は開けません: 機密度 … >= 表示上限 …」で止める
+  (`itShowObject` の `itGate` でも止まる)。断った理由は記録 (`BoardLog` の `OpenRefused`: 升目の番号・機密度・上限) にも残り、
+  `ResoniteBoardDiagnose` で見える (2026-10-11)。ワールドの情報がまだ読めていないために (自動の公開範囲で厳しい側の上限になって) 断ったときは、
+  「(ワールドの情報待ち。数秒後に押し直してください)」と添える。
 - **升目を押せば接続**: 未接続の一覧の升目を押すと State の Selected が升目の番号になる。監視の候補の読み取りが -3 (「接続」) と
   同じく正の数も拾い、引き継ぎ → ワールドの公開範囲とオーナーの確認 → その升目を開く (`idGatedAdopt[root, i]` / `PendingOpen` /
   `idFirePendingOpen`)。接続済みで確認中に押した升目も断らずに覚えて、確認が済んだら開く。「接続」ボタンは再確認用に残る。
@@ -524,7 +528,8 @@ ResoniteLink 0.13.1 には「ファイルのインポート」も「スロット
 `ResoniteBoardAdopt[root]` (インベントリから出したサムネイル一覧を引き継ぐ。「接続」ボタンと同じで、監視 tick が要る)、
 `ResoniteBoardDiagnose[root]` / `ResoniteBoardDiagnose[]` (「接続」が効かないときの診断。ワールドでの名前・親・State の値、監視の候補 / 引き継ぎ中 / 接続済みか、
 直近の記録 `BoardLog`、読めなかったときは `"Reply"` に応答そのもの。ノートブックから、getSlot を待つ)、
-`$ResonitePDFLite`、`$ResoniteBoardKeyFile`、`$ResoniteTabletWorker` / `ResoniteTabletWorkerStatus[]` / `ResoniteTabletWorkerStop[]` (下の「作業用カーネル」)。
+`$ResonitePDFLite`、`$ResoniteBoardKeyFile` (既定 Automatic = 鍵束。下の「別の PC で作った一覧」)、
+`$ResoniteTabletWorker` / `ResoniteTabletWorkerStatus[]` / `ResoniteTabletWorkerStop[]` (下の「作業用カーネル」)。
 
 ### 文書ビューア (`Mathematica PDF Viewer`)
 ResoniteLink で `StaticDocument` (URL = 配信 URL) → `DocumentPageTexture` (PageIndex、0 始まり) → `SpriteProvider` → UIX `Image`
@@ -544,10 +549,10 @@ Page を 2 にすると表示が「2 / 2」に変わった。**罠**: `DocumentA
 - **画像は Resonite の資産に**: 帯の JPEG を `importTexture2DFile` で取り込み (`local://…`)、StaticTexture2D の URL を差し替える
   (tick で応答を待たずに照合)。保存するとクラウドに上がるので Wolfram が居なくても画像は出る。取り込み後の状態欄
   「インベントリに保存できます (画像を取り込み済み)」。
-- **行データは署名つき**: 題名 / ファイル / URI / Id / 機密度 (必ず数。不明は 1.0) と配置を JSON にし、HMAC-SHA256 (鍵 =
-  `$ResoniteBoardKeyFile`、既定はこの PC の `$UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key`、32 バイト、無ければ作る) を 1 行目に付ける。
-  Wolfram は一覧のファイルパスを開いてワールドに配るので、ワールドの誰かがパスや機密度を書き換えた一覧は**接続を断る**
-  (升目は隠したまま、状態欄に理由)。別の PC で作った一覧も断る (鍵が違う)。
+- **行データは署名つき**: 題名 / ファイル / URI / Id / 機密度 (必ず数。不明は 1.0) と配置を JSON にし、HMAC-SHA256 を 1 行目に付ける。
+  署名の鍵は自分の鍵 (`$ResoniteBoardKeyFile`。既定 Automatic = `$UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key`、
+  32 バイト、無ければ作る。この PC だけの鍵)。Wolfram は一覧のファイルパスを開いてワールドに配るので、ワールドの誰かがパスや機密度を
+  書き換えた一覧は**接続を断る** (升目は隠したまま、状態欄に理由)。検証は自分の鍵 → 鍵束の鍵の順に試す (次項)。
 - **読み込み / 複製で隠す**: `Flux` = `OnLoaded` / `OnDuplicate` → `SetSlotActiveSelf(Content, false)` → `SetSlotActiveSelf(Veil, true)`。
   インベントリから出した一覧は Wolfram が確かめるまで画像も題名も見えない (2026-09-26 方針で升目を開示する設定に変わった。上の「升目 (サムネイル) は開示してよい」参照)。
   実機 (2026-09-25): ワールド内で DuplicateSlot した複製は Content 非表示 / Veil 表示になった。
@@ -569,16 +574,46 @@ Page を 2 にすると表示が「2 / 2」に変わった。**罠**: `DocumentA
   「接続」を押した瞬間に覆いの文字が「接続を要求しました / Mathematica の応答を待っています…」に変わる (ワールドの中だけ:
   `ButtonValueSet<string>` → 覆いの Text.Content。組み立ての 2 巡目 = 巡ごとの結線スロット `"WireSlots"`)。
   候補の一覧は監視の巡回 (1 対象 = 2 tick。対象が多いと 10-20 s 気付かなかった) に載せず、2 秒おきに State を直接読む。
-  確認中は状態欄と覆いに「ワールドの公開範囲とオーナーを確認しています… n 秒」、終わると「接続済み [PL<…] (n 秒)」で、
-  覆いの文字は元に戻す (押した跡のまま保存されない)。升目を押すと「「題名」を開いています… n 秒 (標準ビューアを複製しています /
-  雛形を探しています / Resonite の文書表示を用意しています / ビューアを組み立てています)」→「「題名」を開きました (n 秒)」
-  または「開けませんでした: 理由」。文は状態欄の幅で切るので大事な方を先に書く。
+  確認中は状態欄と覆いに「ワールドの公開範囲とオーナーを確認しています… n 秒」、終わると「接続済み (n 秒) [PL<…]」
+  (別の PC の一覧なら「接続済み (別PCの一覧)」) で、覆いの文字は元に戻す (押した跡のまま保存されない)。
+  升目を押すと**経過と結果を先に、題名は最後に**書く (2026-10-11 ユーザー報告「クリックしても開かない、何度か押し直してやっと開いた」:
+  状態欄は幅で切れるので、題名が長いと経過が見えず、押せていないと思って押し直していた。最初の 1 件は雛形探しに 20 秒かかる):
+  「開いています… n 秒 (標準ビューアを複製しています / 雛形を探しています / Resonite の文書表示を用意しています /
+  ビューアを組み立てています) 「題名」」→「開きました (n 秒) 「題名」」(標準ビューアなら「開きました (n 秒、標準ビューア)」)、
+  失敗は「開けませんでした: 理由」。タブレットの `ResoniteShowObject` 経由の表示も同じ並び (「開いています…「題名」」「表示しました「題名」」)。
+  切るときは文字数でなく**幅** (全角 1、半角 0.55) で切る (`itLineWidth`)。前は文字数で n - 1 字に切っていたので、半角の多い
+  「[PL<1.00 Private]」で枠を使い切っていた。
   実機: 見出しの並び Content / Title / StatusBar / Status / Connect / ToList / Close / Veil、「接続」の ButtonValueSet<string> が
   覆いの Text.Content (IField<string>) を指す。
 - **タブレットの題名** [PL<…] は tick ごとに今の表示上限と比べて違うときだけ書き直す (`itSyncTitle`。2026-09-25: 題名 [PL<0.25 guest]
   と状態 ready (PL<1.00 Private) が食い違った。題名は表示上限が「変わったとき」しか書いておらず、再ロードや引き継ぎで古いまま残った)。
 - 片付け: ワールド情報の仕掛け (`Mathematica World Info`) と複製ガジェットの置き場 (`Mathematica PDFs`) は、自分の物が組み上がって
   いれば Root の走査で他の同名を消す (2026-09-25 実機: カーネルを替えるたびに溜まり、それぞれ 4 つと 7 つあった)。
+
+### 別の PC で作った一覧: 鍵束と Eagle の引き直し (2026-10-11)
+
+**きっかけ (ユーザー報告)**: 「ワールド保存した一覧の「接続」が『行データの署名が合いません』」。鍵は PC ごと (`$UserBaseDirectory`) なので、
+別の PC (Dropbox が `C:/Users/imai_/Dropbox`) で 9/26 に作った一覧は、この PC (`F:/Dropbox`) では必ず署名が合わなかった
+(保存・読み戻しで中身は変わっていない。Resonite のキャッシュの保存データで確認: 同じ PC で作った一覧は全部一致、別の PC の 10 件は全部不一致)。
+
+- **鍵束**: 各 PC が自分の鍵を `<SourceVault PrivateVault>/keys/resonite-board/<PC 名>-<指紋>.key` に置く
+  (`$ResoniteBoardKeyFile` が Automatic のとき。SourceVault が無ければ使わない。`None` で鍵束を使わない)。Dropbox で自分の PC 同士だけに
+  同期され、クラウド LLM / MCP の許可外 (.key は MCP も拒否)。検証は**自分の鍵 → 鍵束の鍵**の順に試す。署名は今までどおり自分の鍵なので、
+  前に作った一覧もそのまま通る。状態の署名の出どころは `ResoniteTabletStatus` / 診断の `Signer` (`"Local"` / `"Ring"` / `"Foreign"`)。
+- **署名を確かめられない一覧は、行を信用せず Eagle の項目だけ引き直す** (鍵束にまだ鍵が無い別の PC の一覧 = その PC で新しい版を一度も
+  読んでいない): 行のうち URI が `sv://object/eagle-<Id>` の物だけ採り、ファイルのパスは捨てる (開くときに SourceVault がこの PC の
+  Eagle から解決する)。機密度は書いてある値とこの PC の SourceVault の値の大きい方 (SourceVault が無ければ 1.0)。それ以外の行は
+  開けない升目 (機密度 1.0) にする。`sv://file/` は機密度 0.0 で任意のファイルを指せるので採らない。行の順は変えない (升目の番号 = 行の番号)。
+  採れる行が 1 つも無ければ今までどおり `BadSignature` で断る。状態欄は「別の PC で作った一覧: 鍵束にその PC の鍵がまだ無いので、
+  Eagle の n 件を…」。
+- **引き直しは小分け** (`idBoardRecheckStart` / `idChunkSubmit`): `SourceVaultObjectPrivacyLevel` は Eagle 1 件 ~130 ms
+  (`SourceVaultEagleSummaryRow`) で、前は接続の 1 tick で全行をやっていた (468 件で ~1 分塞ぐ)。今は接続を先に済ませ、tick ごとに小分けで
+  引き直す。終わるまでの機密度: 署名の通った一覧は署名の値 (引き直しは上げるだけ)、別の PC の一覧は 1.0。
+  引き直し中に閉じた / 別の一覧に引き継ぎ直した場合は結果を当てない (`Created` の一致を確かめる)。**押した升目はその行だけ先に引き直して
+  開く** (`idRowForOpen`。引き直しが途中でも開ける。失敗したら控えの行 = 別の PC の一覧なら機密度 1.0 = 開けない側)。
+  記録 (`BoardLog`): `Adopted` (件数と署名)、`Rechecked` (件数)、`OpenRefused`。診断 `ResoniteBoardDiagnose` /
+  タブレットの状態に「署名 …」「引き直し 済 / 途中」「ワールド情報なし」(`idWorldKnownQ` が False) を出す。
+- 行データの読み出しは `idParseBody` / `idDecodeBoard` (署名つき本体) と `idForeignBody` / `idForeignRow` (別の PC の一覧) に分かれた。
 
 ## FE を止めない: 重い仕事は作業用カーネル、送信は tick に分ける (2026-09-25)
 
@@ -608,6 +643,7 @@ VR の中からは閉じられなかった。**原因**: 監視の tick は割�
   同じ `<|"Sent", "MessageId"|>`)、`Drain` 相で tick ごとに `$itDrainSeconds` (0.3 s) ぶん送る。小さい組み立てはその tick で
   送り終わる。全部送ってから結線の getSlot。状態欄に「送っています (n / N)」。
 - **小分けの仕事** (`idChunkSubmit`): Eagle の行 (`SourceVaultEagleSummaryRow`、289 件で 0.6-1.8 s) を tick ごとに 0.3 s ぶん。
+  接続後の機密度の引き直し (上の「別の PC で作った一覧」) も同じ仕組み。
 - **計る**: tick の各段を `itTimed` で計り、1 s を超えた段を `$itState["SlowTicks"]` (最新 30、`ResoniteTabletWorkerStatus[]` でも
   見える) に残す。FE が止まったら、まずここを見る。
 - **tick から Throw / Abort が抜けても監視は止まらない**: 自分が立てた Busy は `WithCleanup` で必ず戻し、抜けた Throw は

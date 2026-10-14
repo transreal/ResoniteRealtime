@@ -35,7 +35,7 @@ ResoniteRealtime は、同じ作者の次の 5 つのパッケージの上に作
 | **claudecode** | タブレット・Chat ガジェットの ClaudeEval / LLM 呼び出し、ProtoFlux 生成、承認ボタン (`ClaudeRuntimeDecide`) | [claudecode](https://github.com/transreal/claudecode) / [setup.md](https://github.com/transreal/claudecode/blob/main/claudecode_info/docs/setup.md) |
 | **ClaudeRuntime** | タブレットのターンの実行と状態 (承認待ち / 実行中 / 完了) の監視、承認・拒否・中止 | [ClaudeRuntime](https://github.com/transreal/ClaudeRuntime) / [setup.md](https://github.com/transreal/ClaudeRuntime/blob/main/ClaudeRuntime_info/docs/setup.md) |
 | **ClaudeOrchestrator** | タブレットのターンがオーケストレーション (複数ステップのジョブ) に回ったときの進行の監視 | [ClaudeOrchestrator](https://github.com/transreal/ClaudeOrchestrator) / [setup.md](https://github.com/transreal/ClaudeOrchestrator/blob/main/ClaudeOrchestrator_info/docs/setup.md) |
-| **SourceVault** | `sv://` 資料・検索結果の一覧、Eagle フォルダのサムネイル一覧と PDF、資料ごとの機密度、KB 応答 | [SourceVault](https://github.com/transreal/SourceVault) / [setup.md](https://github.com/transreal/SourceVault/blob/main/SourceVault_info/docs/setup.md) |
+| **SourceVault** | `sv://` 資料・検索結果の一覧、Eagle フォルダのサムネイル一覧と PDF、資料ごとの機密度、KB 応答、サムネイル一覧の署名鍵束の置き場 (PrivateVault) | [SourceVault](https://github.com/transreal/SourceVault) / [setup.md](https://github.com/transreal/SourceVault/blob/main/SourceVault_info/docs/setup.md) |
 
 WebSocket 層 (`ResoniteRealtime_ws.wl`) は依存ゼロで、L1 / L2 / 板の表示だけなら本パッケージ単体でも動きます。ただしタブレット
 (`ResoniteTablet`)、Chat ガジェット (`ResoniteChat`)、ProtoFlux 生成 (`ResoniteFluxGenerate`)、一覧 / サムネイル一覧 / Eagle フォルダ
@@ -136,7 +136,16 @@ ResoniteTablet[]                                     (* アバターの正面に
 作ったタブレットは Resonite のインベントリに保存しておけます。2 回目からは `Get["ResoniteRealtime.wl"]` だけで常駐監視 (`ResoniteTabletServe[]`) が
 自動で始まるので、ResoniteLink を有効化し、インベントリからタブレットを出して「接続」を押すだけで使えます (ポートは自動検出)。
 
-サムネイル一覧 (`ResoniteThumbnailGadget`) もインベントリに保存して使い回せます。インベントリから出した一覧は、Wolfram が確かめるまで升目を覆いで隠し、「接続」を押すと署名 (HMAC-SHA256。鍵は `$ResoniteBoardKeyFile`、既定 `$UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key`、この PC だけ) とワールドの公開度・オーナーを確かめた上で、表示上限未満の升目だけを見せます。別の PC で作った一覧や、行データが書き換えられた一覧は接続を断ります。「接続」が効かないときは `ResoniteBoardDiagnose[]` で診断できます。一覧の「形を変更」ボタン (または `ResoniteThumbnailShape[root, shape]`) で、平面 → 円筒 → 球の内側 → メビウスの帯の順に曲面へ貼り替えられます (巡回の順は `$ResoniteThumbnailShapes`)。`ResoniteThumbnailSurface[Function[{x, y, g}, {X, Y, Z}]]` で任意の面も定義できます。
+サムネイル一覧 (`ResoniteThumbnailGadget`) もインベントリに保存して使い回せます。インベントリから出した一覧は、Wolfram が確かめるまで升目を覆いで隠し、「接続」を押すと署名 (HMAC-SHA256) とワールドの公開度・オーナーを確かめた上で、表示上限未満の升目だけを見せます。行データが書き換えられた一覧は接続を断ります。「接続」が効かないときは `ResoniteBoardDiagnose[]` で診断できます。一覧の「形を変更」ボタン (または `ResoniteThumbnailShape[root, shape]`) で、平面 → 円筒 → 球の内側 → メビウスの帯の順に曲面へ貼り替えられます (巡回の順は `$ResoniteThumbnailShapes`)。`ResoniteThumbnailSurface[Function[{x, y, g}, {X, Y, Z}]]` で任意の面も定義できます。
+
+### 署名鍵と別の PC で作った一覧
+
+署名の鍵 (`$ResoniteBoardKeyFile`) は PC ごとのファイル (既定 `$UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key`) です。以前は別の PC で作った一覧は署名が合わず接続を断っていましたが、現在は次のように扱います。
+
+- **鍵束**: 各 PC は自分の鍵を `<SourceVault の PrivateVault>/keys/resonite-board/<PC 名>-<指紋>.key` にも置きます (SourceVault が無ければ置きません。`$ResoniteBoardKeyRing` を `None` にしても使いません)。この場所は Dropbox で自分の PC 同士だけに同期されます。検証は「自分の鍵 → 鍵束の鍵」の順に試し、署名は今までどおり自分の鍵で付けるので、以前に作った一覧もそのまま通ります。別の PC の一覧を確かめるには、その PC でも一度新しい版を読み込んで鍵を鍵束に置いておいてください。
+- **鍵束にまだ鍵が無い PC の一覧**: 署名は確かめられませんが、行を信用せず Eagle の項目だけをこの PC の SourceVault から引き直して接続します (状態欄は「接続済み (別PCの一覧)」、署名は `"Foreign"`)。URI が `sv://object/eagle-<Id>` の行だけを採り、ファイルのパスは捨てます (開くときに SourceVault がこの PC の Eagle から解決します)。機密度は、書いてある値とこの PC の SourceVault の値の大きい方です (SourceVault が無ければ 1.0)。それ以外の行は開けない升目 (機密度 1.0) になります。`sv://file/` の行は採りません。採れる行が 1 つも無ければ接続を断ります。
+- **引き直しは小分け**: 引き直しは接続の 1 tick で全行やらず、小分けに進めます (Eagle 1 件あたり約 130 ms)。終わるまでの機密度は、署名が通った一覧なら署名の値、別の PC の一覧なら 1.0 です。終わるまでに升目を押すと、その行だけ先に引き直して開きます。進み具合は `ResoniteBoardDiagnose[]` と状態欄 (「引き直し 済 / 途中」) で見られます。
+- 状態欄は幅で切れるため、経過や結果を先に、題名を最後に出します (例「開いています… 12 秒 …」)。
 
 ## 7. 主な設定 (抜粋)
 
@@ -148,7 +157,8 @@ ResoniteTablet[]                                     (* アバターの正面に
 | `$ResoniteTabletBuildMode` (Automatic) | 予約したガジェット組み立てを監視 tick の中で行う ("Tick") か専用ノートブックのセルで行う ("Notebook") か |
 | `$ResoniteTabletWorker` (True) | サムネイルの帯・Eagle フォルダの一覧・大きな PDF のページ数を作業用カーネル (常駐サブカーネル) で作る。tick の中で長く塞ぐと FE の「動的評価の放棄」ダイアログが出るため。`False` なら従来どおりこのカーネルで。状態は `ResoniteTabletWorkerStatus[]`、停止は `ResoniteTabletWorkerStop[]` |
 | `$ResonitePDFLite` (True) | 標準ビューアの雛形が無い / 複製に失敗したとき、`ResoniteDocViewer` (Resonite の文書表示) で開く。`False` なら Wolfram でページを画像にする自前パネル |
-| `$ResoniteBoardKeyFile` | サムネイル一覧の行データに付ける署名の鍵ファイル (32 バイト、無ければ作る) |
+| `$ResoniteBoardKeyFile` | サムネイル一覧の行データに付ける署名の鍵ファイル (32 バイト、無ければ作る)。既定は `$UserBaseDirectory/ApplicationData/ResoniteRealtime/board.key` (この PC だけ)。この鍵は鍵束 (`<SourceVault PrivateVault>/keys/resonite-board`) にも公開され、別の PC の一覧の検証に使われます (6 節) |
+| `$ResoniteBoardKeyRing` (Automatic) | 鍵束のフォルダ。既定 Automatic は `<SourceVault の PrivateVault>/keys/resonite-board` (Dropbox。SourceVault が無ければ使わない)。`None` で使わない |
 | `$ResoniteRealtimePublicBaseURL` | 聴衆がいる場での画像 URL (127.0.0.1 は自分にしか見えない) |
 | `$ResoniteGraphics3DDirectory` | 3D 生成の作業フォルダ (既定 `%LOCALAPPDATA%\ResoLoop\g3d`。同期フォルダの外) |
 | `$ResoniteFluxSDK` / `$ResoniteFluxProjects` | flux-sdk のパスと ProtoGraph プロジェクトの置き場 |
@@ -168,7 +178,9 @@ ResoniteTablet[]                                     (* アバターの正面に
 | ResoniteLink に繋ぐ瞬間にカーネルが落ちる | 新しいカーネルで最初のソケット操作が接続だと、Wolfram 15.0.1 がまれに落ちます (約 4 回に 1 回)。2026-09-24 版から読み込み時に下準備をしているので、パッケージを読み直してください |
 | 標準 PDF ビューアが空で、ページ表示が「1/-1」 | 文書を受け取れていない。2026-09-24 より前の版には 2 つの原因がありました。約 1 MB を超えるファイルを配信の途中で切っていた (Resonite のログに `Failed gather`) ことと、日本語や空白を含むファイル名を 404 にしていたことです。パッケージを読み直してから開き直してください。空のビューアは `ResonitePDFViewerRemove[All]` か手で消せます。文書ビューア (`ResoniteDocViewer`) は `ResoniteDocViewerRemove[]` で消せます |
 | 標準 PDF ビューアの雛形が無く、ワールドを開き直すと元に戻る | 雛形はワールドごとに必要です。雛形が無いときは `ResoniteDocViewer` が自動で使われます (`$ResonitePDFLite = True`)。標準ビューアにこだわるなら 3 節 5. の手順で雛形を置いてください |
-| サムネイル一覧を出しても升目が隠れたまま / 「接続」が効かない | 接続が済むまで升目は覆いで隠れます。監視 (`ResoniteTabletServe[]`) が動いているか、署名鍵 (`$ResoniteBoardKeyFile`) がこの PC のものか、ワールドの公開度から決まる表示上限を確認し、`ResoniteBoardDiagnose[]` で状態 (State の値、候補 / 引き継ぎ中 / 接続済み、直近の記録) を見てください |
+| サムネイル一覧を出しても升目が隠れたまま / 「接続」が効かない | 接続が済むまで升目は覆いで隠れます。監視 (`ResoniteTabletServe[]`) が動いているか、ワールドの公開度から決まる表示上限を確認し、`ResoniteBoardDiagnose[]` で状態 (State の値、候補 / 引き継ぎ中 / 接続済み、署名 (`Local` / `Ring` / `Foreign`)、引き直しの済 / 途中、ワールド情報の有無、直近の記録) を見てください。「ワールドの情報待ち」と出ているときは、数秒後に押し直してください |
+| 別の PC で作った一覧の「接続」が「行データの署名が合いません」と出た (旧版) | 鍵が PC ごとで、別の PC の鍵が鍵束に無かったためです。現在は、鍵束に鍵があれば通常どおり、無ければ Eagle の項目だけをこの PC の SourceVault から引き直して接続します (6 節)。SourceVault の PrivateVault が同期されているか、`$ResoniteBoardKeyRing` が `None` でないかを確認し、作った PC でも新しい版を一度読み込んで鍵を鍵束に置いてください。Eagle 以外の行は開けない升目になります |
+| 升目を押しても開かない (「中身は開けません」/ 機密度 ≥ 上限) | その行の機密度が表示上限以上です (別の PC の一覧で引き直しが終わっていない行は 1.0 扱いですが、押した行は先に引き直されます)。断った理由は `ResoniteBoardDiagnose[]` の記録 (`OpenRefused`) に残ります |
 | フレンドに PDF が見えない | Private / Contacts のワールドで `http://127.0.0.1` の URL は本人にしか見えません。7 節の `ResonitePDFCacheSetup` と `ResonitePDFCacheCredential[]` を設定し、`ResonitePDFCacheStatus[]` で状態 (パスワード未保存・通信失敗・機密度超過での不送信) を確認してください |
 | 3D 生成が `APPLY_STATE_WRITE_FAILED` | resoloop の checkpoint を同期ソフト (Dropbox 等) が掴んだ。作業フォルダは既定で `%LOCALAPPDATA%\ResoLoop\g3d` (同期外) で、同じ apply を最大 3 回再実行します |
 | 3D 生成が `Failure["NoResoLoop"]` | `ResoLoop.wl` が `$packageDirectory` に無い、または resoloop 未導入 (3 節 2.) |

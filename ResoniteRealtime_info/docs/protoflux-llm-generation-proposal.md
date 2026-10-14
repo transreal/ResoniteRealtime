@@ -215,7 +215,7 @@ C の弱点と対処:
 
 ---
 
-## 7. 実装状況 (2026-10-03 更新)
+## 7. 実装状況 (2026-10-14 更新)
 
 ### 7-A. 生成ガジェット: `ResoniteRealtime_flux.wl` (F1〜F3 相当、実装済)
 
@@ -287,3 +287,10 @@ Chat セルをワールド内で実現するガジェットで、ProtoFlux 生�
 - **未検証**: ResoniteLink 経由のホットデプロイ (`resources/tools/flux-deploy.fsx`)。
 
 なお同パッケージにはこのドキュメントの対象外の補助モジュール (タブレット `ResoniteRealtime_tablet.wl`、PDF ビューア・サムネイル一覧 `ResoniteRealtime_docboard.wl` / `ResoniteRealtime_surface.wl` / `ResoniteRealtime_pdfcache.wl`、Graphics3D 変換 `ResoniteRealtime_mesh.wl`、WebSocket 層 `ResoniteRealtime_ws.wl`) もある。ProtoFlux 生成の経路とは独立している。
+
+参考として、前回の更新以降にサムネイル一覧 (`ResoniteRealtime_docboard.wl`) とタブレットで入った変更を簡単に記します。詳細は各モジュールの `api_<module>.md` を参照してください。公開関数の追加・削除はなく、内部動作の変更です。
+
+- **別の PC で作った一覧の接続**: 一覧の行データは HMAC で署名しており、鍵は PC ごとに持っています。そのため、別の PC で作った一覧は署名が合わず接続できませんでした。今回、各 PC の鍵を SourceVault の PrivateVault 配下 `keys/resonite-board` (Dropbox で自分の PC 同士だけに同期) に置く「鍵束」を導入しました。検証は自分の鍵、鍵束の鍵の順に試します。署名は従来どおり自分の鍵で付けます。
+- **鍵束にも無い PC の一覧**: 行を信用せず、Eagle の項目 (`sv://object/eagle-<Id>`) の行だけをこの PC の SourceVault から引き直します。機密度は SourceVault の値と書いてある値の大きい方を採ります (SourceVault が無ければ 1.0)。それ以外の行は開けない升目 (機密度 1.0) にします。採れる行が 1 つも無いときは、従来どおり接続を断ります。
+- **引き直しの小分け処理**: 引き直しを 1 tick で全行やるのをやめ、小分けにして順に処理します。終わるまでは署名の値 (別の PC の一覧は 1.0) を使います。升目を押したときは、その行だけ先に引き直して開きます。
+- **状態欄の表示**: 経過と結果を先に、題名を最後に出すようにしました (状態欄は幅で切れるため)。タブレットの状態表示と `ResoniteBoardDiagnose` で見える記録にも、断った理由や引き直しの進み具合を残すようにしました。
