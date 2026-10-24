@@ -39,7 +39,7 @@ connId は `ResoniteRealtimeStatus[]["BridgeConnections"]` やハンドラの "C
 引数無しは `ResoniteRealtimeDiscover[]` の最初の候補に繋ぐ (無ければ Failure["NoResoniteLink"])。Options: "Host" -> "localhost", "Quiet" -> False (True なら Print しない)。
 ### ResoniteRealtimeDiscover[] → {<|"Port", "URL", "Process", "Source"|> ...}
 有効化されている ResoniteLink のポート。(1) http.sys 登録一覧 (`netsh http show servicestate view=requestq` で Resonite / Renderite.Host のプロセスが
-登録した `HTTP://LOCALHOST:<port>/`。即時)、(2) ResoLoop.wl があれば resoloop discover (約 12 秒)、(3) 環境変数 RESONITE_LINK_URL。Source は "netsh" | "resoloop" | "env"。
+登録した `HTTP://LOCALHOST:<port>/`。即時。見出し語でなく ASCII の exe パスで判定するので日本語 Windows でも動く)、(2) ResoLoop.wl があれば resoloop discover (約 12 秒)、(3) 環境変数 RESONITE_LINK_URL。(1) が空のときだけ (2)、(2) が空のときだけ (3)。Source は "netsh" | "resoloop" | "env"。
 Options: "Host" -> "localhost" (127.0.0.1 は http.sys が 400 で弾く)
 Dashboard → Session → Settings → Enable ResoniteLink で表示された port。
 ### ResoniteRealtimeLinkDisconnect[]

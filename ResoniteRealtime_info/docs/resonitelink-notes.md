@@ -125,7 +125,7 @@ web サーバへ sftp で一時的な写し (`<SHA-256>.pdf`) を置き、`Stati
 
 ## L2 の上に載るモジュール (補助ファイル)
 
-`ResoniteRealtime.wl` が自動でロードする補助ファイルは、すべて本体の `ResoniteRealtimeAddSlot` / `AddComponent` / `UpdateComponent` / `UpdateSlot` / `GetSlot` を通して L2 を使う (補助ファイルに `$type` を直書きしない)。共通の約束は次のとおり。
+`ResoniteRealtime.wl` が自動でロードする補助ファイルは、すべて本体の `ResoniteRealtimeAddSlot` / `AddComponent` / `UpdateComponent` / `UpdateSlot` / `GetSlot` を通して L2 を使う (補助ファイルに `$type` を直書きしない)。共通の約束は次のとおりです。
 
 - 常駐 Dynamic でポーリングしない。世界側入力の監視は `ScheduledTask` 1 本 (Start / Stop を必ず対にする)。
 - `ScheduledTask` / `SocketListen` のコールバックの中では FrontEnd を触らない。
@@ -216,5 +216,6 @@ API:
 
 - `ResoniteFluxBindingType` / `ResoniteFluxValidateGraph` / `ResoniteFluxPlace` / `ResoniteFluxProbe` / `ResoniteFluxRemove` / `ResoniteFluxDisplay` / `ResoniteFluxDrive`、仕様文 `$ResoniteFluxGraphSpec`。`ResoniteFluxDrive` は `DynamicValueVariableDriver<type>` で世界のフィールドを駆動する (ValueFieldDrive の駆動先は ResoniteLink で書けないが、この経路なら駆動できる)。
 - ProtoGraph 経由の生成: `ResoniteFluxGenerate` (静的検査 → flux-sdk build → 修正ループ、`"MaxRounds"` など) / `ResoniteFluxChat` / `ResoniteFluxCell` / `ResoniteFluxDeploy`。カタログは `ResoniteFluxCatalog` / `ResoniteFluxCatalogSearch` / `ResoniteFluxUnknownNodes`、ビルドは `ResoniteFluxBuild`。`$ResoniteFluxSDK` / `$ResoniteFluxProjects` で flux-sdk のパスと置き場を指定する。flux-sdk が無くても生成と静的検査までは動く。カタログ (`references/protoflux-nodes.json`) は公開リポジトリに含まれないので、利用者が setup.md の手順で作る。
+- **ProtoGraph モジュールの書き出し形式**: 1 行目は `module <PascalCase 名>` だけで改行し、入出力は次の行から `in` / `out`、本文は `where { ... }` と書く。`module X where {` のように 1 行に続けて書いてはならない。Flux-SDK 1.10.0 は `PG1036` で拒否する。`$ResoniteFluxGraphSpec` ではなく生成用プロンプト (`ResoniteFluxGenerate` が LLM に渡す言語規則) にこの約束が入っている。
 
 関連リポジトリ: [ResoniteRealtime](https://github.com/transreal/ResoniteRealtime)、補助モジュール [ResoniteRealtime_chat](https://github.com/transreal/ResoniteRealtime_chat) / [ResoniteRealtime_tablet](https://github.com/transreal/ResoniteRealtime_tablet) / [ResoniteRealtime_docboard](https://github.com/transreal/ResoniteRealtime_docboard) / [ResoniteRealtime_surface](https://github.com/transreal/ResoniteRealtime_surface) / [ResoniteRealtime_mesh](https://github.com/transreal/ResoniteRealtime_mesh) / [ResoniteRealtime_pdfcache](https://github.com/transreal/ResoniteRealtime_pdfcache) / [ResoniteRealtime_fluxlink](https://github.com/transreal/ResoniteRealtime_fluxlink) / [ResoniteRealtime_flux](https://github.com/transreal/ResoniteRealtime_flux) / [ResoniteRealtime_ws](https://github.com/transreal/ResoniteRealtime_ws)。

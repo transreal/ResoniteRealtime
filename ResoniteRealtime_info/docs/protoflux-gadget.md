@@ -14,6 +14,11 @@ flux-sdk を待たずに **ワールド内で実行できる形**にするため
 (`ResoniteRealtime_flux.wl`、"Format" -> "ProtoGraph")。生成 → 静的検査 (実在ノードのカタログと突合) → flux-sdk build (あれば) → 修正ループ、という流れで、
 flux-sdk (dotnet tool `Papaltine.FluxSDK`) が無くても生成と静的検査までは動きます。build と `.brson` 出力は flux-sdk があるときだけです。
 
+ProtoGraph 経路のプロンプトは、モジュール宣言の書式を次のように指示します。
+
+- 1 行目は `module <PascalCase 名>` だけで改行します。入出力は次の行から `in` / `out`、本文は `where { ... }` です。
+- `module X where {` のように 1 行に続けてはいけません (Flux-SDK 1.10.0 は PG1036 で拒否します)。
+
 ```
 仕様 ──▶ プロンプト = グラフ記述の仕様 ($ResoniteFluxGraphSpec) + 例 + ノードカタログの手掛かり + 仕様
           ▼  LLM (claudecode 経由。アクセスレベルと機密度は Chat と同じ)
@@ -127,6 +132,7 @@ ResoniteFluxChat["..."]        (* ProtoGraph を生成してノートブック�
   `RESONITE_MANAGED_DATA_PATH` があればそちらを使います。
   環境変数を StartProcess に渡さないのは `$Language=Japanese` で落ちるためです。
 - `flux-sdk` が無くても生成と静的検査は動きます (`"Build" -> Automatic` は SDK 未検出なら自動で off)。
+- Flux-SDK 1.10.0 は `module X where {` のように宣言を 1 行にまとめると PG1036 で拒否します。生成プロンプトは上記のとおり、`module <名>` だけの行で改行させます。
 
 ## カタログと言語リファレンスの作り方
 

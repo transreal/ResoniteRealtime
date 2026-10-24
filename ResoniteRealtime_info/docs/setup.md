@@ -14,7 +14,7 @@ macOS/Linux ではパス区切りやシェルコマンドを適宜読み替え�
   - L1 (リアルタイム経路) はホストでなくても動きますが、世界側に `WebsocketClient` を持つブリッジオブジェクトを 1 回作る必要があります ([in-world-bridge-setup.md](in-world-bridge-setup.md))。
 - **外部ツール (任意)**:
   - **resoloop** + **.NET 10 SDK**: 3D 生成 (`ResoniteGraphics3D`、タブレットの「3D生成」ボタン) が、別パッケージ [ResoLoop](https://github.com/transreal/ResoLoop) を通して resoloop を呼びます。resoloop は AGPL-3.0 の別プロジェクトで **本リポジトリには含まれません**。導入は ResoLoop 側の setup.md に従ってください。
-  - **Flux-SDK** (`Papaltine.FluxSDK` 1.9.0): ProtoGraph の build を使うときだけ。無くてもグラフ記述の生成・配置は動きます。
+  - **Flux-SDK** (`Papaltine.FluxSDK` 1.10.0): ProtoGraph の build を使うときだけ。無くてもグラフ記述の生成・配置は動きます。
   - **dotnet fsi**: ProtoFlux ノードカタログを自分の Resonite から作り直すときだけ (5 節)。
   - **sftp 対応の curl** (Git for Windows 同梱): フレンド用の PDF キャッシュサーバを使うときだけ (7 節)。
 
@@ -66,7 +66,7 @@ WebSocket 層 (`ResoniteRealtime_ws.wl`) は依存ゼロで、L1 / L2 / 板の�
 
    ```powershell
    winget install Microsoft.DotNet.SDK.10
-   dotnet tool install --global ResoLoop --version 0.1.0-preview.17
+   dotnet tool install --global ResoLoop --version 0.1.0
    ```
 
    環境変数 `RESONITE_MANAGED_DATA_PATH` / `RESONITE_LOG_PATH` の設定と、プロジェクトの作成 (`ResoLoopProject["MyResoniteProject", "Create" -> True]`) は ResoLoop の setup.md を参照してください。3D 生成は `ResoLoop.wl` の既定プロジェクトの `content/g3d/` に mesh.json と apply.json を書きます。
@@ -74,8 +74,10 @@ WebSocket 層 (`ResoniteRealtime_ws.wl`) は依存ゼロで、L1 / L2 / 板の�
 3. (ProtoGraph の build を使う場合) Flux-SDK を導入します。
 
    ```powershell
-   dotnet tool install --global Papaltine.FluxSDK --version 1.9.0
+   dotnet tool install --global Papaltine.FluxSDK --version 1.10.0
    ```
+
+   Flux-SDK 1.10.0 は、モジュール宣言の 1 行目に `module X where {` と続けて書いたソースを PG1036 で拒否します。ProtoFlux 生成 (`ResoniteFluxGenerate`) は LLM への指示で、1 行目を `module <PascalCase 名>` だけにして改行し、入出力 (`in` / `out`) と本文 (`where { ... }`) を次の行から書くようにしています。
 
 4. (ClaudeEval 連携を使う場合) `ResoniteRealtime_info/directives/110-resonite-tablet.md` を `Claude Directives/rules/` にコピーします。
 
@@ -186,4 +188,5 @@ ResoniteTablet[]                                     (* アバターの正面に
 | 3D 生成が `Failure["NoResoLoop"]` | `ResoLoop.wl` が `$packageDirectory` に無い、または resoloop 未導入 (3 節 2.) |
 | `sv://` の資料が `Failure["NoSourceVault"]` / `PrivacyExceeded` | SourceVault が無い、または行の機密度が表示上限を超えている (fail-closed。機密度が数値で取れない行も出しません) |
 | ProtoFlux 生成でノードが見つからない | 5 節のカタログが無い。作り直すか、`ResoniteFluxCatalogSearch` で名前を確かめる |
+| ProtoGraph の build が PG1036 で失敗する | Flux-SDK 1.10.0 は `module X where {` のように宣言と本文開始を 1 行に続けたソースを拒否します。1 行目は `module <PascalCase 名>` だけにして改行し、`in` / `out` と `where { ... }` を次の行から書いてください。`ResoniteFluxGenerate` はこの形で生成するよう LLM に指示しています。手書きの `.pg` や古い版で作ったソースは直してください |
 | FE が止まる / 「動的評価の放棄」ダイアログが出る | 監視 tick が重い仕事で塞がっている可能性があります。`ResoniteTabletWorkerStatus[]` の `"SlowTicks"` (1 秒を超えた tick の段) で原因を確かめ、`$ResoniteTabletWorker` が `True` であることを確認してください |

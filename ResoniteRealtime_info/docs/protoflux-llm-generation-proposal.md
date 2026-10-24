@@ -215,7 +215,7 @@ C の弱点と対処:
 
 ---
 
-## 7. 実装状況 (2026-10-14 更新)
+## 7. 実装状況 (2026-10-24 更新)
 
 ### 7-A. 生成ガジェット: `ResoniteRealtime_flux.wl` (F1〜F3 相当、実装済)
 
@@ -245,6 +245,11 @@ LLM に ResoniteLink の JSON を書かせず ProtoGraph を書かせる。生�
 `ResoniteFluxGenerate` のオプション: `"MaxRounds" -> 3`, `"Module" -> Automatic`, `"Model" -> Automatic`,
 `"Timeout" -> 300`, `"Build" -> Automatic`, `"SourceVault" -> False`, `"Origin" -> "Notebook"`。
 `ResoniteFluxChat` のオプションは `ResoniteFluxGenerate` と同じ。
+
+**モジュール宣言の書式 (生成プロンプトの規則)**: 生成プロンプトは、1 行目を `module <PascalCase 名>` だけにして改行し、
+入出力 (`in` / `out`) は次の行から、本文は `where { ... }` に書くよう LLM に指示します。
+`module X where {` のように 1 行に続けた書き方は、Flux-SDK 1.10.0 が PG1036 で拒否するため禁止しています。
+前掲の `CrossProduct` / `Counter` の例も、この書式 (`module` 行は名前だけ) です。公開関数・オプションの追加・削除はなく、プロンプト内容のみの変更です。
 
 ### 7-B. 直接配置: `ResoniteRealtime_fluxlink.wl` (方式 A の小パッチ・結線用、実装済)
 

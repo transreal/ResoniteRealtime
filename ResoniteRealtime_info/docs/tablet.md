@@ -13,6 +13,9 @@
 [ResoniteRealtime_flux](https://github.com/transreal/ResoniteRealtime_flux) / [ResoniteRealtime_fluxlink](https://github.com/transreal/ResoniteRealtime_fluxlink) (ProtoFlux)、
 [ResoniteRealtime_ws](https://github.com/transreal/ResoniteRealtime_ws) (WebSocket 層)。
 
+ProtoFlux 生成 (`ResoniteFluxGenerate` / `ResoniteFluxChat`) はタブレットの機能ではありませんが、LLM に ProtoGraph を書かせるプロンプトの書式規則が
+2026-10-24 に変わりました (下の「ProtoFlux 生成のプロンプト書式」)。
+
 ## できること
 
 - タブレット (UIX パネル): 入力欄 / **Eval** / Clear / Cancel / 状態行 / **承認・拒否** (承認待ちのときだけ有効) /
@@ -93,6 +96,17 @@ ResoniteTablet[]                                (* 正面 1.2 m にタブレッ�
 `"Position"`, `"Parent"`, `"Name" -> "Mathematica Tablet"`, `"CanvasSize" -> {1000, 1500}`, `"PanelScale" -> 0.0006`, `"FontSize" -> 26`,
 `"Viewer" -> True`, `"ViewerSize" -> 1.2`, `"Notebook" -> Automatic | NotebookObject`, `"NotebookVisible" -> True`,
 `"Model" -> Automatic`, `"Start" -> True`。`ResoniteTabletStart[]` は `"PollInterval" -> 1.0`。
+
+## ProtoFlux 生成のプロンプト書式 (`ResoniteRealtime_flux.wl`、2026-10-24)
+
+`ResoniteFluxGenerate` / `ResoniteFluxChat` が LLM に ProtoGraph (Flux SDK のテキスト言語) を書かせるときのプロンプトの書式規則が変わりました。
+
+- 変更前: 「1 行目は `module <PascalCase 名>`。入出力は `in` / `out`、本文は `where { ... }`。」
+- 変更後: **1 行目は `module <PascalCase 名>` だけで改行します。** 入出力は次の行から `in` / `out`、本文は `where { ... }` です。
+  `module X where {` と 1 行に続けてはいけません。Flux-SDK 1.10.0 はこの書き方を PG1036 で拒否するためです。
+
+LLM が 1 行に続けた ProtoGraph を書くと、build (flux-sdk があるとき) が PG1036 で失敗し、修正ループを消費していました。この規則をプロンプトに明記し、最初から改行された形で出させます。
+タブレット側の API・オプションに変更はありません。
 
 ## 表示上限 (アクセスレベル)
 

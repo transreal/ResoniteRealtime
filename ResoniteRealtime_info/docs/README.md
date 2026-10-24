@@ -13,7 +13,7 @@
 この経路の上に、ワールド内で完結するガジェット群を載せています。
 
 - **Chat ガジェット**: ノートブックの Chat セルをワールド内の UIX パネルで実現します。
-- **ProtoFlux ガジェット**: プロンプトからグラフ記述を LLM に書かせ、ResoniteLink でノードを直接配置・結線し、動的変数 (probes) を読み戻して検証する修正ループです。Flux SDK のテキスト言語 ProtoGraph での生成にも対応します。
+- **ProtoFlux ガジェット**: プロンプトからグラフ記述を LLM に書かせ、ResoniteLink でノードを直接配置・結線し、動的変数 (probes) を読み戻して検証する修正ループです。Flux SDK のテキスト言語 ProtoGraph での生成にも対応します。ProtoGraph 経路では、モジュール宣言の 1 行目を `module <名前>` だけにして改行する書式を LLM に指示します (Flux-SDK 1.10.0 が `module X where {` の 1 行書きを拒否するため)。
 - **タブレット**: ワールド内の UIX タブレットから ClaudeEval (runtime 経路) を走らせます。承認・拒否・中止はタブレットのボタンから行え、結果は表示上限でふるって平文とページ画像に描かれます。一度作ったタブレットは Resonite のインベントリに保存でき、「接続」ボタンを押すと常駐監視が引き継ぎます。
 - **資料の表示**: PDF は Resonite 標準のドキュメントビューア (ワールドの雛形を複製して URL を差し替える) か、雛形なしで Resonite の部品だけで組む自前ビューア (`ResoniteDocViewer`) で開きます。画像 / ノートブックは掴めるページパネルへ、検索結果の行リストは ▶ 付きの一覧パネルへ出ます。
 - **サムネイル一覧**: 行のサムネイルを大きな面に升目で並べ、クリックで PDF / 画像を開きます (Eagle フォルダにも対応)。インベントリに保存して再利用でき、行データは HMAC 署名で改ざんを検出します。面は平面のほか円筒・球の内側・メビウスの帯・任意の曲面にも貼れます。
@@ -36,7 +36,7 @@
 - **Wolfram Language / Mathematica**: 14.x 以降を推奨します (`SocketListen` / `SocketConnect`、`ScheduledTask`、`Rasterize`、PDF の `PageImages` import を多用します)。
 - **OS**: Windows 11 を前提としています。
 - **Resonite**: デスクトップクライアント。L2 を使う機能では、そのセッションのホストであり、Dashboard → Session → Settings で **Enable ResoniteLink** を押しておく必要があります (ResoniteLink 0.13 系で確認)。ポートは自動検出されます (`ResoniteRealtimeDiscover[]`)。
-- **外部ツール (任意)**: resoloop + .NET 10 SDK (3D 生成)、Flux-SDK 1.9.0 (ProtoGraph の build)、dotnet fsi (ノードカタログの再生成)、sftp 対応の curl (Git for Windows 同梱。PDF キャッシュ)。
+- **外部ツール (任意)**: resoloop + .NET 10 SDK (3D 生成)、Flux-SDK 1.10.0 (ProtoGraph の build)、dotnet fsi (ノードカタログの再生成)、sftp 対応の curl (Git for Windows 同梱。PDF キャッシュ)。
 - **前提パッケージ**: 下の表の 5 つ。先にそれぞれの setup.md に従って導入してください (NBAccess → claudecode → ClaudeRuntime →
   ClaudeOrchestrator → SourceVault の順)。3D 生成を使う場合は [ResoLoop](https://github.com/transreal/ResoLoop) も。WebSocket 層と L1 / L2 / 板の表示だけなら
   本パッケージ単体でも動きますが、タブレット・一覧・PDF 表示はこれらが無いと fail-closed で止まります (`Failure["NoClaudeCode"]` /
@@ -70,19 +70,25 @@
 
    ```powershell
    winget install Microsoft.DotNet.SDK.10
-   dotnet tool install --global ResoLoop --version 0.1.0-preview.17
+   dotnet tool install --global ResoLoop --version 0.1.0
    ```
 
-3. (ClaudeEval 連携を使う場合) `ResoniteRealtime_info/directives/110-resonite-tablet.md` を `Claude Directives/rules/` にコピーします。
+3. (ProtoGraph の build を使う場合) Flux-SDK を導入します。
 
-4. Resonite で ResoniteLink を有効化し、Mathematica で読み込みます。
+   ```powershell
+   dotnet tool install --global Papaltine.FluxSDK --version 1.10.0
+   ```
+
+4. (ClaudeEval 連携を使う場合) `ResoniteRealtime_info/directives/110-resonite-tablet.md` を `Claude Directives/rules/` にコピーします。
+
+5. Resonite で ResoniteLink を有効化し、Mathematica で読み込みます。
 
    ```wolfram
    Block[{$CharacterEncoding = "UTF-8"}, Get["ResoniteRealtime.wl"]];
    ResoniteRealtimeLinkConnect[];            (* ポートは自動検出 (netsh の http.sys 登録一覧)。明示なら [port] *)
    ```
 
-5. (フレンドにも PDF を見せる場合) 自分の web サーバ用に PDF キャッシュを設定します (サーバ名やパスワードはソースに含まれず、PC ごとの設定ファイルと NBAccess に保存されます)。
+6. (フレンドにも PDF を見せる場合) 自分の web サーバ用に PDF キャッシュを設定します (サーバ名やパスワードはソースに含まれず、PC ごとの設定ファイルと NBAccess に保存されます)。
 
    ```wolfram
    ResonitePDFCacheSetup["sftp://user@www.example.org/path", "https://www.example.org/cache"];
@@ -105,15 +111,17 @@ ResoniteGraphics3D[Plot3D[Sin[x y], {x, 0, 3}, {y, 0, 3}]]   (* 掴めるメッ�
 
 ### 主な機能
 
+各機能の詳細は [user_manual.md](user_manual.md)、オプション付きの関数一覧は [api.md](api.md) を参照してください。
+
 - **WebSocket 層**: 純 Wolfram の RFC 6455 サーバ / クライアント (`RRWSServe` / `RRWSConnect` / `RRWSSend` / `RRWSBatch` / `RRWSFlush` ほか)。`RRWSBatch` で送信をまとめ書きにして書き込みを高速化します。
 - **L1 / L2 / L3**: `ResoniteRealtimeStart` / `ResoniteRealtimeOn` / `ResoniteRealtimeSend`、`ResoniteRealtimeDiscover` / `ResoniteRealtimeLinkConnect` / `ResoniteRealtimeGetSlot` / `ResoniteRealtimeAddSlot` / `ResoniteRealtimeAddComponent` / `ResoniteRealtimeUpdateSlot` / `ResoniteRealtimeUpdateComponent`、`ResoniteRealtimeBoard` / `ResoniteRealtimeShowImage` / `ResoniteRealtimeAsset`。
 - **表示上限**: `ResoniteAccessLevel` (Private 1.0 / Contacts 0.5 / ContactsPlus 0.25 / Public 0.25、非オーナーは一律 0.25)。既定はワールドの公開度とホスト / 所有者から自動で決まる (`ResoniteAccessLevel[Automatic]` で自動に戻す)。
-- **Chat**: `ResoniteChatGadget` / `ResoniteChatStart` / `ResoniteChat` / `ResoniteChatCell` / `ResoniteChatAttach` (別カーネルが作ったパネルの引き継ぎ)。
-- **ProtoFlux**: `ResoniteFluxGenerate` / `ResoniteFluxChat` / `ResoniteFluxCatalogSearch` / `ResoniteFluxPlace` / `ResoniteFluxProbe` / `ResoniteFluxRemove` / `ResoniteFluxDisplay` / `ResoniteFluxDrive` / `ResoniteFluxBuild`。
+- **Chat**: `ResoniteChatGadget` / `ResoniteChatStart` / `ResoniteChat` / `ResoniteChatCell` / `ResoniteChatAttach` (別カーネルが作ったパネルの引き継ぎ) / `ResoniteChatRemoveGadget`。
+- **ProtoFlux**: `ResoniteFluxGenerate` / `ResoniteFluxChat` / `ResoniteFluxCell` / `ResoniteFluxCatalogSearch` / `ResoniteFluxPlace` / `ResoniteFluxProbe` / `ResoniteFluxRemove` / `ResoniteFluxDisplay` / `ResoniteFluxDrive` / `ResoniteFluxBuild` / `ResoniteFluxDeploy`。
 - **タブレット**: `ResoniteTablet` / `ResoniteTabletEval` / `ResoniteTabletApprove` / `ResoniteTabletDeny` / `ResoniteTabletCancel` / `ResoniteTabletMake3D` / `ResoniteTabletCleanup`。インベントリに保存したタブレットは常駐監視 (`ResoniteTabletServe`) が「接続」ボタンで引き継ぎます (`ResoniteTabletFind` / `ResoniteTabletAdopt`)。
-- **資料の表示**: `ResoniteShowObject` / `ResoniteListGadget` / `ResonitePDFViewer` / `ResoniteDocViewer` (雛形なしの自前ビューア。`$ResonitePDFLite` で切り替え) / `ResoniteViewerShow` / `ResoniteVideoBoard`。
-- **サムネイル一覧**: `ResoniteThumbnailGadget` / `ResoniteEagleFolderGadget`。インベントリに保存でき、接続時に署名とワールドの公開度・所有者を検証します (`ResoniteBoardAdopt` / `ResoniteBoardDiagnose`)。
-- **曲面**: `ResoniteThumbnailShape` / `ResoniteThumbnailSurface` で平面・円筒・球の内側・メビウスの帯・任意の曲面に切り替え、`ResoniteThumbnailSurfaceHit` でクリック位置を判定します。
+- **資料の表示**: `ResoniteShowObject` / `ResoniteListGadget` / `ResonitePDFViewer` / `ResoniteDocViewer` (雛形なしの自前ビューア。`$ResonitePDFLite` で切り替え。`ResoniteDocViewerRemove` で閉じる) / `ResoniteViewerShow` / `ResoniteVideoBoard`。
+- **サムネイル一覧**: `ResoniteThumbnailGadget` / `ResoniteEagleFolderGadget`。インベントリに保存でき、接続時に署名とワールドの公開度・所有者を検証します (`ResoniteBoardAdopt` / `ResoniteBoardDiagnose`)。別の PC で作った一覧は、鍵束 (SourceVault の PrivateVault) の鍵で署名を検証します。
+- **曲面**: `ResoniteThumbnailShape` / `ResoniteThumbnailSurface` で平面・円筒・球の内側・メビウスの帯・任意の曲面に切り替え、`ResoniteThumbnailSurfaceFrames` でセルの位置と向きを取り、`ResoniteThumbnailSurfaceHit` でクリック位置を判定します。
 - **PDF キャッシュ**: `ResonitePDFCacheSetup` / `ResonitePDFCacheCredential` / `ResonitePDFCacheStatus` / `ResonitePDFCacheRetry` / `ResonitePDFCacheList` / `ResonitePDFCacheClear`。
 - **3D**: `ResoniteGraphics3DMesh` / `ResoniteMeshJSON` / `ResoniteGraphics3D` / `ResoniteGraphics3DRemove`。
 

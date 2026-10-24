@@ -296,6 +296,7 @@ L1 / L2 が通れば、次のガジェットは **ResoniteLink だけでワー�
 ### ProtoFlux 生成 (`ResoniteRealtime_flux.wl` / `ResoniteRealtime_fluxlink.wl`)
 
 - `ResoniteFluxChat[prompt]` / `ResoniteFluxGenerate[spec]` / `ResoniteFluxCell[]` — LLM に ProtoGraph を書かせ、静的検査 (`ResoniteFluxCatalog`, `ResoniteFluxCatalogSearch`, `ResoniteFluxUnknownNodes`) と flux-sdk build (`ResoniteFluxBuild`、flux-sdk があるときのみ) を修正ループで回します。`ResoniteFluxDeploy[result]` で世界へ入れる手順を返します。`$ResoniteFluxSDK`, `$ResoniteFluxProjects`。
+- 生成させる ProtoGraph のモジュール宣言は、1 行目を `module <PascalCase 名>` だけで改行し、入出力 (`in` / `out`) は次の行から、本文は `where { ... }` に書く形に揃えるよう LLM へ指示しています。`module X where {` と 1 行に続けると Flux-SDK 1.10.0 が PG1036 で拒否するためです。手で書くときも同じ書式にしてください。
 - `ResoniteFluxPlace[graph]` — グラフ記述 (JSON) を ResoniteLink で ProtoFlux ノードとして配置・結線します。`ResoniteFluxValidateGraph`, `ResoniteFluxBindingType`, `ResoniteFluxProbe`, `ResoniteFluxRemove`, `ResoniteFluxDisplay`, `ResoniteFluxDrive`, `$ResoniteFluxGraphSpec`。
 
 ### 設計上の約束

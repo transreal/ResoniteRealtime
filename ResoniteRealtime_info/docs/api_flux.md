@@ -11,7 +11,7 @@ flux-sdk (dotnet tool Papaltine.FluxSDK, `dotnet tool install --global --version
 Related: https://github.com/transreal/ResoniteRealtime , https://github.com/transreal/ResoniteRealtime_chat , https://github.com/transreal/ResoniteRealtime_fluxlink
 
 ## Conventions (ProtoGraph mode prompt)
-- Output exactly one ProtoGraph module in a ```protograph fence; first line `module <PascalCaseName>`; `in`/`out` for I/O, body in `where { ... }`.
+- Output exactly one ProtoGraph module in a ```protograph fence (short explanation outside the fence); first line `module <PascalCaseName>` alone then newline; `in`/`out` for I/O on following lines, body in `where { ... }`. Do not write `module X where {` on one line (Flux-SDK 1.10.0 rejects with PG1036).
 - Use only catalog nodes or ProtoGraph keywords (if/while/for/switch/impulse/bind/sync/local/display/~read/~write/~trigger).
 - Bind world objects via `in` (Source)/`out` (Drive), not by searching in body.
 - WL integration: WebsocketTextMessageReceiver/Sender (one TAB-separated line, no JSON) or dynamic variables (~read/~write).
@@ -19,7 +19,7 @@ Related: https://github.com/transreal/ResoniteRealtime , https://github.com/tran
 - Keywords exempt from unknown-node check: If, Display, ImpulseDisplay, Write, Read, Delay, Sequence, Impulse, AsyncImpulse, Operation, AsyncOperation.
 
 ## Graph JSON format (Format -> "Graph")
-Top-level: {"name", "nodes":[...], "probes":[dynamic-variable paths]}. Node: {"id","type", "value"?, "ref"?, "inputs":{InName:id}, "impulses":{ImpulseName:id}}. Extracted from ```json fence (or first `{` to last `}`); must contain "nodes". Spec text: `$ResoniteFluxGraphSpec` (defined in ResoniteRealtime_fluxlink). Example:
+Top-level: {"name", "nodes":[...], "probes":[dynamic-variable paths]}. Node: {"id","type", "value"?, "ref"?, "inputs":{InName:id}, "impulses":{ImpulseName:id}}. Extracted from ```json fence (or first `{` to last `}`); must contain "nodes". Spec text: `$ResoniteFluxGraphSpec` (defined in ResoniteRealtime_fluxlink). Catalog hint note in prompt: global<T> inputs take constants via globals. Example:
 ```json
 {"name":"SumDemo","nodes":[
  {"id":"a","type":"ValueInput<float>","value":1.0},
@@ -31,7 +31,7 @@ Top-level: {"name", "nodes":[...], "probes":[dynamic-variable paths]}. Node: {"i
  {"id":"tick","type":"LocalUpdate","impulses":{"OnUpdate":"w"}}],
  "probes":["wl/sum"]}
 ```
-Generation loop (Graph): per round → LLM → extract JSON → ResoniteFluxValidateGraph → (if no errors and Place) ResoniteFluxPlace (removes previous placement via ResoniteFluxRemove) → check probes exist (Missing probes → diagnostic: check impulse chain from LocalUpdate to WriteOrCreateDynamicValueVariable, Target is ElementSource<Slot> ref "$root", Path is ValueObjectInput<string>) → break when no diagnostics. On success with Display, first probe shown as in-world 3D text via ResoniteFluxDisplay. Graph saved to `$ResoniteFluxProjects/<slug>/<name>.flux.json`.
+Generation loop (Graph): per round → LLM → extract JSON → ResoniteFluxValidateGraph → (if no errors and Place) ResoniteFluxPlace (removes previous placement via ResoniteFluxRemove) → check probes exist (Missing probes → diagnostic: check impulse chain from LocalUpdate to WriteOrCreateDynamicValueVariable, Target is ElementSource<Slot> ref "$root", Path is ValueObjectInput<string>) → break when no diagnostics. Place failure → diagnostic "配置に失敗: ...". On success with Display, first of Placed["ProbeNames"] shown as in-world 3D text via ResoniteFluxDisplay. Graph saved to `$ResoniteFluxProjects/<slug>/<name>.flux.json`.
 
 ## Variables
 ### $ResoniteFluxSDK
@@ -51,7 +51,7 @@ Names in ProtoGraph source (capitalized identifier followed by `(` or `<`) not i
 
 ## flux-sdk
 ### ResoniteFluxBuild[pgFile] → Association | Failure
-Runs `flux-sdk build [-L <ResoniteDir>] pgFile` (-L omitted if env RESONITE_MANAGED_DATA_PATH set or default Steam Resonite dir absent).
+Runs `flux-sdk build [-L <ResoniteDir>] pgFile` in the file's directory (-L omitted if env RESONITE_MANAGED_DATA_PATH set or default Steam Resonite dir absent).
 → <|"Success" (ExitCode 0 and .brson found), "ExitCode", "Output", "Diagnostics" (lines containing error/warning/expected), "Brson" (newest matching .brson path or None)|>
 Failures: "NoFluxSDK", "NoFile", "Build".
 
@@ -62,7 +62,7 @@ LLM generates from natural-language spec, loops up to MaxRounds. Access level/pr
 Options: "Format" -> "Graph" ("Graph" = JSON graph placed in world; otherwise ProtoGraph module), "Place" -> Automatic (Graph: place via ResoniteLink; Automatic = whether a link is connected), "Display" -> True (Graph: show first probe as in-world 3D text), "MaxRounds" -> 3, "Module" -> Automatic (ProtoGraph module name hint), "Model" -> Automatic, "Timeout" -> 300, "Build" -> Automatic (ProtoGraph: run flux-sdk build; Automatic = if flux-sdk found), "SourceVault" -> False (add SourceVault context to prompt), "Origin" -> "Notebook", "Hints" -> 40 (max catalog nodes by spec search; core-query nodes added: 60 in Graph, 40 in ProtoGraph)
 Graph result: <|"Format"->"Graph","Graph","Source" (JSON string),"Module","File" (.flux.json),"Project","Placed","Probes","Display","Unknown"->{},"Build"->None,"Rounds","Diagnostics","Answer","PrivacyLevel","AccessLevel","Elapsed"|>
 ProtoGraph result: <|"Source","Module","File" (.pg),"Project","Unknown","Build","Rounds","Diagnostics" ({} = success),"Answer","PrivacyLevel","AccessLevel","Elapsed"|> (no "Format" key)
-ProtoGraph loop: unknown nodes → diagnostic; build only if no unknown nodes; build diagnostics (first 20) fed back.
+ProtoGraph loop: unknown nodes → diagnostic; build only if no unknown nodes; build diagnostics (first 20) fed back; empty diagnostics with failed build → first 2000 chars of output.
 例: ResoniteFluxGenerate["Add two floats and publish to wl/sum", "Format" -> "Graph", "MaxRounds" -> 2]
 
 ## Gadget

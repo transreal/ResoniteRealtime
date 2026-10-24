@@ -146,6 +146,7 @@ ResoniteFluxBuild[pgFile] ; ResoniteFluxDeploy[result]
 ```
 
 - ProtoGraph 経路のオプション: `"MaxRounds" -> 3`、`"Module" -> Automatic`、`"Model" -> Automatic`、`"Timeout" -> 300`、`"Build" -> Automatic`、`"SourceVault" -> False`、`"Origin" -> "Notebook"`。戻り値は `<|"Source","Module","File","Project","Unknown","Build","Rounds","Answer","PrivacyLevel"|>`。
+- LLM への指示で、モジュールの書式は次のように決めています。1 行目は `module <PascalCase 名>` だけで改行し、入出力は次の行から `in` / `out`、本文は `where { ... }` とします。`module X where {` のように 1 行に続けると、Flux-SDK 1.10.0 が PG1036 で拒否するため、続けて書かせません。
 - `flux-sdk` (dotnet tool `Papaltine.FluxSDK`) が無くても生成と静的検査までは動きます。build と `.brson` 出力は flux-sdk があるときだけで、無ければ `ResoniteFluxBuild` は `Failure["NoFluxSDK"]` を返します。
 - `ResoniteFluxDeploy[result, "Method" -> "ResoniteLink"]` は Flux SDK のホットデプロイ (実験的) を試します。`.brson` があれば Resonite へドラッグ&ドロップです。
 

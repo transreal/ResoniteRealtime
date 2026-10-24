@@ -214,7 +214,8 @@ $ifCoreNodeQueries = "If While For Sequence Write ValueWrite Display Update Fire
 $ifConventions =
 "[このプロジェクトの約束]\n" <>
 "- 出力は 1 つの ProtoGraph モジュールだけ。```protograph フェンスで囲み、フェンスの外に説明を短く書く。\n" <>
-"- 1 行目は `module <PascalCase 名>`。入出力は `in` / `out`、本文は `where { ... }`。\n" <>
+"- 1 行目は `module <PascalCase 名>` だけで改行する。入出力は次の行から `in` / `out`、本文は `where { ... }`。" <>
+"`module X where {` と 1 行に続けない (Flux-SDK 1.10.0 は PG1036 で拒否する)。\n" <>
 "- ノード名は下の [ノードカタログ] か ProtoGraph の予約語 (if / while / for / switch / impulse / bind / sync / local / display / ~read / ~write / ~trigger) だけを使う。カタログに無い名前を作らない。\n" <>
 "- 世界のオブジェクトへの結線は `in` (Source) / `out` (Drive) で宣言し、本文で探さない。\n" <>
 "- Mathematica (WL) との連携は WebsocketTextMessageReceiver / WebsocketTextMessageSender (TAB 区切りの 1 行、JSON 不可) か、" <>
