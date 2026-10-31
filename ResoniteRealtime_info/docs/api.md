@@ -40,6 +40,7 @@ connId は `ResoniteRealtimeStatus[]["BridgeConnections"]` やハンドラの "C
 ### ResoniteRealtimeDiscover[] → {<|"Port", "URL", "Process", "Source"|> ...}
 有効化されている ResoniteLink のポート。(1) http.sys 登録一覧 (`netsh http show servicestate view=requestq` で Resonite / Renderite.Host のプロセスが
 登録した `HTTP://LOCALHOST:<port>/`。即時。見出し語でなく ASCII の exe パスで判定するので日本語 Windows でも動く)、(2) ResoLoop.wl があれば resoloop discover (約 12 秒)、(3) 環境変数 RESONITE_LINK_URL。(1) が空のときだけ (2)、(2) が空のときだけ (3)。Source は "netsh" | "resoloop" | "env"。
+ResoLoop 連携は WL 15.0.1 の `Symbol["Ctx`name"]` lookup バグ (一度未評価になると以後ずっと未評価) 回避のため `Symbol[Identity["ResoLoop`ResoLoopDiscover"]]` を使う (2026-10-30)。
 Options: "Host" -> "localhost" (127.0.0.1 は http.sys が 400 で弾く)
 Dashboard → Session → Settings → Enable ResoniteLink で表示された port。
 ### ResoniteRealtimeLinkDisconnect[]

@@ -4,7 +4,7 @@
 Chat gadget for Resonite: runs an LLM chat from a notebook cell (ResoniteInput) and shows answers in a world-side UIX panel built via ResoniteLink (L2 only, no world-side node work). Part of the ResoniteRealtime` context; ResoniteRealtime.wl auto-loads it. Repo: https://github.com/transreal/ResoniteRealtime_chat
 Flow:
 1. Notebook: ResoniteChat[prompt] / ResoniteChatCell[]. Prompt → LLM → answer written to notebook and to the world panel.
-2. World: ResoniteChatGadget[] builds the panel. Type in the input field, press the send button (ButtonToggle → ValueField<bool>); the ResoniteChatStart[] ScheduledTask polling picks it up, calls the LLM, writes the answer to the panel. Inputs starting with "flux:" / "pf:" are routed to ResoniteFluxChat (ResoniteRealtime_flux) when available.
+2. World: ResoniteChatGadget[] builds the panel. Type in the input field, press the send button (Button + ButtonToggle → ValueField<bool>); the ResoniteChatStart[] ScheduledTask polling picks it up, calls the LLM, writes the answer to the panel. Inputs starting with "flux:" / "pf:" are routed to ResoniteFluxChat (ResoniteRealtime_flux) when available.
 3. L1 bridge: "ask<TAB>question" from world ProtoFlux runs the same path (Origin "Bridge").
 Dependencies (weakly coupled, load-order independent): claudecode (ClaudeQuerySync / ClaudeQueryBg / ClaudeWriteResponse / $ClaudePrivateModel), SourceVault (release contexts, SourceVaultKBAnswer), NBAccess (prompt privacy). Core ResoniteRealtime provides AddSlot/AddComponent/UpdateComponent/GetSlot/Board/ShowImage.
 
@@ -30,6 +30,7 @@ Dependencies (weakly coupled, load-order independent): claudecode (ClaudeQuerySy
 - Placement "User": finds the user's root slot ("User ..." with UserRoot), uses the Head slot pose, places at eye position + forward*Distance in the root's parent frame, yaw-rotated to face the user. Falls back to "Position"/"Parent" if no user is found.
 - For claudecode docs injection, keywords ("Resonite", "ResoniteLink", "ProtoFlux", "ProtoGraph", "ResoniteChat", "ResoniteFlux", "ワールド") are registered in $ClaudePackageKeywordMap["ResoniteRealtime"].
 - Test hook: Private`$icQueryOverride = Function[{prompt, privacy}, "answer"] replaces the LLM call.
+- WL 15 workaround (2026-10-30): inside CellEvaluationFunction, use Symbol[Identity["Ctx`name"]] instead of Symbol["Ctx`name"]. A literal Symbol["string"] lookup that once returns unevaluated stays unevaluated on every subsequent call in WL 15.
 
 ## Variables
 ### $ResoniteWorldAccess
@@ -64,14 +65,14 @@ Sends the prompt to the LLM; writes the answer to the notebook and the in-world 
 Options: "Notebook" -> Automatic (False suppresses writing the answer to the notebook; written only for Origin "Notebook"), "World" -> True (show on panel), "SourceVault" -> Automatic (False disables SourceVault KB context), "Evaluate" -> False (evaluate the answer's first ```mathematica block; graphics go to the board, other results are appended as text; 120 s limit), "Model" -> Automatic, "Timeout" -> 180, "Origin" -> "Notebook" ("Notebook"|"World"|"Bridge")
 Notes: Notebook origin uses ClaudeQuerySync; others use ClaudeQueryBg (no PrivacyLevel option; uses $ClaudePrivateModel when PL > 0.5). Appends to the log (ResoniteChatLog).
 ### ResoniteChatCell[] → NotebookObject
-Inserts a ResoniteInput cell into the input notebook (Shift+Enter runs ResoniteChat); embeds the style in the notebook's StyleDefinitions. Returns $Failed if there is no notebook.
+Inserts a ResoniteInput cell into the input notebook (Shift+Enter runs ResoniteChat); embeds the style in the notebook's StyleDefinitions. Returns $Failed if there is no notebook. Uses Symbol[Identity["ResoniteRealtime`ResoniteChat"]] in CellEvaluationFunction (WL 15 workaround).
 ### ResoniteChatGadget[opts]
 Builds the Chat panel in-world via ResoniteLink (input field / send button / answer / board). Requires ResoniteRealtimeLinkConnect first (else Failure "NotConnected").
 → Association of IDs (also stored as the gadget state): "Root", "Panel", "Input", "InputText", "Editor", "SendBox", "StatusText", "AnswerText", "TitleText", "Image"/"Text" materials, "Board" (if enabled), "User" (if placed by user), "Backdrop" (if enabled), "Name", "Created"
 Options: "Placement" -> "User" ("User"|"World"), "Distance" -> 1.5 (m in front of the avatar), "Height" -> Automatic (eye height - 0.25 m; a number = height from the feet), "User" -> Automatic (substring of the user name), "Position" -> {0, 1.4, 1.5} (used when Placement is "World" or the user is not found), "Parent" -> "Root" (same condition), "Name" -> "Mathematica Chat", "CanvasSize" -> {1200, 800} (units), "PanelScale" -> 0.001 (m/unit), "FontSize" -> 28, "Board" -> True (also create the figure board), "Backdrop" -> False (opaque quad behind the panel; experimental)
 ### ResoniteChatAttach[ids_Association] → Association
 Adopts a panel made by another kernel (the return value of ResoniteChatGadget; must contain "Root"); registers its "Board" too.
-### ResoniteChatRemoveGadget[] 
+### ResoniteChatRemoveGadget[]
 Stops monitoring and removes the in-world Chat panel (and its board record). Returns the removal response, or None if there is no gadget.
 ### ResoniteChatStart[opts] → TaskObject
 Starts the single ScheduledTask that polls the panel input and registers the L1 "ask" handler (ResoniteRealtimeOn["ask", ...]). Replaces any existing task. Failure "NoGadget" if no panel.

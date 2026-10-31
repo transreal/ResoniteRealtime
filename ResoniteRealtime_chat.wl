@@ -888,7 +888,8 @@ $icCellStyle =
               FromCharacterCode[FromDigits[hex4, 16]]}]];
         If[StringQ[tasktext] && StringTrim[tasktext] =!= "",
           If[Length[Names["ResoniteRealtime`ResoniteChat"]] > 0,
-            Symbol["ResoniteRealtime`ResoniteChat"][tasktext],
+            (* Symbol[Identity[...]], not a literal Symbol["Ctx`name"]: a literal lookup that once came back unevaluated stays unevaluated on every later call (WL 15, 2026-10-30) *)
+            Symbol[Identity["ResoniteRealtime`ResoniteChat"]][tasktext],
             Print[Style["ResoniteRealtime がロードされていません。", Red]]],
           Null]]]];
 

@@ -1359,7 +1359,9 @@ itViewerGo[n_Integer] :=
 Options[ResoniteRealtime`ResoniteViewerShow] = {"Title" -> ""};
 
 ResoniteRealtime`ResoniteViewerShow[pages_List, opts : OptionsPattern[]] :=
-  Module[{v = itEnsureViewer[]},
+  Module[{v, refused = itPageSpecFailure[pages]},
+    If[FailureQ[refused], Return[refused]];
+    v = itEnsureViewer[];
     If[!AssociationQ[v], Return[iFailure["NoViewer", "ビューアを作れませんでした (ResoniteLink 未接続?)。"]]];
     $itState["Viewer"]["Pages"] = pages;
     $itState["Viewer"]["Page"] = 0;
@@ -1463,6 +1465,28 @@ itPoseWithOffset[pose_Association, off_List] :=
     Join[pose, <|"Position" -> pose["Position"] + N[off]|>]];
 
 (* ファイル -> ページ仕様 *)
+(* パスで渡されたファイルの機密度: NBAccess`NBFileSpec の PrivacyLevel (数、または公開部分と秘匿部分の範囲) の最大。
+   .nb 以外は置き場所で決まる ($packageDirectory / $ClaudeAccessibleDirs の中は 0.5、外は 1.0)。.nb はノートの宣言
+   (Public 0.4 / Private 1.0) で決まり、未宣言なら機密セルが無ければ 0.5、あれば 1.0 (置き場所の中なら 0.5)。
+   NBAccess が無い・判定できないときは 1.0 (fail-closed)。2026-10-31: それまでパスで渡したファイルは 0.0 扱いだった *)
+itFilePL[file_String] := Module[{f = icSym["NBAccess`NBFileSpec"], spec, pls},
+  If[f === None, Return[1.0]];
+  spec = Quiet @ Check[f[file], $Failed];
+  pls = If[AssociationQ[spec], Select[Flatten[{Lookup[spec, "PrivacyLevel", {}]}], NumericQ], {}];
+  If[pls === {}, 1.0, itPL[Max[pls]]]];
+
+(* 公開 API (ResonitePDFViewer[pages] / ResoniteViewerShow[pages]) にページ仕様 {"PDF", file, n} / {"File", path} で
+   直に渡されたファイルも表示上限で判定する (ワールド内の LLM が承認なしで呼べるため)。機密度を判定済みの経路
+   (sv:// オブジェクト・ResoniteShowObject[file]・ResonitePDFViewer[file]) は $itFilesCleared を立てて呼ぶ。
+   戻り値は None (出してよい) か Failure *)
+If[!ValueQ[$itFilesCleared], $itFilesCleared = False];
+itPageSpecFailure[pages_List] := If[TrueQ[$itFilesCleared], None,
+  Catch[
+    Scan[itGate[itFilePL[#], "このファイル"] &,
+      DeleteDuplicates[Cases[pages, {"PDF", f_String, _} | {"File", f_String} :> f]]];
+    None,
+    icTag]];
+
 itPagesOfFile[file_String, maxPages_Integer] :=
   Module[{ext = itExt[file], n, nb, cells},
     Switch[ext,
@@ -1472,7 +1496,10 @@ itPagesOfFile[file_String, maxPages_Integer] :=
         Table[{"PDF", file, k}, {k, 1, Min[n, maxPages]}],
       "png" | "jpg" | "jpeg" | "gif" | "bmp" | "tif" | "tiff" | "webp", {{"File", file}},
       "nb",
-        nb = Quiet @ Check[Import[file, "Notebook"], $Failed];
+        (* .nb は機密度を NBAccess で確かめ、表示上限を超えるなら読まずに断る (rules/10、2026-10-31)。
+           それまではパスで渡すと機密度 0.0 扱いで、公開ワールドにも出ていた *)
+        itGate[itFilePL[file], "このノートブック"];
+        nb = Quiet @ Check[Import[file, "Notebook"], $Failed]; (* :PolicyWaiver: PRIV-NB-READ 直前の itGate で NBAccess の機密度を確かめてから読む *)
         cells = If[MatchQ[nb, Notebook[_List, ___]], First[nb], {}];
         If[cells === {}, Throw[iFailure["Notebook", file <> " を読めませんでした。"], icTag]];
         itRasterPages[cells],
@@ -1481,16 +1508,20 @@ itPagesOfFile[file_String, maxPages_Integer] :=
 ResoniteRealtime`ResonitePDFViewer[file_String, opts : OptionsPattern[]] :=
   Catch[
     With[{o = Association @ Join[Options[ResoniteRealtime`ResonitePDFViewer], {opts}]},
+      (* パスで渡されたファイルは置き場所の機密度で表示上限と比べる (2026-10-31) *)
+      itGate[itFilePL[file], "このファイル"];
       (* Resonite 標準のビューアで開く (雛形があるとき)。PDF だけ。画像 / .nb は自前パネル *)
       If[itExt[file] === "pdf" && (o["Native"] === True || (o["Native"] === Automatic && itNativeTryQ[])),
         Return[itNativeSpawn[file, Replace[o["Title"], "" -> FileNameTake[file]]]]];
-      ResoniteRealtime`ResonitePDFViewer[itPagesOfFile[file, o["MaxPages"]],
-        "Title" -> Replace[o["Title"], "" -> FileNameTake[file]], opts]],
+      Block[{$itFilesCleared = True},
+        ResoniteRealtime`ResonitePDFViewer[itPagesOfFile[file, o["MaxPages"]],
+          "Title" -> Replace[o["Title"], "" -> FileNameTake[file]], opts]]],
     icTag];
 
 ResoniteRealtime`ResonitePDFViewer[pages_List, opts : OptionsPattern[]] :=
-  Module[{o = Association @ Join[Options[ResoniteRealtime`ResonitePDFViewer], {opts}]},
+  Module[{o = Association @ Join[Options[ResoniteRealtime`ResonitePDFViewer], {opts}], refused = itPageSpecFailure[pages]},
     Which[
+      FailureQ[refused], refused,
       pages === {}, iFailure["NoPages", "ページがありません。"],
       StringQ[itPDFReuseRoot[o["Reuse"]]], itPDFLoad[itPDFReuseRoot[o["Reuse"]], pages, o["Title"]],
       itAsyncContextQ[],
@@ -1824,7 +1855,8 @@ itNativeFallback[j_Association] :=
     If[!StringQ[Lookup[j, "File", None]] || !FileExistsQ[j["File"]], Return[None]];
     pages = Catch[Quiet @ Check[itPagesOfFile[j["File"], 400], {}], icTag];
     If[!ListQ[pages] || pages === {}, Return[None]];
-    r = Quiet @ Check[ResoniteRealtime`ResonitePDFViewer[pages, "Title" -> j["Title"]], $Failed];
+    (* 標準ビューアで開こうとした時点で機密度は判定済み *)
+    r = Quiet @ Check[Block[{$itFilesCleared = True}, ResoniteRealtime`ResonitePDFViewer[pages, "Title" -> j["Title"]]], $Failed];
     itNativeLog[j["Id"], "Fallback", j["Tries"], "自前パネル " <> ToString[Length[pages]] <> " ページ"];
     itSetStatus["標準ビューアで開けなかったので自前パネルで開きます: " <> itTruncate[j["Title"], 40]];
     r];
@@ -2327,8 +2359,12 @@ itShowObject[row_Association, o_] /; KeyExistsQ[row, "Kind"] || KeyExistsQ[row, 
           itShowText[itAssocText[row], title, pl]]]];
 
 (* ファイル *)
+(* パスで渡されたファイルは置き場所 (.nb は宣言) の機密度で表示上限と比べ、PDF の写しを置くかもその値で決める
+   (2026-10-31。それまでは 0.0 扱いで、どのワールドにも出て、PDF はフレンド用サーバにも写しを置いていた) *)
 itShowObject[file_String, o_] /; FileExistsQ[file] && !DirectoryQ[file] :=
-  itShowFile[file, 0.0, Replace[o["Title"], Automatic -> FileNameTake[file]], o];
+  With[{pl = itFilePL[file]},
+    itGate[pl, "このファイル"];
+    itShowFile[file, pl, Replace[o["Title"], Automatic -> FileNameTake[file]], o]];
 
 (* 画像・図 (縦長の画像はページに割る) *)
 itShowObject[img_?ImageQ, o_] :=
@@ -2353,7 +2389,7 @@ itShowText[text_String, title_String, pl_] :=
 
 itShowPages[pages_List, title_String, pl_, o_, kind_String] :=
   Module[{r},
-    r = ResoniteRealtime`ResoniteViewerShow[pages, "Title" -> title];
+    r = Block[{$itFilesCleared = True}, ResoniteRealtime`ResoniteViewerShow[pages, "Title" -> title]];  (* pl は呼び出し側で判定済み *)
     If[MatchQ[r, _Failure], Throw[r, icTag]];
     If[r === $Failed, Throw[iFailure["Viewer", "ビューアに出せませんでした: " <> title], icTag]];
     <|"Kind" -> kind, "Title" -> title, "PrivacyLevel" -> itPL[pl], "Pages" -> Length[pages]|>];
@@ -2367,7 +2403,8 @@ itShowDocument[file_String, pl_, title_String, o_, kind_String] :=
       If[FailureQ[r], Throw[r, icTag]];
       Return[Join[<|"Kind" -> kind, "Title" -> title, "PrivacyLevel" -> itPL[pl], "File" -> file|>, r]]];
     pages = itPagesOfFile[file, o["MaxPages"]];
-    r = ResoniteRealtime`ResonitePDFViewer[pages, "Title" -> title, "PageSize" -> o["PageSize"]];
+    r = Block[{$itFilesCleared = True},  (* pl は呼び出し側で判定済み *)
+      ResoniteRealtime`ResonitePDFViewer[pages, "Title" -> title, "PageSize" -> o["PageSize"]]];
     If[FailureQ[r], Throw[r, icTag]];
     Join[<|"Kind" -> kind, "Title" -> title, "PrivacyLevel" -> itPL[pl], "Pages" -> Length[pages], "File" -> file|>,
       If[AssociationQ[r], KeyTake[r, {"Deferred", "Id", "Root"}], <||>]]];

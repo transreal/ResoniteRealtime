@@ -674,7 +674,8 @@ iDiscoverNetsh[] :=
 iDiscoverResoLoop[] :=
   Module[{f, r},
     If[Names["ResoLoop`ResoLoopDiscover"] === {}, Return[{}]];
-    f = Symbol["ResoLoop`ResoLoopDiscover"];
+    (* Symbol[Identity[...]], not a literal Symbol["Ctx`name"]: a literal lookup that once came back unevaluated stays unevaluated on every later call (WL 15, 2026-10-30) *)
+    f = Symbol[Identity["ResoLoop`ResoLoopDiscover"]];
     (* DownValues \:306f HoldAll\:3002Module \:5909\:6570\:306e\:307e\:307e\:6e21\:3059\:3068 f \:81ea\:8eab\:3092\:898b\:3066\:5e38\:306b 0 \:306b\:306a\:308b\:306e\:3067 Evaluate \:304c\:8981\:308b *)
     If[Length[DownValues[Evaluate[f]]] === 0, Return[{}]];
     r = Quiet @ Check[f[], $Failed];
