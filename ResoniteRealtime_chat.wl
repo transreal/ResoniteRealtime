@@ -217,7 +217,7 @@ icPromptPrivacy[origin_String, nb_] :=
         cell = icSym["NBAccess`NBCellObjectPrivacyLevel"];
         lv1 = If[req =!= None, Quiet @ Check[req[nb], 0.], 0.];
         lv2 = If[cell =!= None,
-          Quiet @ Check[cell[Quiet @ EvaluationCell[]], 0.], 0.];
+          Quiet @ Check[cell[Quiet @ NBAccess`NBResolveCell[nb, NBAccess`NBCurrentCellIndex[nb]]], 0.], 0.];
         Max[Select[{lv1, lv2, 0.}, NumericQ]],
       (* 世界起点: ワールドの中で打たれた文字はそのワールドの水準 (Private 1.0 / Contacts 0.5 / それ以外 0)。
          0.25 は「表示上限」であって文字の機密度ではないので 0 に丸める *)
