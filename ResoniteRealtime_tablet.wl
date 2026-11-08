@@ -2529,13 +2529,13 @@ ResoniteRealtime`ResoniteListGadget[rowsIn_, opts : OptionsPattern[]] :=
 
 itListGadgetBuild[rowsIn_, opts : OptionsPattern[ResoniteRealtime`ResoniteListGadget]] :=
   Catch[
-    Module[{o, rows, hidden, pose, ids, root, panel, vl, fs, csz, pscale, per, row, rec, g, placement},
+    Module[{o, all, rows, hidden, pose, ids, root, panel, vl, fs, csz, pscale, per, row, rec, g, placement},
       If[!itLinkQ[],
         Return[iFailure["NotConnected", "一覧ガジェットの組み立てには ResoniteLink が要ります。"]]];
       o = Association @ Join[Options[ResoniteRealtime`ResoniteListGadget], {opts}];
-      rows = itRowsOf[rowsIn];
-      hidden = Count[rows, r_ /; !itAllowedQ[itRowPL[r]]];
-      rows = Select[rows, itAllowedQ[itRowPL[#]] &];
+      all = itRowsOf[rowsIn];
+      hidden = Count[all, r_ /; !itAllowedQ[itRowPL[r]]];
+      rows = Select[all, itAllowedQ[itRowPL[#]] &];
       fs = N[o["FontSize"]]; csz = N[o["CanvasSize"]]; pscale = N[o["PanelScale"]]; per = o["RowsPerPage"];
       g = itGadget[];
       placement = o["Placement"];
@@ -2591,7 +2591,9 @@ itListGadgetBuild[rowsIn_, opts : OptionsPattern[ResoniteRealtime`ResoniteListGa
       (* サムネイル一覧へ切り替える小さなボタン (2026-09-24) *)
       ids["Buttons", "View"] = itButton[row, "View", "サムネ", fs*4., fs*1.7, RGBColor[0.25, 0.4, 0.35, 1], fs*0.75];
       ids["Buttons", "Close"] = itButton[row, "Close", "閉じる", fs*4.5, fs*1.7, RGBColor[0.5, 0.25, 0.25, 1], fs*0.8];
-      rec = <|"Ids" -> ids, "Rows" -> rows, "Page" -> 1, "PerPage" -> per, "Title" -> o["Title"],
+      (* "AllRows" = 表示上限で落とす前の行。一覧に出すのは "Rows" だけ。「サムネ」で戻すときは全行で組む
+         (升目は開示してよい方針。落とした行で組むと表示上限以上の升目が消え、帯のキャッシュも外れていた。2026-11-07) *)
+      rec = <|"Ids" -> ids, "Rows" -> rows, "AllRows" -> all, "Page" -> 1, "PerPage" -> per, "Title" -> o["Title"],
         "Hidden" -> hidden, "MaxChars" -> Floor[(csz[[1]] - 40 - fs*3)/(fs*0.75*0.6)], "Created" -> DateObject[]|>;
       $itState["Lists", root] = rec;
       itListRender[root];
@@ -3118,7 +3120,11 @@ itThumbOpen[root_String, i_Integer] :=
           itFmt[itAccessLevel[]] <> " [" <> itAccessLabel[] <> "] 署名 " <> ToString[Lookup[rec, "Signer", "Local"]] <>
           " 引き直し " <> If[TrueQ[Lookup[rec, "RecheckDone", True]], "済", "途中"] <> If[wk, "", " ワールド情報なし"]], Null]];
       itSetStatus["開けません (機密度): " <> itTruncate[itRowTitle[row], 60]];
-      Return[iFailure["PrivacyExceeded", "機密度 " <> itFmt[itRowPL[row]] <> " >= 表示上限 " <> itFmt[itAccessLevel[]]]]];
+      (* 2026-11-07: 断った結果も LastShow に残す (開いたときと同じ形。残さないと診断で前の結果が見えて紛らわしい) *)
+      r = iFailure["PrivacyExceeded", "機密度 " <> itFmt[itRowPL[row]] <> " >= 表示上限 " <> itFmt[itAccessLevel[]]];
+      $itState["LastShow"] = <|"Time" -> DateObject[], "Row" -> KeyTake[row, {"Kind", "Title", "URI", "File", "Id", "PrivacyLevel"}],
+        "Result" -> r, "Seconds" -> Round[iNow[] - t0, 0.1], "LastError" -> Lookup[$itState, "LastError", None]|>;
+      Return[r]];
     itSetStatus["開いています: " <> itTruncate[itRowTitle[row], 60]];
     (* 経過・結果を先に、題名は最後 (状態欄は幅で切れる。ResoniteRealtime_docboard.wl の idBoardProgress と同じ) *)
     idBoardStatus[root, "開いています…「" <> itRowTitle[row] <> "」"];
@@ -3155,7 +3161,8 @@ itListToThumbs[root_String] :=
     name = Lookup[Replace[Lookup[$itState, "ThumbNames", <||>], Except[_Association] -> <||>], ToString[rec["Title"]],
       Lookup[Options[ResoniteRealtime`ResoniteThumbnailGadget], "Name"]];
     ResoniteRealtime`ResoniteListGadgetRemove[root];
-    ResoniteRealtime`ResoniteThumbnailGadget[rec["Rows"], "Title" -> rec["Title"], "Name" -> name]];
+    (* 全行で組む (升目を開示しない設定なら itThumbPlan が絞る)。再ロード前の記録には AllRows が無いので Rows に戻る *)
+    ResoniteRealtime`ResoniteThumbnailGadget[Lookup[rec, "AllRows", rec["Rows"]], "Title" -> rec["Title"], "Name" -> name]];
 
 (* 監視の応答 (State スロット、Depth 0): Selected が 0 以外なら処理して 0 に戻す *)
 itHandleThumbs[state_String, res_Association] :=
@@ -3543,7 +3550,8 @@ itShowApproval[st_Association] :=
 (* ---- 完了時: 増えたセルを機密度でふるって、平文 + 画像にする ---- *)
 itCellText[e_] :=
   Module[{s},
-    s = Quiet @ Check[First @ FrontEndExecute[FrontEnd`ExportPacket[e, "PlainText"]], ""];
+    (* 2026-11-05: FE の PlainText 書き出しだと ↓ が \[DownArrow] のまま板に出る *)
+    s = icCellPlainText[e];
     If[!StringQ[s], s = ""];
     s = StringTrim[s];
     If[s === "" && !FreeQ[e, _GraphicsBox | _Graphics3DBox | _RasterBox | _GraphicsBox3D], "[図]", itTruncate[s, 3000]]];

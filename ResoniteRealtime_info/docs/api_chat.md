@@ -6,7 +6,7 @@ Flow:
 1. Notebook: ResoniteChat[prompt] / ResoniteChatCell[]. Prompt → LLM → answer written to notebook and to the world panel.
 2. World: ResoniteChatGadget[] builds the panel. Type in the input field, press the send button (Button + ButtonToggle → ValueField<bool>); the ResoniteChatStart[] ScheduledTask polling picks it up, calls the LLM, writes the answer to the panel. Inputs starting with "flux:" / "pf:" are routed to ResoniteFluxChat (ResoniteRealtime_flux) when available.
 3. L1 bridge: "ask<TAB>question" from world ProtoFlux runs the same path (Origin "Bridge").
-Dependencies (weakly coupled, load-order independent): claudecode (ClaudeQuerySync / ClaudeQueryBg / ClaudeWriteResponse / $ClaudePrivateModel), SourceVault (release contexts, SourceVaultKBAnswer), NBAccess (prompt privacy). Core ResoniteRealtime provides AddSlot/AddComponent/UpdateComponent/GetSlot/Board/ShowImage.
+Dependencies (weakly coupled, load-order independent): claudecode (ClaudeQuerySync / ClaudeQueryBg / ClaudeWriteResponse / $ClaudePrivateModel / ClaudeLocalLLMAccessCheck), SourceVault (release contexts, SourceVaultKBAnswer), NBAccess (prompt privacy). Core ResoniteRealtime provides AddSlot/AddComponent/UpdateComponent/GetSlot/Board/ShowImage.
 
 ## Access levels
 - Access level = display-cap PL by world access: $ResoniteWorldAccessLevels (Private 1.0, Contacts 0.5, ContactsPlus 0.25, Public 0.25).
@@ -15,6 +15,7 @@ Dependencies (weakly coupled, load-order independent): claudecode (ClaudeQuerySy
 - SourceVault release context: "resonite-public" (non-owner) or "resonite-" <> ToLowerCase[access] (0.25 / 1.0 caps). Contexts are registered once automatically (MaxPrivacyLevel = level).
 - LLM PrivacyLevel = Max[prompt PL, context PL]. Prompt PL: Notebook origin → NBAccess (notebook required level, cell level); World/Bridge origin → world level if >0.25 else 0.
 - PL > 0.5 → local LLM ($ClaudePrivateModel) required; if unset → Failure "PrivateModelNotConfigured" (fail-closed).
+- Non-Notebook origin (ClaudeQueryBg has no PrivacyLevel): the model's distance limit is checked via ClaudeLocalLLMAccessCheck; violation → Failure "AccessLevelExceeded". Notebook origin is checked by ClaudeQuerySync's PrivacyLevel.
 - If prompt PL > access level → Failure "WorldAccessDenied" without calling the LLM.
 
 ## Design notes
@@ -25,9 +26,10 @@ Dependencies (weakly coupled, load-order independent): claudecode (ClaudeQuerySy
 - Panel Alpha blend is kept, so the panel is translucent; "Backdrop" -> True adds an opaque quad but was observed to cover the panel (off by default).
 - Showing figures on the board needs ResoniteRealtimeStart[] (HTTP image serving) or $ResoniteRealtimePublicBaseURL, else Failure "NoServer".
 - Sending uses a Button + ButtonToggle → ValueField<bool> (Checkbox alone does not respond to clicks).
-- Errors are returned as Failure (via iFailure); tags include NotConnected, NoGadget, NoMemberId, EmptyPrompt, WorldAccessDenied, PrivateModelNotConfigured, NoClaudeCode, LLM, NoServer, Timeout.
-- Panel structure: <Name> (Grabbable, AI_GeneratedContent) ├ Panel (Canvas) └ VLayout: Title, Input (Image+Button+TextField+TextEditor, child Text), SendRow (Send button + SendLabel), Status, Answer; plus optional Chat Board (ResoniteRealtimeBoard).
+- Errors are returned as Failure (via iFailure); tags include NotConnected, NoGadget, NoMemberId, EmptyPrompt, WorldAccessDenied, PrivateModelNotConfigured, AccessLevelExceeded, NoClaudeCode, LLM, NoServer, Timeout.
+- Panel structure: <Name> (Grabbable, AI_GeneratedContent) ├ Panel (Canvas) └ VLayout: Title, Input (Image+Button+TextField+TextEditor, child Text), SendRow (Send button [ValueField<bool>+ButtonToggle, child Check] + SendLabel), Status, Answer; plus optional Chat Board (ResoniteRealtimeBoard) to the right of the panel.
 - Placement "User": finds the user's root slot ("User ..." with UserRoot), uses the Head slot pose, places at eye position + forward*Distance in the root's parent frame, yaw-rotated to face the user. Falls back to "Position"/"Parent" if no user is found.
+- Cell text: the ResoniteInput evaluation function receives FE-escaped strings; icCellEvalText un-escapes them to real characters (control/bidi/private-use/non-UTF-8 chars are left as escape notation; `\\` is not collapsed).
 - For claudecode docs injection, keywords ("Resonite", "ResoniteLink", "ProtoFlux", "ProtoGraph", "ResoniteChat", "ResoniteFlux", "ワールド") are registered in $ClaudePackageKeywordMap["ResoniteRealtime"].
 - Test hook: Private`$icQueryOverride = Function[{prompt, privacy}, "answer"] replaces the LLM call.
 - WL 15 workaround (2026-10-30): inside CellEvaluationFunction, use Symbol[Identity["Ctx`name"]] instead of Symbol["Ctx`name"]. A literal Symbol["string"] lookup that once returns unevaluated stays unevaluated on every subsequent call in WL 15.
@@ -63,7 +65,7 @@ Back to Automatic mode; resets owner False / access "Public" (strict) until the 
 Sends the prompt to the LLM; writes the answer to the notebook and the in-world panel.
 → <|"Answer", "PrivacyLevel", "AccessLevel", "Context", "Shown", "Evaluated"|> or Failure
 Options: "Notebook" -> Automatic (False suppresses writing the answer to the notebook; written only for Origin "Notebook"), "World" -> True (show on panel), "SourceVault" -> Automatic (False disables SourceVault KB context), "Evaluate" -> False (evaluate the answer's first ```mathematica block; graphics go to the board, other results are appended as text; 120 s limit), "Model" -> Automatic, "Timeout" -> 180, "Origin" -> "Notebook" ("Notebook"|"World"|"Bridge")
-Notes: Notebook origin uses ClaudeQuerySync; others use ClaudeQueryBg (no PrivacyLevel option; uses $ClaudePrivateModel when PL > 0.5). Appends to the log (ResoniteChatLog).
+Notes: Notebook origin uses ClaudeQuerySync; others use ClaudeQueryBg (no PrivacyLevel option; uses $ClaudePrivateModel when PL > 0.5 and Model is Automatic, then ClaudeLocalLLMAccessCheck). Appends to the log (ResoniteChatLog).
 ### ResoniteChatCell[] → NotebookObject
 Inserts a ResoniteInput cell into the input notebook (Shift+Enter runs ResoniteChat); embeds the style in the notebook's StyleDefinitions. Returns $Failed if there is no notebook. Uses Symbol[Identity["ResoniteRealtime`ResoniteChat"]] in CellEvaluationFunction (WL 15 workaround).
 ### ResoniteChatGadget[opts]

@@ -269,8 +269,8 @@ icQueryLLM[fullPrompt_String, privacy_, origin_String, model_, timeout_] :=
         (* ClaudeQueryBg に PrivacyLevel は無い: 0.5 を越えるときは $ClaudePrivateModel を明示する *)
         f = bg;
         f[fullPrompt,
-          icOpt[f, "Model"] -> If[privacy > 0.5 && model === Automatic,
-            icPrivateModelSpec[], model],
+          icOpt[f, "Model"] -> icCheckedModel[If[privacy > 0.5 && model === Automatic,
+            icPrivateModelSpec[], model], privacy],
           icOpt[f, "Timeout"] -> timeout]],
       $Failed];
     If[!StringQ[res], Return[iFailure["LLM", "LLM から文字列の応答が得られませんでした。"]]];
@@ -283,6 +283,16 @@ icPrivateModelSpec[] :=
     If[ListQ[m] && Length[m] >= 2, m,
       Throw[iFailure["PrivateModelNotConfigured",
         "PrivacyLevel > 0.5 の内容ですが $ClaudePrivateModel (ローカル LLM) が未設定です。"], icTag]]];
+
+(* rule 107 (2026-11-06): ClaudeQueryBg は PL を見ないので、LAN 上のローカル LLM へ送るときは
+   ここで距離の上限を確かめる (Subnet を信用していない同じ LAN の別機は 0.25)。
+   Notebook 経路は ClaudeQuerySync が PrivacyLevel で確かめる。 *)
+icCheckedModel[m_, privacy_] :=
+  Module[{chk = icSym["ClaudeCode`ClaudeLocalLLMAccessCheck"], r},
+    If[chk === None || Length[DownValues[Evaluate[chk]]] === 0, Return[m, Module]];
+    r = chk[m, privacy];
+    If[FailureQ[r], Throw[iFailure["AccessLevelExceeded", r["Text"]], icTag]];
+    m];
 
 (* ```mathematica ... ``` を取り出す (最初の 1 つ) *)
 icExtractCode[answer_String] :=
@@ -858,6 +868,87 @@ icBridgeAsk[rec_Association] :=
     Null];
 
 (* ============================================================
+   セルの文字を実文字のまま取り出す (2026-11-05)
+
+   FE はセルの文字を書き換える。ExportPacket["PlainText"] は ↓ を \[DownArrow] に、全角空白を
+   16 進表記に、× を * にする。評価関数 (CellEvaluationFunction) に渡す文字列では あ も ↓ も
+   エスケープ表記で、書式付きのセルも文字列で届く (実測)。\ は二重にならないので、\\ を \ に
+   縮めてはいけない (UNC パスが壊れる)。
+   制御文字・双方向の上書き・UTF-8 にできない文字・私用領域 (\[Rule] など) は実体を入れず、
+   表記のまま残す。
+   ============================================================ *)
+
+icUnsafeCodeQ[c_Integer] :=
+  (c < 32 && c =!= 9 && c =!= 10) ||
+  127 <= c <= 159 ||
+  16^^202A <= c <= 16^^202E || 16^^2066 <= c <= 16^^2069 ||
+  16^^D800 <= c <= 16^^F8FF ||
+  16^^FDD0 <= c <= 16^^FDEF ||
+  BitAnd[c, 16^^FFFE] === 16^^FFFE ||
+  c >= 16^^F0000;
+
+(* 正規表現が中身を英数字に限るので、ToExpression は文字列リテラルの読み取りにしかならない。
+   読めない名前や載せてはいけない文字になるものは、書かれたまま残す *)
+icEscapeToChar[esc_String] :=
+  Module[{c = Quiet @ Check[ToExpression["\"" <> esc <> "\""], $Failed]},
+    If[StringQ[c] && StringLength[c] === 1 && !icUnsafeCodeQ[First @ ToCharacterCode[c]], c, esc]];
+
+icUnescapeFEText[s_String] :=
+  StringReplace[s,
+    RegularExpression["\\\\(?:\\[[A-Za-z0-9]+\\]|:[0-9a-fA-F]{4}|\\|[0-9a-fA-F]{6}|\\.[0-9a-fA-F]{2})"] :>
+      icEscapeToChar["$0"]];
+
+icSafeText[s_String] :=
+  Module[{t, bad},
+    t = StringReplace[s, {"\r\n" -> "\n", "\r" -> "\n",
+      "\[LineSeparator]" -> "\n", "\[ParagraphSeparator]" -> "\n"}];
+    bad = Select[DeleteDuplicates @ ToCharacterCode[t], icUnsafeCodeQ];
+    If[bad === {}, t,
+      StringReplace[t, Map[
+        FromCharacterCode[#] -> StringTake[
+          ToString[FromCharacterCode[#], InputForm, CharacterEncoding -> "PrintableASCII"],
+          {2, -2}] &, bad]]]];
+
+icCellFEText[cell_] :=
+  Module[{t = Quiet @ Check[
+      First @ FrontEndExecute[FrontEnd`ExportPacket[cell, "PlainText"]], $Failed]},
+    If[StringQ[t], icUnescapeFEText[t], $Failed]];
+
+(* 文字列は式から直接読み、数式など組版ボックスの部分だけ FE に書き出させる *)
+icCellTextOf[s_String] := s;
+icCellTextOf[l_List] :=
+  With[{parts = icCellTextOf /@ l},
+    If[AllTrue[parts, StringQ], StringJoin[parts], $Failed]];
+icCellTextOf[TextData[x_]] := icCellTextOf[x];
+icCellTextOf[(StyleBox | ButtonBox)[x_, ___]] := icCellTextOf[x];
+icCellTextOf[Cell[x : (_String | _TextData), ___]] := icCellTextOf[x];
+icCellTextOf[c_Cell] := icCellFEText[c];
+icCellTextOf[x_] := icCellFEText[Cell[TextData[{x}], "Text"]];
+
+(* 私用領域の WL 記号は FE の読み替えを使う (\[Rule] -> "->")。読み替えがなければ
+   icSafeText がエスケープ表記にする *)
+icPUAToPlain[s_String] :=
+  With[{pua = Select[DeleteDuplicates @ ToCharacterCode[s], 16^^E000 <= # <= 16^^F8FF &]},
+    If[pua === {}, s,
+      StringReplace[s, Map[
+        Function[c, With[{ch = FromCharacterCode[c]},
+          ch -> With[{t = icCellFEText[Cell[ch, "Text"]]}, If[StringQ[t], t, ch]]]],
+        pua]]]];
+
+(* NotebookRead の Cell 式 -> 平文 *)
+icCellPlainText[cell_Cell] :=
+  Module[{t = icCellTextOf[cell]},
+    If[!StringQ[t], t = icCellFEText[cell]];
+    If[StringQ[t], icSafeText[icPUAToPlain[t]], $Failed]];
+icCellPlainText[_] := $Failed;
+
+(* 評価関数に渡された中身 -> 平文 *)
+icCellEvalText[content_] :=
+  If[StringQ[content],
+    icSafeText[icUnescapeFEText[content]],
+    icCellPlainText[Cell[content, "Text"]]];
+
+(* ============================================================
    ノートブック側: ResoniteInput セル
    ============================================================ *)
 
@@ -876,35 +967,34 @@ $icCellStyle =
     Evaluatable -> True,
     CellGroupingRules -> "InputGrouping",
     CellEvaluationFunction -> Function[{content, fmt},
-      Module[{tasktext},
-        tasktext = If[StringQ[content], content,
-          Quiet @ Check[First[FrontEndExecute[
-            FrontEnd`ExportPacket[Cell[content, "Text"], "PlainText"]]], $Failed]];
-        If[StringQ[tasktext],
-          tasktext = StringReplace[tasktext, {"\\\\" -> "\\",
-            "\\|" ~~ hex6 : RegularExpression["[0-9a-fA-F]{6}"] :>
-              FromCharacterCode[FromDigits[hex6, 16]],
-            "\\:" ~~ hex4 : RegularExpression["[0-9a-fA-F]{4}"] :>
-              FromCharacterCode[FromDigits[hex4, 16]]}]];
-        If[StringQ[tasktext] && StringTrim[tasktext] =!= "",
-          If[Length[Names["ResoniteRealtime`ResoniteChat"]] > 0,
+      If[Length[Names["ResoniteRealtime`ResoniteChat"]] > 0,
+        With[{tasktext = ResoniteRealtime`Private`icCellEvalText[content]},
+          If[StringQ[tasktext] && StringTrim[tasktext] =!= "",
             (* Symbol[Identity[...]], not a literal Symbol["Ctx`name"]: a literal lookup that once came back unevaluated stays unevaluated on every later call (WL 15, 2026-10-30) *)
             Symbol[Identity["ResoniteRealtime`ResoniteChat"]][tasktext],
-            Print[Style["ResoniteRealtime がロードされていません。", Red]]],
-          Null]]]];
+            Null]],
+        Print[Style["ResoniteRealtime がロードされていません。", Red]]]]];
 
 (* セルスタイルをノートブックの StyleDefinitions に埋め込む (テンプレートのスタイルシートは触らない)。
-   既に埋め込みスタイルシートならその中に足し、名前参照なら継承して包む。 *)
+   既に埋め込みスタイルシートならその中に足し、名前参照なら継承して包む。
+   Rest[sd] は頭が Notebook のままなので Sequence @@ でほどく。そのまま渡すと FE が中身を捨て、
+   スタイルシート自身の設定 (StyleDefinitions) が Default.nb に戻る (実測)。 *)
 icEnsureCellStyleNamed[nb_NotebookObject, styleName_String, style_Cell] :=
   Module[{sd, base},
     sd = Quiet @ CurrentValue[nb, StyleDefinitions];
-    If[StringContainsQ[ToString[sd, InputForm], "\"" <> styleName <> "\""], Return[nb]];
+    (* 評価関数はノートブック側に保存されるので、埋め込み済みなら最新の定義に差し替える *)
+    If[StringContainsQ[ToString[sd, InputForm], "\"" <> styleName <> "\""],
+      If[MatchQ[sd, Notebook[_List, ___]],
+        SetOptions[nb, StyleDefinitions -> Notebook[
+          Append[DeleteCases[First[sd], Cell[StyleData[styleName, ___], ___]], style],
+          Sequence @@ Rest[sd]]]];
+      Return[nb]];
     base = Which[
       StringQ[sd], Cell[StyleData[StyleDefinitions -> sd]],
       MatchQ[sd, _FrontEnd`FileName], Cell[StyleData[StyleDefinitions -> sd]],
       True, Cell[StyleData[StyleDefinitions -> "Default.nb"]]];
     If[MatchQ[sd, Notebook[_List, ___]],
-      SetOptions[nb, StyleDefinitions -> Notebook[Append[First[sd], style], Rest[sd]]],
+      SetOptions[nb, StyleDefinitions -> Notebook[Append[First[sd], style], Sequence @@ Rest[sd]]],
       SetOptions[nb, StyleDefinitions -> Notebook[{base, style}, Visible -> False,
         StyleDefinitions -> "PrivateStylesheetFormatting.nb"]]];
     nb];

@@ -540,22 +540,13 @@ $ifCellStyle =
     Evaluatable -> True,
     CellGroupingRules -> "InputGrouping",
     CellEvaluationFunction -> Function[{content, fmt},
-      Module[{tasktext},
-        tasktext = If[StringQ[content], content,
-          Quiet @ Check[First[FrontEndExecute[
-            FrontEnd`ExportPacket[Cell[content, "Text"], "PlainText"]]], $Failed]];
-        If[StringQ[tasktext],
-          tasktext = StringReplace[tasktext, {"\\\\" -> "\\",
-            "\\|" ~~ hex6 : RegularExpression["[0-9a-fA-F]{6}"] :>
-              FromCharacterCode[FromDigits[hex6, 16]],
-            "\\:" ~~ hex4 : RegularExpression["[0-9a-fA-F]{4}"] :>
-              FromCharacterCode[FromDigits[hex4, 16]]}]];
-        If[StringQ[tasktext] && StringTrim[tasktext] =!= "",
-          If[Length[Names["ResoniteRealtime`ResoniteFluxChat"]] > 0,
+      If[Length[Names["ResoniteRealtime`ResoniteFluxChat"]] > 0,
+        With[{tasktext = ResoniteRealtime`Private`icCellEvalText[content]},
+          If[StringQ[tasktext] && StringTrim[tasktext] =!= "",
             (* Symbol[Identity[...]], not a literal Symbol["Ctx`name"]: a literal lookup that once came back unevaluated stays unevaluated on every later call (WL 15, 2026-10-30) *)
             Symbol[Identity["ResoniteRealtime`ResoniteFluxChat"]][tasktext],
-            Print[Style["ResoniteRealtime がロードされていません。", Red]]],
-          Null]]]];
+            Null]],
+        Print[Style["ResoniteRealtime がロードされていません。", Red]]]]];
 
 ResoniteRealtime`ResoniteFluxCell[] :=
   Module[{nb = InputNotebook[]},
