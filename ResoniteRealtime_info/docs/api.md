@@ -71,7 +71,7 @@ L2 だけで板 (StaticTexture2D + QuadMesh + UnlitMaterial + MeshRenderer) を�
 Options: "Size" -> 800, "Verb" -> "img", "Send" -> True, "Target" -> Automatic | "Board" | "Bridge" | None
 式を PNG にして配信し、板があれば板の URL を差し替え、無ければ L1 で `img<TAB>url` を送る。HTTP の URL アセットは各クライアントが個別に取りに行くので 127.0.0.1 は自分にしか見えない。
 ### ResoniteRealtimeRemoveBoard[] / ResoniteRealtimeAsset[file] → url / ResoniteRealtimeAsset[] → 配信ディレクトリ
-`ResoniteRealtimeAsset[file]` はファイルを配信ディレクトリへ写して URL を返す (送信はしない)。URL はファイル名をパーセント符号化する (UTF-8、非予約文字 A-Z a-z 0-9 - . _ ~ 以外を %XX)。配信側は
+`ResoniteRealtimeAsset[file]` はファイルを配信ディレクトリへ写して URL を返す (送信はしない。ファイルが無ければ Failure["NoSuchFile"])。URL はファイル名をパーセント符号化する (UTF-8、非予約文字 A-Z a-z 0-9 - . _ ~ 以外を %XX)。配信側は
 要求パス `/a/<name>` を UTF-8 として戻してから探し、戻した名前に `..` `/` `\` があれば 400 (2026-09-24。日本語名の Eagle PDF が 404 で空のビューアになっていた)。
 ### $ResoniteRealtimePublicBaseURL — 聴衆がいる場では公開 URL (127.0.0.1 は自分にしか見えない)
 型: String, 初期値: 未設定

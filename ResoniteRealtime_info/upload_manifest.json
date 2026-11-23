@@ -10,7 +10,8 @@
 		"ResoniteRealtime_mesh.wl",
 		"ResoniteRealtime_docboard.wl",
 		"ResoniteRealtime_pdfcache.wl",
-		"ResoniteRealtime_surface.wl"
+		"ResoniteRealtime_surface.wl",
+		"ResoniteRealtime_present.wl"
 	],
 	"directories":[
 		"ResoniteRealtime_info"

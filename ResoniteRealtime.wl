@@ -180,9 +180,10 @@ Begin["`Private`"];
    \:4f55\:3082\:3055\:305b\:305a\:3001\:30d5\:30a1\:30a4\:30eb\:306e\:6700\:5f8c\:3067\:4e0b\:308d\:3059 (tick \:306f Busy \:306a\:3089\:5165\:53e3\:3067\:623b\:308b\:3002\:7acb\:3066\:305f\:306e\:306f\:3053\:3053\:306a\:306e\:3067\:6700\:5f8c\:306b\:5fc5\:305a False \:306b\:623b\:3059)\:3002 *)
 If[AssociationQ[$itState], $itState["Busy"] = True];
 If[AssociationQ[$icState], $icState["Busy"] = True];
+If[AssociationQ[$irpState], $irpState["Busy"] = True];
 Scan[Quiet[Clear[#]] &, Names["ResoniteRealtime`*"]];
 
-ResoniteRealtime`$ResoniteRealtimeVersion = "0.2.1";
+ResoniteRealtime`$ResoniteRealtimeVersion = "0.3.0";
 
 If[!StringQ[ResoniteRealtime`$ResoniteRealtimePublicBaseURL],
   ResoniteRealtime`$ResoniteRealtimePublicBaseURL = ""];
@@ -223,6 +224,10 @@ Block[{$CharacterEncoding = "UTF-8"},
 (* ---- PDF \:306e\:5199\:3057\:3092 web \:30b5\:30fc\:30d0\:306b\:7f6e\:304f (Private / Contacts \:306e\:30ef\:30fc\:30eb\:30c9\:3067\:30d5\:30ec\:30f3\:30c9\:306b\:3082\:898b\:3048\:308b\:3088\:3046\:306b\:30022026-09-25) ---- *)
 Block[{$CharacterEncoding = "UTF-8"},
   Get[FileNameJoin[{$iPackageDirectory, "ResoniteRealtime_pdfcache.wl"}]]];
+(* ---- runs a SlideWorkflow presentation inside the world: builds a screen, a speaker and a control panel on the spot
+   (uses the chat / tablet UIX helpers; loaded last. 2026-11-23) ---- *)
+Block[{$CharacterEncoding = "UTF-8"},
+  Get[FileNameJoin[{$iPackageDirectory, "ResoniteRealtime_present.wl"}]]];
 
 (* ---- \:72b6\:614b (\:518d\:30ed\:30fc\:30c9\:3067\:58ca\:3055\:306a\:3044) ---- *)
 If[!AssociationQ[$iState],
@@ -954,6 +959,7 @@ EndPackage[];
 (* \:518d\:30ed\:30fc\:30c9\:306e\:9593\:6b62\:3081\:3066\:3044\:305f\:76e3\:8996 tick \:3092\:623b\:3059 (\:30d5\:30a1\:30a4\:30eb\:982d\:306e Busy\:3002\:5b9a\:7fa9\:306f\:3059\:3079\:3066\:5165\:308c\:76f4\:3057\:305f) *)
 If[AssociationQ[ResoniteRealtime`Private`$itState], ResoniteRealtime`Private`$itState["Busy"] = False];
 If[AssociationQ[ResoniteRealtime`Private`$icState], ResoniteRealtime`Private`$icState["Busy"] = False];
+If[AssociationQ[ResoniteRealtime`Private`$irpState], ResoniteRealtime`Private`$irpState["Busy"] = False];
 
 (*Print[Style["ResoniteRealtime \:30d1\:30c3\:30b1\:30fc\:30b8\:304c\:30ed\:30fc\:30c9\:3055\:308c\:307e\:3057\:305f\:3002", Bold]];
 Print["
@@ -972,6 +978,7 @@ Print["
   ResoniteTablet[]                     \[RightArrow] \:30ef\:30fc\:30eb\:30c9\:5185\:30bf\:30d6\:30ec\:30c3\:30c8 (ClaudeEval / \:627f\:8a8d / \:30b9\:30af\:30ed\:30fc\:30eb\:51fa\:529b / \:30d3\:30e5\:30fc\:30a2)
   ResoniteShowObject[uri|row|file|expr] / ResoniteListGadget[rows] \[RightArrow] SourceVault \:30aa\:30d6\:30b8\:30a7\:30af\:30c8\:3068\:4e00\:89a7\:3092\:30ef\:30fc\:30eb\:30c9\:3078
   ResoniteColorToggleBox[{Red, Blue}]  \[RightArrow] \:30af\:30ea\:30c3\:30af\:3067\:8272\:304c\:5207\:308a\:66ff\:308f\:308b\:7bb1 (\:63d0\:6848\:30b3\:30fc\:30c9 1 \:3064\:3067\:4f5c\:308c\:308b\:90e8\:54c1)
+  ResonitePresentationStart[title] / ResonitePresenter[] \[RightArrow] SlideWorkflow \:306e\:767a\:8868\:3092\:30ef\:30fc\:30eb\:30c9\:5185\:306e\:30b9\:30af\:30ea\:30fc\:30f3\:3067\:81ea\:52d5\:5b9f\:884c (ResonitePresentationPanel[] \:3067\:64cd\:4f5c)
 "];*)
 
 (* \:30ce\:30fc\:30c8\:30d6\:30c3\:30af\:306e\:30bb\:30c3\:30b7\:30e7\:30f3\:3067\:306f\:5e38\:99d0\:76e3\:8996\:3092\:81ea\:52d5\:3067\:59cb\:3081\:308b (\:30a4\:30f3\:30d9\:30f3\:30c8\:30ea\:304b\:3089\:51fa\:3057\:305f\:30bf\:30d6\:30ec\:30c3\:30c8\:306e\:300c\:63a5\:7d9a\:300d\:3067\:4f7f\:3048\:308b\:3088\:3046\:306b)\:3002
