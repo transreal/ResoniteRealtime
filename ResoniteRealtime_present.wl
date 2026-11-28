@@ -49,18 +49,25 @@ ResoniteRealtime`ResonitePresenter::usage =
 ResoniteRealtime`ResonitePresenterRemove::usage =
   "ResonitePresenterRemove[] は発表を止めてスクリーン・操作パネルをワールドから消す。";
 ResoniteRealtime`ResonitePresenterStatus::usage =
-  "ResonitePresenterStatus[] はスクリーン・操作パネルの状態 (Phase / Root / Screen / Panel ...) を返す。";
+  "ResonitePresenterStatus[] はスクリーン・操作パネルの状態 (Phase / Root / Screen / Panel / Scale / Width ...) を返す。";
+ResoniteRealtime`ResonitePresenterResize::usage =
+  "ResonitePresenterResize[\"Larger\"] / ResonitePresenterResize[\"Smaller\"] はスクリーンを 1 段大きく / 小さくする (操作パネルの「拡大」「縮小」と同じ)。\n" <>
+  "ResonitePresenterResize[n] は n 段目にする。ResonitePresenterResize[\"Reset\"] は組み立てたときの大きさに戻す。段階は $ResonitePresenterScales。\n" <>
+  "スクリーンの下の辺の高さは変わらず、操作パネルは右端についていく。<|\"Step\", \"Steps\", \"Scale\", \"Width\"|> を返す。";
 ResoniteRealtime`ResonitePresentationStart::usage =
   "ResonitePresentationStart[title] は SourceVault の発表登録簿 (SlideWorkflow の「登録」) の発表を Resonite のワールド内で始める。\n" <>
   "スライド (Sliden 用 mp4) を画像にしてスクリーンに映し、原稿を読み上げながら自動で送る。スクリーンが無ければその場で作る。\n" <>
   "ResonitePresentationStart[url] は mp4 の URL を直接指定する (原稿は付かない)。ResonitePresentationStart[] は操作パネルで選んだ発表。\n" <>
-  "オプション: \"Voice\" -> Automatic ($ResonitePresentationVoice)、\"StartSlide\"、\"EndSlide\"、\"Presenter\" -> {} (ResonitePresenter のオプション)。\n" <>
+  "既定では読み始めない: スクリーンを置いて最初の枚を映し、開始待ちで止まる (スクリーンを良い位置へ動かす時間)。\n" <>
+  "操作パネルの「開始」か ResonitePresentationControl[\"Start\"] で読み始める。すぐ読み始めるなら \"AutoStart\" -> True。\n" <>
+  "オプション: \"AutoStart\" -> False、\"Voice\" -> Automatic ($ResonitePresentationVoice)、\"StartSlide\"、\"EndSlide\"、\"Presenter\" -> {} (ResonitePresenter のオプション)。\n" <>
   "声は ResonitePresentationVoices[] のどれか。ローカルの声はスクリーンのスピーカーから、クラウドの声 (realtime:...) は音声ブリッジから出る。";
 ResoniteRealtime`ResonitePresentationPrepare::usage =
   "ResonitePresentationPrepare[title] は発表のスライド画像とローカルの声の音声を先に作っておく (発表の途中で合成を待たない)。\n" <>
   "オプション: \"Voice\" -> Automatic、\"StartSlide\" / \"EndSlide\" (発表のときと同じ範囲にする)。クラウドの声は事前に作れない (最初の発表のときに録る)。";
 ResoniteRealtime`ResonitePresentationControl::usage =
-  "ResonitePresentationControl[action] は実行中の発表を操作する。action: \"Pause\" | \"Resume\" | \"Toggle\" | \"Stop\" | \"Next\" | \"Previous\" | \"First\" | \"Last\" | 番号。";
+  "ResonitePresentationControl[action] は発表を操作する。action: \"Start\" | \"Pause\" | \"Resume\" | \"Toggle\" | \"Stop\" | \"Next\" | \"Previous\" | \"First\" | \"Last\" | 番号。\n" <>
+  "\"Start\" (\"Resume\" も同じ) は、開始待ち・一時停止中の発表を、映っている枚から読み始める。";
 ResoniteRealtime`ResonitePresentationStop::usage =
   "ResonitePresentationStop[] は発表を止める (スクリーンは残る)。";
 ResoniteRealtime`ResonitePresentationStatus::usage =
@@ -68,11 +75,16 @@ ResoniteRealtime`ResonitePresentationStatus::usage =
 ResoniteRealtime`ResonitePresentationList::usage =
   "ResonitePresentationList[] は登録簿のうちスライド発表ができるものの題名の一覧を返す。";
 ResoniteRealtime`ResonitePresentationVoices::usage =
-  "ResonitePresentationVoices[] は選べる声の一覧を返す (ローカルの声の名前と \"realtime:<声>\")。";
+  "ResonitePresentationVoices[] は、いま選べる声の一覧を返す (ローカルの声の名前と \"realtime:<声>\")。\n" <>
+  "AivisSpeech の声 (ほのか など) は、AivisSpeech Engine が動いているときだけ並ぶ。止まっているエンジンは、\n" <>
+  "ResonitePresentationSetVoice[name] で声を名指ししたときに自動で起こす。";
 ResoniteRealtime`ResonitePresentationSetVoice::usage =
-  "ResonitePresentationSetVoice[name] は読み上げの声を選ぶ (名前の一部でよい。例 \"ほのか\"、\"harema\")。発表中は次のスライドから効く。";
+  "ResonitePresentationSetVoice[name] は読み上げの声を選ぶ (名前の一部でよい。例 \"ほのか\"、\"harema\")。発表中は次のスライドから効く。\n" <>
+  "名指しの声が一覧に無いときは、止まっているローカルの声のエンジン (AivisSpeech) を起こして探し直す (起動に 20 秒〜2 分かかる。\n" <>
+  "SourceVault`$SourceVaultVoiceAivisAutoStart = False なら起こさない)。";
 ResoniteRealtime`ResonitePresentationCycleVoice::usage =
-  "ResonitePresentationCycleVoice[] は読み上げの声を一覧の次の声へ切り替える (操作パネルの「声」ボタン)。";
+  "ResonitePresentationCycleVoice[] は読み上げの声を一覧の次の声へ切り替える (操作パネルの「声」ボタン)。\n" <>
+  "ローカルの声のエンジン (AivisSpeech) が止まっていれば起こす: ノートブックからは起動を待って一覧に加え、ワールドのパネルからは待たずに起こす (動き出してから押すと選べる)。";
 ResoniteRealtime`ResonitePresentationVoiceControl::usage =
   "ResonitePresentationVoiceControl[True] は音声ブリッジ (SourceVault の音声会話、既定 gpt-live-1.1) を起こし、声での操作と質問への応答を始める。\n" <>
   "ResonitePresentationVoiceControl[False] で止める。ResonitePresentationVoiceControl[] は切り替え。\n" <>
@@ -104,6 +116,9 @@ ResoniteRealtime`$ResonitePresentationListenWhileNarrating::usage =
   "(読み上げ中はマイクを閉じ、1 枚読み終えるごとの質問の時間だけ開く)。クラウドの声が読んでいる間は、どちらでもマイクを閉じる。";
 ResoniteRealtime`$ResonitePresentationVolume::usage =
   "$ResonitePresentationVolume はスクリーンのスピーカーの音量 (既定 1.0)。";
+ResoniteRealtime`$ResonitePresenterScales::usage =
+  "$ResonitePresenterScales はスクリーンの大きさの段階 (組み立てたときの大きさに対する倍率。既定 {0.5, 0.75, 1, 1.5, 2, 3})。\n" <>
+  "「拡大」「縮小」のボタンと ResonitePresenterResize がこの段を上下する。等倍 (1) は無くても補われる。";
 ResoniteRealtime`$ResonitePresentationCacheDirectory::usage =
   "$ResonitePresentationCacheDirectory はスライド画像と音声の置き場 (既定 Automatic = $UserBaseDirectory/ApplicationData/ResoniteRealtime/present)。";
 ResoniteRealtime`$ResonitePresentationRequirePaidAPIApproval::usage =
@@ -125,6 +140,7 @@ If[!ValueQ[ResoniteRealtime`$ResonitePresentationOutputDevice], ResoniteRealtime
 If[!ValueQ[ResoniteRealtime`$ResonitePresentationInputDevice], ResoniteRealtime`$ResonitePresentationInputDevice = Automatic];
 If[!ValueQ[ResoniteRealtime`$ResonitePresentationQuestionSeconds], ResoniteRealtime`$ResonitePresentationQuestionSeconds = 3.];
 If[!ValueQ[ResoniteRealtime`$ResonitePresentationVolume], ResoniteRealtime`$ResonitePresentationVolume = 1.];
+If[!ValueQ[ResoniteRealtime`$ResonitePresenterScales], ResoniteRealtime`$ResonitePresenterScales = {0.5, 0.75, 1, 1.5, 2, 3}];
 If[!BooleanQ[ResoniteRealtime`$ResonitePresentationListenWhileNarrating],
   ResoniteRealtime`$ResonitePresentationListenWhileNarrating = True];
 If[!ValueQ[ResoniteRealtime`$ResonitePresentationCacheDirectory], ResoniteRealtime`$ResonitePresentationCacheDirectory = Automatic];
@@ -144,6 +160,7 @@ If[!MatchQ[$irpSynth, _Association | None], $irpSynth = None];
 If[!AssociationQ[$irpTexts], $irpTexts = <||>];
 If[!StringQ[$irpLabel], $irpLabel = "待機中"];
 If[!IntegerQ[$irpDeckIndex], $irpDeckIndex = 1];
+If[!ListQ[$irpVoiceMenu], $irpVoiceMenu = {}];
 If[!BooleanQ[$irpHandlersInstalled], $irpHandlersInstalled = False];
 If[!ValueQ[$irpPrevSlideHandler], $irpPrevSlideHandler = None];
 If[!ValueQ[$irpPrevAskHandler], $irpPrevAskHandler = None];
@@ -188,6 +205,20 @@ irpFailText[x_] := ToString[x];
 
 irpTaskContextQ[] := MatchQ[$CurrentTask, _TaskObject];
 
+(* 式を静かに評価して {結果, その間に出たメッセージの名前} を返す。
+   成否は結果の形で決める (メッセージが出たかどうかでは決めない)。Quiet @ Check[expr, $Failed] は、正しい結果が返っていても
+   メッセージが 1 つ出ただけで $Failed にする。2026-11-23: 利用者のノートブックのカーネルで、正しい mp4 が
+   「開けませんでした」になった (同じファイルは別のカーネルでは何度でも開け、再現できていない)。
+   何が出たかを後で見られるように、名前は拾っておく *)
+SetAttributes[irpQuietly, HoldFirst];
+irpQuietly[expr_] :=
+  Module[{held = {}, r},
+    r = Internal`HandlerBlock[{"Message", (AppendTo[held, #] &)}, Quiet[expr]];
+    (* 切ってあるメッセージ (General::newsym など、Off されているもの) は数えない。
+       システムが内側で静かにしているもの (最初の Video で出る LibraryFunction::libload や Set::shape) は区別できないので残る *)
+    {r, DeleteDuplicates @ Cases[held,
+      Hold[Message[m_MessageName, ___], ___] /; !MatchQ[m, _$Off] :> ToString[Unevaluated[m]], Infinity]}];
+
 irpEnqueue[a_Association] := ($irpQueue = Append[$irpQueue, a]; Null);
 
 irpMessage[text_String] := ($irpPlay["Message"] = text; irpNote["Message", text]; Null);
@@ -202,18 +233,18 @@ irpCacheRoot[] :=
 irpWavSeconds[file_String] :=
   Module[{strm, hdr, rate, size},
     If[!FileExistsQ[file], Return[0.]];
-    size = Quiet @ Check[FileByteCount[file], 0];
+    size = Quiet[FileByteCount[file]];
     If[!IntegerQ[size] || size < 64, Return[0.]];
-    strm = Quiet @ Check[OpenRead[file, BinaryFormat -> True], $Failed];
+    strm = Quiet[OpenRead[file, BinaryFormat -> True]];
     If[Head[strm] =!= InputStream, Return[0.]];
-    hdr = Quiet @ Check[BinaryReadList[strm, "Byte", 44], {}];
+    hdr = Quiet[BinaryReadList[strm, "Byte", 44]];
     Quiet[Close[strm]];
     If[Length[hdr] < 44, Return[0.]];
     rate = FromDigits[Reverse[hdr[[29 ;; 32]]], 256];
     If[rate > 0, N[(size - 44)/rate], 0.]];
 
 irpWriteBytes[file_String, bytes_ByteArray] :=
-  Module[{strm = Quiet @ Check[OpenWrite[file, BinaryFormat -> True], $Failed]},
+  Module[{strm = Quiet[OpenWrite[file, BinaryFormat -> True]]},
     If[Head[strm] =!= OutputStream, Return[False]];
     BinaryWrite[strm, bytes]; Close[strm]; True];
 
@@ -229,7 +260,7 @@ irpURLQ[s_] := StringQ[s] && StringStartsQ[s, "http://" | "https://"];
 irpDeckTitles[] :=
   Module[{c = Lookup[$irpState, "DeckCache", None], list},
     If[AssociationQ[c] && irpNow[] - c["Time"] < 60, Return[c["Titles"]]];
-    list = If[irpRegistryQ[], Quiet @ Check[SourceVault`SourceVaultSlideDeckList[], {}], {}];
+    list = If[irpRegistryQ[], Quiet[SourceVault`SourceVaultSlideDeckList[]], {}];
     list = If[ListQ[list],
       Select[ToString[Lookup[#, "title", ""]] & /@ Select[list, AssociationQ[#] && irpURLQ[Lookup[#, "url", ""]] &],
         # =!= "" &], {}];
@@ -250,7 +281,7 @@ irpResolveSpec[target_String] :=
     If[!irpRegistryQ[],
       Return[irpFail["PresentationRegistryUnavailable",
         "SourceVault の発表登録簿が読み込まれていません (SourceVault をロードしてください)。mp4 の URL を直接渡すこともできます。"]]];
-    spec = Quiet @ Check[SourceVault`SourceVaultSlideDeckPresentationSpec[value], $Failed];
+    spec = Quiet[SourceVault`SourceVaultSlideDeckPresentationSpec[value]];
     Which[
       !AssociationQ[spec],
         irpFail["PresentationRegistryUnavailable", "発表登録簿を読めませんでした。"],
@@ -288,9 +319,33 @@ irpSlideFiles[dir_String] :=
   With[{sdir = FileNameJoin[{dir, "slides"}]},
     If[DirectoryQ[sdir], Sort[FileNames["s*.png", sdir]], {}]];
 
+(* mp4 を開いてフレーム数を読む。-> <|"Video", "Frames" (読めなければ None)|> | Failure。
+   開けたかどうかは結果の形で決め、開けなければ少し置いて 3 回まで試す (取ってきた直後のファイルを他のプロセスが掴んでいることがある)。
+   出たメッセージは記録 ("VideoOpen") と Failure に残す *)
+irpVideoOf[mp4_String] := Video[mp4];
+
+irpOpenVideo[mp4_String] :=
+  Module[{v = None, fc = None, msgs = {}, tries = 0, r},
+    While[tries < 3 && !(Head[v] === Video && IntegerQ[fc] && fc > 0),
+      If[tries > 0, Pause[0.7]];
+      tries++;
+      r = irpQuietly[
+        v = irpVideoOf[mp4];
+        If[Head[v] === Video, Information[v, "FrameCount"], None]];
+      fc = Replace[First[r], {a_Association /; Length[a] > 0 :> First[Values[a]], k_Integer :> k, _ -> None}];
+      msgs = Union[msgs, Last[r]]];
+    If[msgs =!= {} || tries > 1, irpNote["VideoOpen", <|"Tries" -> tries, "Frames" -> fc, "Messages" -> msgs|>]];
+    If[Head[v] === Video,
+      <|"Video" -> v, "Frames" -> If[IntegerQ[fc] && fc > 0, fc, None]|>,
+      irpFail["PresentationVideoFailed",
+        "スライドの mp4 を開けませんでした" <> If[msgs === {}, "。", " (" <> StringRiffle[msgs, ", "] <> ")。"],
+        <|"File" -> mp4, "Tries" -> tries, "Messages" -> msgs|>]]];
+
+irpFramesQ[frames_] := ListQ[frames] && frames =!= {} && AllTrue[frames, ImageQ];
+
 (* mp4 を取ってきて 1 枚ずつ PNG にする (2 回目以降は置き場の画像をそのまま使う)。数秒かかることがある *)
 irpPrepareDeck[spec_Association] :=
-  Module[{dir, sdir, mp4, files, v, fc, n, times, frames, meta, dur},
+  Module[{dir, sdir, mp4, files, v, fc, n, times, frames, meta, dur, opened, msgs, more},
     dir = FileNameJoin[{irpCacheRoot[], irpDeckKey[spec]}];
     sdir = FileNameJoin[{dir, "slides"}];
     meta = FileNameJoin[{dir, "deck.json"}];
@@ -300,26 +355,35 @@ irpPrepareDeck[spec_Association] :=
     If[!DirectoryQ[sdir], Return[irpFail["PresentationCacheFailed", "スライドの置き場を作れません: " <> sdir]]];
     mp4 = FileNameJoin[{dir, "deck.mp4"}];
     If[!FileExistsQ[mp4] || Quiet[FileByteCount[mp4]] < 1000,
-      Quiet @ Check[TimeConstrained[URLDownload[spec["url"], mp4], 180, $Failed], $Failed];
+      Quiet[TimeConstrained[URLDownload[spec["url"], mp4], 180, $Failed]];
       If[!FileExistsQ[mp4] || Quiet[FileByteCount[mp4]] < 1000,
         Quiet[DeleteFile[mp4]];
         Return[irpFail["PresentationDownloadFailed", "スライドの mp4 を取得できませんでした: " <> ToString[spec["url"]]]]]];
-    v = Quiet @ Check[Video[mp4], $Failed];
-    If[Head[v] =!= Video, Return[irpFail["PresentationVideoFailed", "スライドの mp4 を開けませんでした。"]]];
-    fc = Quiet @ Check[First[Values[Information[v, "FrameCount"]], None], None];
+    opened = irpOpenVideo[mp4];
+    If[FailureQ[opened], Return[opened]];
+    v = opened["Video"]; fc = opened["Frames"];
     n = irpSlidenCount[fc];
     times = If[IntegerQ[n] && n >= 1,
       irpSlidenTime /@ Range[n],
       (* Sliden の並びでない mp4: 1 秒 1 枚とみなす (登録簿の枚数があればそれ) *)
-      dur = Quiet @ Check[QuantityMagnitude[Duration[v], "Seconds"], 0.];
+      dur = Quiet[QuantityMagnitude[Duration[v], "Seconds"]];
+      If[!NumericQ[dur], dur = 0.];
       n = With[{c = Lookup[spec, "slideCount", Null]}, If[IntegerQ[c] && c >= 1, c, Max[1, Floor[dur]]]];
       Table[k - 0.5, {k, n}]];
-    frames = Quiet @ Check[VideoExtractFrames[v, times], $Failed];
-    If[!ListQ[frames] || frames === {} || !AllTrue[frames, ImageQ],
-      Return[irpFail["PresentationVideoFailed", "スライドの mp4 から画像を取り出せませんでした。"]]];
+    {frames, msgs} = irpQuietly[VideoExtractFrames[v, times]];
+    If[!irpFramesQ[frames],
+      (* 1 度だけ、少し置いてやり直す *)
+      Pause[0.7];
+      {frames, more} = irpQuietly[VideoExtractFrames[v, times]];
+      msgs = Union[msgs, more]];
+    If[msgs =!= {}, irpNote["VideoFrames", <|"Slides" -> n, "Messages" -> msgs|>]];
+    If[!irpFramesQ[frames],
+      Return[irpFail["PresentationVideoFailed",
+        "スライドの mp4 から画像を取り出せませんでした" <> If[msgs === {}, "。", " (" <> StringRiffle[msgs, ", "] <> ")。"],
+        <|"File" -> mp4, "Messages" -> msgs|>]]];
     files = MapIndexed[
       With[{f = FileNameJoin[{sdir, "s" <> IntegerString[First[#2], 10, 3] <> ".png"}]},
-        Quiet @ Check[Export[f, #1, "PNG"], $Failed]; f] &, frames];
+        Quiet[Export[f, #1, "PNG"]]; f] &, frames];
     files = Select[files, FileExistsQ];
     If[files === {}, Return[irpFail["PresentationCacheFailed", "スライド画像を書けませんでした。"]]];
     irpWriteBytes[meta, ExportByteArray[
@@ -349,22 +413,202 @@ irpTalkOf[spec_Association, first_Integer, last_Integer] :=
    声
    ============================================================ *)
 
-(* 声の一覧は AivisSpeech へ問い合わせるので、tick から毎回は聞かない (30 秒は覚えておく。irpLocalVoices[True] で聞き直す) *)
-irpLocalVoices[refresh_ : False] :=
-  Module[{vs, c = Lookup[$irpState, "VoiceCache", None]},
-    If[!TrueQ[refresh] && AssociationQ[c] && irpNow[] - c["Time"] < 30, Return[c["Voices"]]];
-    If[Length[DownValues[SourceVault`SourceVaultVoices]] === 0, Return[{}]];
-    vs = Quiet @ Check[SourceVault`SourceVaultVoices[], {}];
+(* ローカルの声の一覧 (SourceVaultVoices[])。AivisSpeech の声は、エンジンが動いているときしか並ばない
+   (SourceVaultVoices[] は止まっているエンジンを起こさない。2026-11-23: エンジンが止まっていて
+   ResonitePresentationSetVoice["ほのか"] が「見つかりません」になった)。
+   止まっているエンジンへ聞くと断られるまで 2 秒かかるので、一覧は覚えておく。聞き直すのは、頼まれたとき
+   (irpLocalVoices[True]) と、名指しの声が一覧に無かったときだけ。監視タスクの中では聞き直さない
+   (エンジンが動き出したかは irpVoiceProbeTick が待たずに確かめる)。 *)
+irpVoiceLayerQ[] := Length[DownValues[SourceVault`SourceVaultVoices]] > 0;
+
+irpAivisEntryQ[e_] := AssociationQ[e] && ToString[Lookup[e, "Engine", ""]] === "AivisSpeech";
+
+irpListVoices[] :=
+  Module[{vs},
+    (* 実行ファイルの場所を覚えておく (監視タスクの中から待たずに起こせるように)。ノートブックからの最初の 1 回だけ *)
+    If[!irpTaskContextQ[] && !KeyExistsQ[$irpState, "AivisExe"], irpAivisStatus[]];
+    vs = If[irpVoiceLayerQ[], Quiet[SourceVault`SourceVaultVoices[]], {}];
     vs = If[ListQ[vs], Select[vs, AssociationQ[#] && StringQ[Lookup[#, "Name", None]] &], {}];
     $irpState["VoiceCache"] = <|"Time" -> irpNow[], "Voices" -> vs|>;
+    $irpState["CurVoice"] = None;
+    irpVoiceMenuSync[];
     vs];
+
+irpLocalVoices[refresh_ : False] :=
+  With[{c = Lookup[$irpState, "VoiceCache", None]},
+    If[TrueQ[refresh] || !AssociationQ[c], irpListVoices[], c["Voices"]]];
+
+(* 覚えてある一覧に AivisSpeech の声があるか (問い合わせない: ノートブックのパネルの Dynamic からも引く) *)
+irpAivisListedQ[] := With[{c = Lookup[$irpState, "VoiceCache", None]},
+  AssociationQ[c] && AnyTrue[c["Voices"], irpAivisEntryQ]];
+
+(* ノートブックから呼ばれた入口で、一覧をまだ聞いていなければ聞いておく (最初の問い合わせを監視タスクに回さない) *)
+irpWarmVoices[] := (If[!irpTaskContextQ[] && !AssociationQ[Lookup[$irpState, "VoiceCache", None]], irpListVoices[]]; Null);
+
+(* ノートブックのパネルの「声を選ぶ」が追う一覧 (変わったときだけ書く) *)
+irpVoiceMenuSync[] := With[{names = irpVoiceNames[]}, If[names =!= $irpVoiceMenu, $irpVoiceMenu = names]; Null];
+
+(* ---- AivisSpeech エンジン (ローカルの声の多くはここ) ----
+   ノートブックから声を名指しされたら、止まっているエンジンを起こして待つ (SourceVaultVoiceSpeak と同じ扱い)。
+   監視タスクの中 (ワールドのパネル・声での操作) では待たずに起こし、動き出したら一覧を聞き直す。
+   SourceVault`$SourceVaultVoiceAivisAutoStart が False なら、どちらも起こさない。 *)
+
+irpAivisEndpoint[] := With[{e = SourceVault`$SourceVaultVoiceAivisEndpoint},
+  If[StringQ[e] && StringTrim[e] =!= "", StringTrim[e, "/"], "http://127.0.0.1:10101"]];
+
+irpAivisMark[up : (True | False)] := ($irpState["AivisUp"] = up; $irpState["AivisUpTime"] = irpNow[]; Null);
+
+(* エンジンの状態を聞く (同期。止まっていると断られるまで 2 秒)。-> "Running" | "Installed" | "Missing" *)
+irpAivisStatus[] :=
+  Module[{st, exe},
+    st = If[Length[DownValues[SourceVault`SourceVaultVoiceAivisStatus]] > 0,
+      Quiet[SourceVault`SourceVaultVoiceAivisStatus[]], $Failed];
+    If[!AssociationQ[st], st = <|"Status" -> "Missing"|>];
+    exe = Lookup[st, "Executable", None];
+    $irpState["AivisExe"] = If[StringQ[exe], exe, None];
+    irpAivisMark[Lookup[st, "Status", None] === "Running"];
+    Replace[Lookup[st, "Status", "Missing"], Except["Running" | "Installed"] -> "Missing"]];
+
+irpAivisProcAliveQ[] := With[{p = Lookup[$irpState, "AivisProc", None]},
+  MatchQ[p, _ProcessObject] && Quiet[ProcessStatus[p]] === "Running"];
+
+(* こちらで起こしたエンジンが、立ち上がりの途中か *)
+irpAivisStartingQ[] := !TrueQ[Lookup[$irpState, "AivisUp", False]] && irpAivisProcAliveQ[];
+
+irpAivisSpawn[exe_String, port_Integer] := StartProcess[{exe, "--port", ToString[port]}];
+
+(* 止まっているエンジンを、待たずに起こす。-> "Running" | "Starting" | "Missing" | "Disabled" | "Failed" *)
+irpAivisKick[] :=
+  Module[{ep = irpAivisEndpoint[], exe, port, proc},
+    If[irpAivisStartingQ[], Return["Starting"]];
+    (* 動いているかどうかを知らない (か、知ったのが古い) ときは聞き直す: 動いているのに 2 つ目を起こさない *)
+    If[!KeyExistsQ[$irpState, "AivisExe"] || !BooleanQ[Lookup[$irpState, "AivisUp", None]] ||
+        irpNow[] - Lookup[$irpState, "AivisUpTime", 0] > 40,
+      irpAivisStatus[]];
+    If[TrueQ[$irpState["AivisUp"]], Return["Running"]];
+    exe = Lookup[$irpState, "AivisExe", None];
+    Which[
+      !StringQ[exe], "Missing",
+      !TrueQ[SourceVault`$SourceVaultVoiceAivisAutoStart] || !StringContainsQ[ep, "127.0.0.1" | "localhost"], "Disabled",
+      (* 起こしたのに立ち上がらなかった: すぐには繰り返さない (5 分置く) *)
+      irpNow[] - Lookup[$irpState, "AivisKickTime", 0] < 300, "Failed",
+      True,
+        port = Quiet[URLParse[ep, "Port"]];
+        proc = Quiet[irpAivisSpawn[exe, If[IntegerQ[port], port, 10101]]];
+        $irpState["AivisKickTime"] = irpNow[];
+        If[MatchQ[proc, _ProcessObject],
+          $irpState["AivisProc"] = proc; $irpState["AivisAnnounce"] = True; irpNote["AivisStart", exe]; "Starting",
+          irpNote["AivisStartFailed", exe]; "Failed"]]];
+
+(* こちらで起こしたエンジンが応答するまで待つ (ノートブックから。$SourceVaultVoiceAivisStartTimeout 秒、既定 180) *)
+irpAivisAwait[] :=
+  Module[{deadline, st = None},
+    deadline = irpNow[] + With[{t = SourceVault`$SourceVaultVoiceAivisStartTimeout}, If[NumericQ[t] && t > 0, N[t], 180.]];
+    While[irpNow[] < deadline && (st = irpAivisStatus[]) =!= "Running" && irpAivisProcAliveQ[], Pause[1.]];
+    If[st === "Running", "Running", "Failed"]];
+
+(* ノートブックから: エンジンが応答するようにする (止まっていれば起こして待つ。初回は 1〜2 分)。
+   -> "Running" | "Missing" | "Disabled" | "Failed" *)
+irpAivisEnsure[] :=
+  Module[{st, t0, ok},
+    If[irpAivisStartingQ[],
+      (* 監視タスクが起こしている最中: 同じものを待つ (2 つ目を起こさない) *)
+      Print["AivisSpeech Engine の起動を待っています (1〜2 分かかることがあります) ..."];
+      Return[irpAivisAwait[]]];
+    st = irpAivisStatus[];
+    Which[
+      st === "Running", "Running",
+      st === "Missing", "Missing",
+      !TrueQ[SourceVault`$SourceVaultVoiceAivisAutoStart], "Disabled",
+      True,
+        t0 = irpNow[];
+        ok = Length[DownValues[SourceVault`SourceVaultVoiceAivisEnsure]] > 0 &&
+          TrueQ[Quiet[SourceVault`SourceVaultVoiceAivisEnsure[]]];
+        Which[
+          ok, irpAivisMark[True]; "Running",
+          (* SourceVault は、一度起こしたエンジンが落ちていると起こし直さない (すぐ False を返す): こちらで起こして待つ *)
+          irpNow[] - t0 < 15 && irpAivisKick[] === "Starting",
+            Print["AivisSpeech Engine を起動しています (1〜2 分かかることがあります) ..."];
+            irpAivisAwait[],
+          True, "Failed"]]];
+
+(* AivisSpeech の声が一覧に無ければ、止まっているエンジンを起こす。
+   wait が True (ノートブックから) なら、応答するまで待って一覧を聞き直す。
+   False (ワールドのパネル・声での操作から) なら待たない: 動き出したら irpVoiceProbeTick が一覧を聞き直す。
+   -> "Listed" | "Starting" | "Missing" | "Disabled" | "Failed" *)
+irpWakeLocalVoices[wait_ : True] :=
+  Module[{st, t0, text = "ローカルの声 (AivisSpeech) を起動しています。1〜2 分かかります"},
+    Which[
+      !irpVoiceLayerQ[], "Missing",
+      irpAivisListedQ[], "Listed",
+      !TrueQ[wait],
+        st = irpAivisKick[];
+        If[st === "Running", irpListVoices[]; st = If[irpAivisListedQ[], "Listed", "Starting"]];
+        If[st === "Starting" && $irpPlay["Message"] =!= text, irpMessage[text]];
+        st,
+      True,
+        st = irpAivisEnsure[];
+        If[st =!= "Running", Return[st]];
+        (* 動いた直後は、SourceVault が「声なし」を 30 秒覚えていることがある: 並ぶまで聞き直す *)
+        t0 = irpNow[];
+        While[irpListVoices[]; !irpAivisListedQ[] && irpNow[] - t0 < 32, Pause[2.]];
+        If[irpAivisListedQ[], "Listed", "Failed"]]];
+
+irpWakeHint[st_] :=
+  Switch[st,
+    "Starting", "。ローカルの声のエンジン (AivisSpeech) を起動しています。1〜2 分してから、もう一度選んでください。",
+    "Failed", "。ローカルの声のエンジン (AivisSpeech) を起動できませんでした。",
+    "Disabled", "。ローカルの声のエンジン (AivisSpeech) が止まっています (SourceVault`$SourceVaultVoiceAivisAutoStart が False なので自動では起こしません)。",
+    _, ""];
+
+(* 監視タスクから: エンジンが動いているかを待たずに確かめる (15 秒ごと。こちらで起こしている途中は 4 秒ごと)。
+   動いているのに AivisSpeech の声がまだ並んでいなければ、一覧を聞き直す (動いているエンジンへは一瞬で済む) *)
+irpVoiceProbeArrive[id_, data_] :=
+  If[Lookup[Lookup[$irpState, "VoiceProbe", <||>], "Id", None] === id,
+    $irpState["VoiceProbe"] = Join[$irpState["VoiceProbe"], <|"Inbox" -> data|>]];
+
+irpVoiceProbeSubmit[id_String] :=
+  Quiet[
+    URLSubmit[HTTPRequest[irpAivisEndpoint[] <> "/version", <|"Method" -> "GET"|>],
+      HandlerFunctions -> <|"TaskFinished" -> (ResoniteRealtime`Private`irpVoiceProbeArrive[id, #] &)|>,
+      HandlerFunctionsKeys -> {"StatusCode"}]];
+
+irpVoiceProbeTick[] :=
+  Module[{p = Lookup[$irpState, "VoiceProbe", <||>], now = irpNow[], in, up, id, every, lists},
+    If[!irpVoiceLayerQ[], Return[Null]];
+    in = Lookup[p, "Inbox", None];
+    If[in =!= None,
+      up = AssociationQ[in] && Lookup[in, "StatusCode", 0] === 200;
+      irpAivisMark[up];
+      lists = If[up, Lookup[p, "Lists", 0], 0];
+      (* SourceVault は「声なし」を 30 秒覚えているので、動いた直後はまだ並ばないことがある: 4 秒おきに 12 回まで聞き直す *)
+      If[up && !irpAivisListedQ[] && lists < 12,
+        lists++;
+        irpListVoices[];
+        If[irpAivisListedQ[],
+          irpNote["LocalVoicesReady", Length[irpLocalVoices[]]];
+          If[TrueQ[Lookup[$irpState, "AivisAnnounce", False]],
+            $irpState["AivisAnnounce"] = False;
+            irpMessage["ローカルの声が使えるようになりました (「声を替える」で選べます)"]]]];
+      p = <|"Id" -> None, "Time" -> Lookup[p, "Time", now], "Inbox" -> None, "Lists" -> lists|>;
+      $irpState["VoiceProbe"] = p];
+    (* 返事が来ないまま: 捨てて次を頼む *)
+    If[Lookup[p, "Id", None] =!= None && now - Lookup[p, "Time", now] > 20,
+      p = Join[p, <|"Id" -> None|>]; $irpState["VoiceProbe"] = p];
+    every = If[irpAivisStartingQ[] ||
+        (TrueQ[Lookup[$irpState, "AivisUp", False]] && !irpAivisListedQ[] && Lookup[p, "Lists", 0] < 12), 4., 15.];
+    If[Lookup[p, "Id", None] === None && now - Lookup[p, "Time", 0] >= every,
+      id = CreateUUID[];
+      $irpState["VoiceProbe"] = Join[p, <|"Id" -> id, "Time" -> now, "Inbox" -> None|>];
+      irpVoiceProbeSubmit[id]];
+    Null];
 
 irpVoiceModel[] := With[{m = ResoniteRealtime`$ResonitePresentationVoiceModel},
   If[StringQ[m] && StringTrim[m] =!= "", m, "gpt-live-1.1"]];
 
 irpModelLiveQ[model_String] :=
   If[Length[DownValues[SourceVault`SourceVaultRealtimeModelAPI]] > 0,
-    Quiet @ Check[SourceVault`SourceVaultRealtimeModelAPI[model], "Realtime"] === "Live",
+    Quiet[SourceVault`SourceVaultRealtimeModelAPI[model]] === "Live",
     StringStartsQ[model, "gpt-live"]];
 
 irpCloudVoiceNames[] :=
@@ -380,8 +624,14 @@ irpVoiceNames[] :=
 ResoniteRealtime`ResonitePresentationVoices[] := (irpLocalVoices[True]; irpVoiceNames[]);
 
 (* 名前 (一部でよい) -> <|"Name", "Engine" -> "Local"|"Cloud", "Voice", "Entry"|> *)
+irpMatchLocal[want_String] :=
+  Module[{locals = irpLocalVoices[], hit},
+    hit = SelectFirst[locals, #["Name"] === want &, None];
+    If[hit === None, hit = SelectFirst[locals, StringContainsQ[#["Name"], want, IgnoreCase -> True] &, None]];
+    hit];
+
 irpResolveVoice[spec_] :=
-  Module[{want, locals = irpLocalVoices[], clouds = irpCloudVoiceNames[], hit, bare},
+  Module[{want, clouds = irpCloudVoiceNames[], hit, bare, wake = None},
     want = If[StringQ[spec] && StringTrim[spec] =!= "", StringTrim[spec],
       ResoniteRealtime`$ResonitePresentationVoice];
     If[!StringQ[want], want = "realtime:harema"];
@@ -394,10 +644,14 @@ irpResolveVoice[spec_] :=
         Return[irpFail["VoiceLiveOnly", "声「" <> bare <> "」は GPT-Live 専用です。$ResonitePresentationVoiceModel を gpt-live-1.1 にしてください。"]]];
       Return[<|"Name" -> "realtime:" <> ToLowerCase[bare], "Engine" -> "Cloud", "Voice" -> ToLowerCase[bare],
         "Model" -> irpVoiceModel[]|>]];
-    hit = SelectFirst[locals, #["Name"] === want &, None];
-    If[hit === None, hit = SelectFirst[locals, StringContainsQ[#["Name"], want, IgnoreCase -> True] &, None]];
+    hit = irpMatchLocal[want];
+    (* 一覧に無い: ノートブックからなら一覧を聞き直す。それでも無ければ、止まっている AivisSpeech を起こして探し直す
+       (ノートブックからなら応答するまで待つ。監視タスクの中なら待たずに起こすだけで、動き出したら一覧に並ぶ) *)
+    If[hit === None && !irpTaskContextQ[], irpListVoices[]; hit = irpMatchLocal[want]];
+    If[hit === None, wake = irpWakeLocalVoices[!irpTaskContextQ[]]; hit = irpMatchLocal[want]];
     If[hit === None,
-      Return[irpFail["VoiceUnavailable", "その声は見つかりません: " <> want, <|"Available" -> irpVoiceNames[]|>]]];
+      Return[irpFail["VoiceUnavailable", "その声は見つかりません: " <> want <> irpWakeHint[wake],
+        <|"Available" -> irpVoiceNames[], "LocalEngine" -> wake|>]]];
     <|"Name" -> hit["Name"], "Engine" -> "Local", "Voice" -> hit["Name"], "Entry" -> hit|>];
 
 irpVoiceShort[name_String] := First[StringSplit[name, "(" | "（"], name];
@@ -406,7 +660,7 @@ irpVoiceLabel[] :=
   With[{v = irpCurrentVoice[]},
     If[AssociationQ[v],
       If[v["Engine"] === "Cloud", v["Voice"] <> " (" <> v["Model"] <> ")", irpVoiceShort[v["Name"]] <> " (ローカル)"],
-      ToString[ResoniteRealtime`$ResonitePresentationVoice] <> " (使えません)"]];
+      ToString[ResoniteRealtime`$ResonitePresentationVoice] <> If[irpAivisStartingQ[], " (起動中)", " (使えません)"]]];
 
 ResoniteRealtime`ResonitePresentationSetVoice[name_String] :=
   Module[{v = irpResolveVoice[name]},
@@ -418,7 +672,11 @@ ResoniteRealtime`ResonitePresentationSetVoice[name_String] :=
     v["Name"]];
 
 ResoniteRealtime`ResonitePresentationCycleVoice[] :=
-  Module[{vs = irpVoiceNames[], cur, i},
+  Module[{vs, cur, i},
+    (* AivisSpeech の声が並んでいなければ、止まっているエンジンを起こす
+       (ノートブックからなら待って一覧に加える。ワールドのパネルからなら待たない: 動き出してから押せば選べる) *)
+    irpWakeLocalVoices[!irpTaskContextQ[]];
+    vs = irpVoiceNames[];
     If[vs === {}, Return[irpFail["VoiceUnavailable", "使える声がありません。"]]];
     cur = With[{v = irpCurrentVoice[]}, If[AssociationQ[v], v["Name"], None]];
     i = FirstPosition[vs, cur, {0}][[1]];
@@ -455,10 +713,10 @@ irpEnsureImport[kind_String, file_String] :=
       !irpLinkQ[] || !FileExistsQ[file], None,
       irpPendingImports[] >= 6, None,
       True,
-        sent = Quiet @ Check[
+        sent = Quiet[
           ResoniteRealtime`ResoniteRealtimeLink[
             <|"$type" -> If[kind === "Texture", "importTexture2DFile", "importAudioClipFile"], "filePath" -> file|>,
-            "Wait" -> False], $Failed];
+            "Wait" -> False]];
         If[AssociationQ[sent] && StringQ[Lookup[sent, "MessageId", None]],
           $irpAssets[file] = <|"State" -> "Pending", "Kind" -> kind, "MessageId" -> sent["MessageId"],
             "Time" -> irpNow[], "Link" -> $iState["Link"], "URL" -> None|>;
@@ -501,7 +759,7 @@ irpSynthBusyQ[] := AssociationQ[$irpSynth];
 irpSynthSync[v_Association, text_String, file_String] :=
   Module[{a},
     Quiet @ CreateDirectory[DirectoryName[file], CreateIntermediateDirectories -> True];
-    a = Quiet @ Check[SourceVault`SourceVaultVoiceSpeak[text, "Voice" -> v["Voice"], "OutputFile" -> file], $Failed];
+    a = Quiet[SourceVault`SourceVaultVoiceSpeak[text, "Voice" -> v["Voice"], "OutputFile" -> file]];
     If[FileExistsQ[file] && irpWavSeconds[file] > 0.2, file,
       Quiet[DeleteFile[file]];
       If[FailureQ[a], a, irpFail["VoiceSynthesisFailed", "音声を合成できませんでした。"]]]];
@@ -509,10 +767,10 @@ irpSynthSync[v_Association, text_String, file_String] :=
 irpSynthSubmit[phase_String, req_HTTPRequest] :=
   Module[{id = $irpSynth["Id"]},
     Block[{$CharacterEncoding = "UTF-8"},
-      Quiet @ Check[
+      Quiet[
         URLSubmit[req,
           HandlerFunctions -> <|"TaskFinished" -> (ResoniteRealtime`Private`irpSynthArrive[id, phase, #] &)|>,
-          HandlerFunctionsKeys -> {"StatusCode", "BodyByteArray"}], $Failed]]];
+          HandlerFunctionsKeys -> {"StatusCode", "BodyByteArray"}]]]];
 
 (* URLSubmit のコールバック: 届いたものを置くだけ (処理は tick) *)
 irpSynthArrive[id_, phase_String, data_] :=
@@ -525,7 +783,11 @@ irpSynthStart[v_Association, k_Integer, text_String, file_String] :=
     If[!irpAivisQ[v],
       (* 同期 (その枚の長さの半分ほどカーネルが塞がる)。Piper は速いので実用になる *)
       irpNote["SynthSync", k];
-      With[{r = irpSynthSync[v, text, file]}, If[FailureQ[r], irpNote["SynthFailed", <|"Slide" -> k, "Error" -> irpFailText[r]|>]]];
+      With[{r = irpSynthSync[v, text, file]},
+        If[FailureQ[r],
+          irpNote["SynthFailed", <|"Slide" -> k, "Error" -> irpFailText[r]|>];
+          (* 失敗を毎回の見回りで繰り返さない *)
+          $irpState["SynthRetryAt"] = irpNow[] + 10]];
       Return[Null]];
     ep = v["Entry"]["Root"]; sid = v["Entry"]["StyleId"];
     $irpSynth = <|"Id" -> CreateUUID[], "Slide" -> k, "File" -> file, "Voice" -> v, "Text" -> text,
@@ -533,17 +795,28 @@ irpSynthStart[v_Association, k_Integer, text_String, file_String] :=
     t = irpSynthSubmit["Query",
       HTTPRequest[ep <> "/audio_query",
         <|"Method" -> "POST", "Query" -> {"speaker" -> ToString[sid], "text" -> text}|>]];
-    If[t === $Failed, irpSynthFallback["submit"]];
+    If[!MatchQ[t, _TaskObject], irpSynthFallback["submit"]];
     Null];
 
-(* 非同期が使えなかった: 同期で作り直す (エンジンが止まっていれば SourceVaultVoiceSpeak が起こす) *)
-irpSynthFallback[why_String] :=
-  Module[{s = $irpSynth},
+(* 非同期が使えなかった: 同期で作り直す。
+   ただしエンジンが止まっているとき (down、または見回りが「止まっている」と知っているとき) は同期にしない:
+   SourceVaultVoiceSpeak はエンジンの起動を待つので、監視タスクの中ではカーネルを 1〜2 分塞ぐ。待たずに起こし、動き出してから頼み直す *)
+irpSynthFallback[why_String, down_ : False] :=
+  Module[{s = $irpSynth, kick},
     $irpSynth = None;
     If[!AssociationQ[s], Return[Null]];
     irpNote["SynthFallback", <|"Slide" -> s["Slide"], "Why" -> why|>];
+    If[irpAivisQ[s["Voice"]] && irpTaskContextQ[] && (TrueQ[down] || Lookup[$irpState, "AivisUp", None] === False),
+      If[TrueQ[down], irpAivisMark[False]];
+      kick = irpAivisKick[];
+      $irpState["SynthRetryAt"] = irpNow[] + If[kick === "Starting", 5, 30];
+      irpMessage[If[kick === "Starting", "ローカルの声 (AivisSpeech) を起動しています。1〜2 分かかります",
+        "ローカルの声 (AivisSpeech) が動いていません"]];
+      Return[Null]];
     With[{r = irpSynthSync[s["Voice"], s["Text"], s["File"]]},
-      If[FailureQ[r], irpNote["SynthFailed", <|"Slide" -> s["Slide"], "Error" -> irpFailText[r]|>]]];
+      If[FailureQ[r],
+        irpNote["SynthFailed", <|"Slide" -> s["Slide"], "Error" -> irpFailText[r]|>];
+        $irpState["SynthRetryAt"] = irpNow[] + 10]];
     Null];
 
 irpSynthTick[] :=
@@ -554,21 +827,22 @@ irpSynthTick[] :=
       If[irpNow[] - s["Time"] > 150, irpSynthFallback["timeout"]];
       Return[Null]];
     If[Lookup[in, "StatusCode", 0] =!= 200 || !ByteArrayQ[Lookup[in, "BodyByteArray", None]],
-      Return[irpSynthFallback["status " <> ToString[Lookup[in, "StatusCode", "?"]]]]];
+      (* 繋がらなかったとき (エンジンが止まっている) は StatusCode が数でない (Missing["NotAvailable"]) *)
+      Return[irpSynthFallback["status " <> ToString[Lookup[in, "StatusCode", "?"]], !IntegerQ[Lookup[in, "StatusCode", None]]]]];
     Switch[s["Phase"],
       "Query",
-        query = Quiet @ Check[ImportByteArray[in["BodyByteArray"], "RawJSON"], $Failed];
+        query = Quiet[ImportByteArray[in["BodyByteArray"], "RawJSON"]];
         If[!AssociationQ[query], Return[irpSynthFallback["query json"]]];
         ls = Lookup[s["Voice"]["Entry"], "LengthScale", 1.];
         If[NumericQ[ls] && ls > 0 && ls != 1., query["speedScale"] = N[1/ls]];
-        payload = Quiet @ Check[ExportByteArray[query, "RawJSON", "Compact" -> True], $Failed];
+        payload = Quiet[ExportByteArray[query, "RawJSON", "Compact" -> True]];
         If[!ByteArrayQ[payload], Return[irpSynthFallback["payload"]]];
         $irpSynth = Join[s, <|"Phase" -> "Synthesis", "Inbox" -> None, "Time" -> irpNow[]|>];
         t = irpSynthSubmit["Synthesis",
           HTTPRequest[s["Endpoint"] <> "/synthesis",
             <|"Method" -> "POST", "Query" -> {"speaker" -> ToString[s["StyleId"]]},
               "ContentType" -> "application/json", "Body" -> payload|>]];
-        If[t === $Failed, irpSynthFallback["submit"]],
+        If[!MatchQ[t, _TaskObject], irpSynthFallback["submit"]],
       "Synthesis",
         $irpSynth = None;
         If[Length[in["BodyByteArray"]] > 100 && irpWriteBytes[s["File"], in["BodyByteArray"]],
@@ -601,8 +875,8 @@ irpRigStart[o_Association] :=
     $irpRig = <|"Phase" -> "PoseRoot", "Options" -> o, "Time" -> irpNow[], "Pending" -> None, "Wire" -> {}|>;
     If[o["Placement"] =!= "User",
       Return[irpRigBuild[<|"Parent" -> o["Parent"], "Position" -> o["Position"], "Rotation" -> None|>]]];
-    sent = Quiet @ Check[
-      ResoniteRealtime`ResoniteRealtimeGetSlot["Root", "Depth" -> 2, "IncludeComponentData" -> False, "Wait" -> False], $Failed];
+    sent = Quiet[
+      ResoniteRealtime`ResoniteRealtimeGetSlot["Root", "Depth" -> 2, "IncludeComponentData" -> False, "Wait" -> False]];
     If[AssociationQ[sent] && StringQ[Lookup[sent, "MessageId", None]],
       $irpRig["Pending"] = sent["MessageId"],
       irpRigBuild[<|"Parent" -> o["Parent"], "Position" -> o["Position"], "Rotation" -> None|>]];
@@ -626,8 +900,8 @@ irpUserCandidates[res_Association, userSpec_] :=
 irpAskUserChildren[] :=
   Module[{c = Lookup[$irpRig, "Candidates", {}], sent},
     If[c === {}, Return[False]];
-    sent = Quiet @ Check[
-      ResoniteRealtime`ResoniteRealtimeGetSlot[First[c]["id"], "Depth" -> 1, "IncludeComponentData" -> False, "Wait" -> False], $Failed];
+    sent = Quiet[
+      ResoniteRealtime`ResoniteRealtimeGetSlot[First[c]["id"], "Depth" -> 1, "IncludeComponentData" -> False, "Wait" -> False]];
     If[AssociationQ[sent] && StringQ[Lookup[sent, "MessageId", None]],
       $irpRig = Join[$irpRig, <|"Phase" -> "PoseHead", "Pending" -> sent["MessageId"], "User" -> First[c],
         "Candidates" -> Rest[c], "Time" -> irpNow[]|>];
@@ -647,6 +921,49 @@ irpPoseFrom[user_Association, head_, distance_, height_] :=
     h = If[NumericQ[height], pos[[2]] + height, eye[[2]] - 0.6];
     <|"Parent" -> Lookup[Lookup[user, "parent", <||>], "targetId", "Root"],
       "Position" -> N[{eye[[1]], h, eye[[3]]} + distance*f], "Rotation" -> N[icYawQuat[f]]|>];
+
+(* ---- スクリーンの大きさ (何段階かで切り替える) ----
+   組み立てたときの大きさ ("Width") を等倍として、Screen Holder の倍率を書き換える。下の辺の高さは変えず、
+   右に置いた操作パネルはスクリーンの右端についていく (パネル自体の大きさは変えない) *)
+irpScales[] :=
+  With[{s = ResoniteRealtime`$ResonitePresenterScales},
+    If[VectorQ[s, NumericQ] && s =!= {} && AllTrue[s, 0.05 <= # <= 20 &],
+      Union[N[s], {1.}], {0.5, 0.75, 1., 1.5, 2., 3.}]];
+
+(* 等倍の段 *)
+irpScaleHome[] := First[FirstPosition[irpScales[], 1., {1}]];
+
+irpScaleIndex[] :=
+  With[{i = If[irpRigQ[], Lookup[$irpRig, "ScaleIndex", None], None]},
+    If[IntegerQ[i], Clip[i, {1, Length[irpScales[]]}], irpScaleHome[]]];
+
+irpHolderPosition[h_, s_] := {0., s*h/2 + 0.1, 0.};
+irpPanelPosition[w_, s_] := {s*w/2 + 0.62, 0.42, -0.12};
+
+irpScaleLabel[] :=
+  If[irpRigBuiltQ[] && ListQ[Lookup[$irpRig, "Size", None]],
+    With[{i = irpScaleIndex[], steps = irpScales[]},
+      "スクリーン: 幅 " <> ToString[NumberForm[steps[[i]]*$irpRig["Size"][[1]], {5, 1}]] <> " m (" <>
+        ToString[i] <> "/" <> ToString[Length[steps]] <> ")"],
+    "スクリーン: -"];
+
+(* i 段目の大きさにする (待たない)。-> スクリーンの幅 (m) *)
+irpSetScale[i_Integer] :=
+  Module[{steps = irpScales[], j, s, w, h},
+    If[!irpRigBuiltQ[] || !ListQ[Lookup[$irpRig, "Size", None]], Return[None]];
+    j = Clip[i, {1, Length[steps]}];
+    s = steps[[j]]; {w, h} = $irpRig["Size"];
+    irpNoWait[Quiet[ResoniteRealtime`ResoniteRealtimeUpdateSlot[$irpRig["Holder"],
+      <|"position" -> irpHolderPosition[h, s], "scale" -> {s, s, s}|>]]];
+    If[StringQ[Lookup[$irpRig, "PanelRoot", None]],
+      irpNoWait[Quiet[ResoniteRealtime`ResoniteRealtimeUpdateSlot[$irpRig["PanelRoot"],
+        <|"position" -> irpPanelPosition[w, s]|>]]]];
+    $irpRig["ScaleIndex"] = j;
+    irpNote["Scale", <|"Step" -> j, "Scale" -> s, "Width" -> s*w|>];
+    irpRefreshLabel[];
+    s*w];
+
+irpResize[dir : (1 | -1)] := irpSetScale[irpScaleIndex[] + dir];
 
 irpRow[parent_String, name_String, h_] :=
   Module[{row = icSlot[name, parent]},
@@ -676,7 +993,7 @@ irpRigBuild[pose_Association] :=
             <|"Source" -> "Mathematica ResoniteRealtime presenter (slides from SlideWorkflow, AI narration voice)"|>];
 
           (* スクリーン: 画像 2 枚 (表と控え) を持ち、次の枚を控えに読み込んでおいて切り替える *)
-          holder = icSlot["Screen Holder", root, "Position" -> {0., h/2 + 0.1, 0.}];
+          holder = icSlot["Screen Holder", root, "Position" -> irpHolderPosition[h, 1.]];
           ids["Holder"] = holder;
           icComp[holder, $icFE <> "BoxCollider", <|"Size" -> {w, h, 0.03}|>];
           itBacking[holder, {w, h}];
@@ -707,7 +1024,7 @@ irpRigBuild[pose_Association] :=
 
           (* 操作パネル (スクリーンの右、利用者の方へ少し向ける) *)
           If[TrueQ[o["Panel"]],
-            proot = icSlot["Control Panel", root, "Position" -> {w/2 + 0.62, 0.42, -0.12},
+            proot = icSlot["Control Panel", root, "Position" -> irpPanelPosition[w, 1.],
               "Rotation" -> N[{0, Sin[12.5 Degree], 0, Cos[12.5 Degree]}]];
             ids["PanelRoot"] = proot;
             itBacking[proot, csz*ps];
@@ -741,6 +1058,11 @@ irpRigBuild[pose_Association] :=
             row = irpRow[vl, "AnswerRow", bh];
             btn["Answer"] = itButton[row, "Answer", "音声応答", bw*1.2, bh, bc, fs*0.85];
             ids["AnswerText"] = irpRowText[row, "AnswerState", "音声応答: off", fs*0.9, "AnswerText"];
+            (* スクリーンの大きさ *)
+            row = irpRow[vl, "ScreenRow", bh];
+            btn["Smaller"] = itButton[row, "Smaller", "縮小", bw*0.8, bh, bc, fs];
+            btn["Larger"] = itButton[row, "Larger", "拡大", bw*0.8, bh, bc, fs];
+            ids["ScaleText"] = irpRowText[row, "ScreenSize", "スクリーン: -", fs*0.9, "ScaleText"];
             (* 状態 *)
             With[{s = icSlot["Status", vl]},
               icLayoutElement[s, fs*4, 1];
@@ -757,7 +1079,7 @@ irpRigBuild[pose_Association] :=
         "Phase" -> If[r["Wire"] === {}, "Ready", "Settle"], "Time" -> irpNow[], "Pending" -> None,
         "Front" -> "A", "TexSlide" -> <|"A" -> None, "B" -> None|>,
         "ClipFront" -> "A", "ClipFile" -> <|"A" -> None, "B" -> None|>,
-        "PollFailures" -> 0, "WireTries" -> 0, "LastPoll" -> 0.|>];
+        "PollFailures" -> 0, "WireTries" -> 0, "LastPoll" -> 0., "ScaleIndex" -> irpScaleHome[]|>];
     $irpTexts = <||>;
     irpNote["RigBuilt", $irpRig["Root"]];
     Null];
@@ -765,8 +1087,8 @@ irpRigBuild[pose_Association] :=
 irpSendPanelPoll[] :=
   Module[{sent},
     If[!StringQ[Lookup[$irpRig, "PanelRoot", None]], Return[Null]];
-    sent = Quiet @ Check[
-      ResoniteRealtime`ResoniteRealtimeGetSlot[$irpRig["PanelRoot"], "Depth" -> -1, "IncludeComponentData" -> True, "Wait" -> False], $Failed];
+    sent = Quiet[
+      ResoniteRealtime`ResoniteRealtimeGetSlot[$irpRig["PanelRoot"], "Depth" -> -1, "IncludeComponentData" -> True, "Wait" -> False]];
     If[AssociationQ[sent] && StringQ[Lookup[sent, "MessageId", None]],
       $irpRig["Pending"] = sent["MessageId"]; $irpRig["LastPoll"] = irpNow[]];
     Null];
@@ -936,7 +1258,7 @@ irpSetText[key_String, text_String] :=
    ============================================================ *)
 
 irpBridgeStatus[] :=
-  If[irpCloudLayerQ[], Replace[Quiet @ Check[SourceVault`SourceVaultRealtimeStatus[], <||>], Except[_Association] -> <||>], <||>];
+  If[irpCloudLayerQ[], Replace[Quiet[SourceVault`SourceVaultRealtimeStatus[]], Except[_Association] -> <||>], <||>];
 
 irpBridgeRunningQ[st_Association] := TrueQ[Lookup[st, "Running", False]];
 
@@ -986,7 +1308,8 @@ irpBridgeStart[] :=
       Return[irpFail["VoiceBridgeUnavailable", "音声ブリッジ (SourceVault_realtime.wl) が読み込まれていません。"]]];
     If[irpBridgeRunningQ[st], irpInstallHandlers[]; Return[<|"Status" -> "AlreadyRunning"|>]];
     irpInstallHandlers[];
-    res = Quiet @ Check[
+    (* 成否は返り値の形で決める (メッセージが出ただけで「起動できなかった」とすると、動いているブリッジを持ち主なしで残す) *)
+    res = Quiet[
       SourceVault`SourceVaultRealtimeStart[
         "Model" -> irpVoiceModel[], "Voice" -> irpBridgeVoice[],
         "Notebook" -> If[Head[nb] === NotebookObject, nb, None],
@@ -996,8 +1319,7 @@ irpBridgeStart[] :=
            音声応答を on にする側 (ResonitePresentationVoiceControl / パネル) が起動後に開ける *)
         "StartMuted" -> True,
         "InputDevice" -> ResoniteRealtime`$ResonitePresentationInputDevice,
-        "OutputDevice" -> ResoniteRealtime`$ResonitePresentationOutputDevice],
-      irpFail["VoiceBridgeStartFailed", "音声ブリッジを起動できませんでした。"]];
+        "OutputDevice" -> ResoniteRealtime`$ResonitePresentationOutputDevice]];
     If[FailureQ[res] || !AssociationQ[res],
       irpRestoreHandlers[];
       irpNote["BridgeStartFailed", irpFailText[res]];
@@ -1014,7 +1336,7 @@ irpBridgeStop[] := (
 
 irpRememberNotebook[] :=
   If[TrueQ[$Notebooks] && !irpTaskContextQ[],
-    With[{nb = Quiet @ Check[EvaluationNotebook[], None]},
+    With[{nb = Quiet[EvaluationNotebook[]]},
       If[Head[nb] === NotebookObject, $irpControlNotebook = nb]]];
 
 ResoniteRealtime`ResonitePresentationVoiceControl[] :=
@@ -1023,6 +1345,7 @@ ResoniteRealtime`ResonitePresentationVoiceControl[] :=
 ResoniteRealtime`ResonitePresentationVoiceControl[True] :=
   Module[{r},
     irpRememberNotebook[];
+    irpWarmVoices[];
     r = irpBridgeStart[];
     If[FailureQ[r], irpMessage["音声応答を始められません: " <> irpFailText[r]]; irpRefreshLabel[]; Return[r]];
     $irpAnswering = True;
@@ -1042,7 +1365,7 @@ ResoniteRealtime`ResonitePresentationVoiceControl[False] := (
 
 (* ---- 声からのスライド移動 (show_slide) ---- *)
 
-irpActiveQ[] := MemberQ[{"Starting", "Playing", "Paused", "Finished"}, $irpPlay["Status"]] && $irpPlay["Last"] >= 1;
+irpActiveQ[] := MemberQ[{"Starting", "Ready", "Playing", "Paused", "Finished"}, $irpPlay["Status"]] && $irpPlay["Last"] >= 1;
 
 irpFindSlide[word_String] :=
   Module[{w = StringTrim[StringReplace[word, {"のスライド" -> "", "スライド" -> "", "の枚" -> ""}]], hit},
@@ -1054,7 +1377,8 @@ irpFindSlide[word_String] :=
 
 irpSlideHandler[req_Association] :=
   Module[{target, cur, k, n},
-    If[!irpActiveQ[],
+    (* 止めたあとも、発表を読み込んであってスクリーンがあれば、声でもスライドは送れる (ボタンと同じ扱い。読まずに映すだけ) *)
+    If[!irpActiveQ[] && !(irpDeckLoadedQ[] && irpRigBuiltQ[]),
       Return[If[TrueQ[$irpHandlersInstalled] && $irpPrevSlideHandler =!= None &&
           $irpPrevSlideHandler =!= ResoniteRealtime`Private`irpSlideHandler,
         $irpPrevSlideHandler[req],
@@ -1064,7 +1388,7 @@ irpSlideHandler[req_Association] :=
     n = Lookup[req, "number", None];
     k = Switch[target,
       "next", cur + 1, "previous", cur - 1, "first", $irpPlay["First"], "last", $irpPlay["Last"],
-      "number", If[NumericQ[n], Round[n], With[{x = Quiet @ Check[ToExpression[ToString[n]], None]}, If[NumericQ[x], Round[x], None]]],
+      "number", If[NumericQ[n], Round[n], With[{x = StringTrim[ToString[n]]}, If[StringMatchQ[x, DigitCharacter ..], FromDigits[x], None]]],
       "title", irpFindSlide[ToString[Lookup[req, "title", ""]]],
       _, None];
     If[!IntegerQ[k] || k < $irpPlay["First"] || k > $irpPlay["Last"],
@@ -1084,8 +1408,8 @@ irpParseCommand[q0_String] :=
     Which[
       talk && irpHas[q, "一覧", "リスト", "どんな発表", "何がある", "何があります"], <|"Command" -> "List"|>,
       (talk || irpHas[q, "スライド", "読み上げ"]) && irpHas[q, "一時停止", "中断して", "ポーズ", "いったん止"], <|"Command" -> "Pause"|>,
-      irpHas[q, "再開"] && (talk || irpHas[q, "スライド", "読み上げ"] || $irpPlay["Status"] === "Paused"), <|"Command" -> "Resume"|>,
-      irpHas[q, "続けて", "続きを", "続きから"] && $irpPlay["Status"] === "Paused", <|"Command" -> "Resume"|>,
+      irpHas[q, "再開"] && (talk || irpHas[q, "スライド", "読み上げ"] || MemberQ[{"Paused", "Ready"}, $irpPlay["Status"]]), <|"Command" -> "Resume"|>,
+      irpHas[q, "続けて", "続きを", "続きから"] && MemberQ[{"Paused", "Ready"}, $irpPlay["Status"]], <|"Command" -> "Resume"|>,
       talk && irpHas[q, "終了して", "を終了", "発表終了", "プレゼン終了", "終わりにして", "終わらせて", "終わって", "やめて",
         "止めて", "中止", "打ち切", "ストップ"], <|"Command" -> "Stop"|>,
       irpHas[q, "声", "ボイス", "ナレーション", "ナレーター"] && irpHas[q, "変え", "替え", "切り替え", "切替", "にして", "に戻"],
@@ -1122,6 +1446,11 @@ irpVoiceOfQuery[q_String] :=
 
 irpAnswer[text_String] := <|"status" -> "ok", "answer" -> text, "route" -> "resonite-presenter", "needWeb" -> False|>;
 
+(* 声で言われた題名が、いまの発表の題名か (空白の有無は見ない。一部でもよい) *)
+irpSameTitleQ[said_String, title_String] :=
+  With[{a = StringDelete[said, Whitespace], b = StringDelete[title, Whitespace]},
+    a =!= "" && b =!= "" && (StringContainsQ[b, a, IgnoreCase -> True] || StringContainsQ[a, b, IgnoreCase -> True])];
+
 irpRunCommand[cmd_Association] :=
   Module[{title, r, v, list},
     Switch[cmd["Command"],
@@ -1135,20 +1464,31 @@ irpRunCommand[cmd_Association] :=
       "Voice",
         v = irpVoiceOfQuery[cmd["Query"]];
         If[!StringQ[v],
-          irpAnswer["その声は見つかりません。選べる声は " <>
+          (* 一覧に無い声。ローカルの声のエンジンが止まっているのかもしれない: 待たずに起こしておく *)
+          irpAnswer[
+            If[irpWakeLocalVoices[False] === "Starting",
+              "ローカルの声を起動しています。1、2 分してから、もう一度言ってください。いま選べる声は ",
+              "その声は見つかりません。選べる声は "] <>
             StringRiffle[irpVoiceShort /@ (StringReplace[#, "realtime:" -> ""] & /@ irpVoiceNames[]), "、"] <> " です。"],
           r = ResoniteRealtime`ResonitePresentationSetVoice[v];
           irpAnswer[If[FailureQ[r], "声を切り替えられませんでした。" <> irpFailText[r],
             "読み上げの声を " <> irpVoiceShort[StringReplace[v, "realtime:" -> ""]] <> " にしました。次のスライドから変わります。"]]],
       "Start",
         title = irpTitleOfQuery[cmd["Query"]];
+        (* 開始待ち・一時停止中の発表を「始めて」: 映っている枚から読み始める (題名を言わないか、その発表の題名のとき) *)
+        If[MemberQ[{"Ready", "Paused"}, $irpPlay["Status"]] && (StringLength[title] < 2 || irpSameTitleQ[title, $irpPlay["Title"]]),
+          irpEnqueue[<|"Action" -> "Resume"|>];
+          Return[irpAnswer["「" <> $irpPlay["Title"] <> "」の発表を始めます。"]]];
         If[StringLength[title] < 2, title = Replace[irpSelectedTitle[], None -> ""]];
         If[title === "", Return[irpAnswer["どの発表を始めるか、題名を言ってください。"]]];
-        r = irpStartRequest[title, <||>];
-        irpAnswer[If[FailureQ[r],
-          "発表を始められません。" <> irpFailText[r] <>
-            With[{av = Quiet @ Check[r["Available"], {}]}, If[ListQ[av] && av =!= {}, " 登録されているのは " <> StringRiffle[Take[av, UpTo[8]], "、"] <> " です。", ""]],
-          "「" <> r["Title"] <> "」の発表を始めます。"]],
+        (* スクリーンがもう置いてあれば、すぐ読み始める。これから置くときは、位置を決める時間のために開始待ちで止まる *)
+        r = irpStartRequest[title, <|"AutoStart" -> irpRigBuiltQ[]|>];
+        irpAnswer[Which[
+          FailureQ[r],
+            "発表を始められません。" <> irpFailText[r] <>
+              With[{av = Quiet @ Check[r["Available"], {}]}, If[ListQ[av] && av =!= {}, " 登録されているのは " <> StringRiffle[Take[av, UpTo[8]], "、"] <> " です。", ""]],
+          TrueQ[r["AutoStart"]], "「" <> r["Title"] <> "」の発表を始めます。",
+          True, "「" <> r["Title"] <> "」を用意します。スクリーンの位置を決めたら、パネルの開始を押すか、もう一度「始めて」と言ってください。"]],
       _, irpAnswer["その操作はできません。"]]];
 
 irpAskHandler[req_Association] :=
@@ -1179,6 +1519,16 @@ irpStartRequest[target_String, o_Association] :=
           ToString[ResoniteRealtime`ResoniteAccessLevel[]] <> ") 以上なので出せません。"]]];
     voice = irpResolveVoice[Lookup[o, "Voice", Automatic]];
     If[FailureQ[voice], Return[voice]];
+    (* AivisSpeech の声: 一覧を聞いた後でエンジンが止まっていることがある。読み始める前に起こしておく
+       (ノートブックからなら応答するまで待つ。ワールドのパネル・声からなら待たずに起こし、その枚は音声ができるまで待つ) *)
+    If[irpAivisQ[voice],
+      If[irpTaskContextQ[],
+        If[!TrueQ[Lookup[$irpState, "AivisUp", False]], irpAivisKick[]],
+        With[{st = irpAivisEnsure[]},
+          If[st =!= "Running",
+            Return[irpFail["VoiceUnavailable",
+              "ローカルの声のエンジン (AivisSpeech) が動いていません" <> Replace[irpWakeHint[st], "" -> "。"],
+              <|"Voice" -> voice["Name"], "LocalEngine" -> st|>]]]]]];
     irpMessage["スライドを用意しています: " <> ToString[spec["title"]]];
     deck = irpPrepareDeck[spec];
     If[FailureQ[deck], irpMessage[irpFailText[deck]]; Return[deck]];
@@ -1191,10 +1541,11 @@ irpStartRequest[target_String, o_Association] :=
     talk = irpTalkOf[spec, first, last];
     If[Lookup[o, "Voice", Automatic] =!= Automatic, ResoniteRealtime`$ResonitePresentationVoice = voice["Name"]];
     irpEnqueue[<|"Action" -> "Begin", "Spec" -> KeyDrop[spec, "talk"], "Deck" -> deck, "First" -> first, "Last" -> last,
-      "Texts" -> talk["Texts"], "Titles" -> talk["Titles"], "Presenter" -> Lookup[o, "Presenter", {}]|>];
+      "Texts" -> talk["Texts"], "Titles" -> talk["Titles"], "Presenter" -> Lookup[o, "Presenter", {}],
+      "AutoStart" -> TrueQ[Lookup[o, "AutoStart", False]]|>];
     irpEnsureTask[];
     <|"Status" -> "Starting", "Title" -> ToString[spec["title"]], "Slides" -> n, "First" -> first, "Last" -> last,
-      "Scripted" -> (Length[talk["Texts"]] > 0), "Voice" -> voice["Name"]|>];
+      "Scripted" -> (Length[talk["Texts"]] > 0), "Voice" -> voice["Name"], "AutoStart" -> TrueQ[Lookup[o, "AutoStart", False]]|>];
 
 irpBegin[a_Association] :=
   Module[{},
@@ -1204,6 +1555,7 @@ irpBegin[a_Association] :=
       "Directory" -> a["Deck"]["Directory"], "Slides" -> a["Deck"]["Slides"], "Count" -> Length[a["Deck"]["Slides"]],
       "First" -> a["First"], "Last" -> a["Last"], "Slide" -> a["First"], "Texts" -> a["Texts"], "Titles" -> a["Titles"],
       "Run" -> Lookup[$irpPlay, "Run", 0] + 1, "Phase" -> None, "Route" -> None, "Since" -> irpNow[],
+      "AutoStart" -> TrueQ[Lookup[a, "AutoStart", False]],
       "Message" -> "発表を準備しています"|>];
     If[!irpRigQ[], irpRigStart[irpRigOptions[Sequence @@ Flatten[{a["Presenter"]}]]]];
     (* 質問には、この発表の資料で答える *)
@@ -1247,8 +1599,10 @@ irpRouteFor[k_Integer] :=
 (* ローカルの声で、これから読む枚の音声が無ければ合成を頼む (今の枚と次の 2 枚まで) *)
 irpSynthAhead[] :=
   Module[{v = irpCurrentVoice[], k, text, file},
-    If[irpSynthBusyQ[] || v === None || v["Engine"] =!= "Local" || !MemberQ[{"Starting", "Playing", "Paused"}, $irpPlay["Status"]],
+    If[irpSynthBusyQ[] || v === None || v["Engine"] =!= "Local" || !MemberQ[{"Starting", "Ready", "Playing", "Paused"}, $irpPlay["Status"]],
       Return[Null]];
+    (* 失敗の直後と、エンジンが立ち上がる途中は頼まない *)
+    If[irpNow[] < Lookup[$irpState, "SynthRetryAt", 0] || (irpAivisQ[v] && irpAivisStartingQ[]), Return[Null]];
     k = SelectFirst[Range[$irpPlay["Slide"], Min[$irpPlay["Slide"] + 2, $irpPlay["Last"]]],
       (text = irpSlideText[#]; text =!= "" && !FileExistsQ[irpAudioFile[$irpPlay["Directory"], v, #, text]]) &, None];
     If[IntegerQ[k],
@@ -1409,8 +1763,9 @@ irpPause[] :=
     $irpPlay = Join[$irpPlay, <|"Status" -> "Paused", "Message" -> ""|>];
     irpNote["Pause", $irpPlay["Slide"]]];
 
+(* 一時停止からの再開と、開始待ち ("Ready") からの開始。開始待ちからは、映っている枚を頭から読む *)
 irpResume[] :=
-  If[$irpPlay["Status"] === "Paused",
+  If[MemberQ[{"Paused", "Ready"}, $irpPlay["Status"]],
     $irpPlay = Join[$irpPlay, <|"Status" -> "Playing", "Message" -> ""|>];
     Which[
       (* スピーカーで読んでいた枚は続きから。クラウドの声は途中から話せないので、その枚を頭から *)
@@ -1420,10 +1775,53 @@ irpResume[] :=
       True, irpBeginSlide[$irpPlay["Slide"]]];
     irpNote["Resume", $irpPlay["Slide"]]];
 
+(* 発表を読み込んである (止めたあと・終わったあとも、スライドは送れる) *)
+irpDeckLoadedQ[] :=
+  ListQ[Lookup[$irpPlay, "Slides", None]] && Length[$irpPlay["Slides"]] >= 1 && $irpPlay["Last"] >= 1;
+
+(* 読まずに k 枚目を映すだけ。画像の取り込みがまだなら、映るまで見回り (irpShowTick) が試す *)
+irpShowOnly[k_Integer] := (
+  irpStopAudio[];
+  (* 一時停止中に移った枚は、再開したときに頭から読む ("Narrating" のままだと、前の枚の音声の続きから鳴らそうとする) *)
+  $irpPlay = Join[$irpPlay, <|"Slide" -> k, "Shown" -> False, "ShowSince" -> irpNow[],
+    "Phase" -> If[$irpPlay["Status"] === "Paused", "Moved", None], "Route" -> None,
+    "Hold" -> False, "Played" -> 0., "Message" -> ""|>];
+  Quiet[If[Length[DownValues[SourceVault`SourceVaultTalkQASetSlide]] > 0, SourceVault`SourceVaultTalkQASetSlide[k]]];
+  irpNote["Show", <|"Slide" -> k, "Status" -> $irpPlay["Status"]|>];
+  irpShowTick[];
+  Null);
+
+irpShowTick[] :=
+  If[$irpPlay["Shown"] === False && MemberQ[{"Ready", "Paused", "Idle", "Finished"}, $irpPlay["Status"]] && irpDeckLoadedQ[] && irpRigBuiltQ[],
+    If[irpShowSlide[$irpPlay["Slide"]],
+      $irpPlay["Shown"] = True; irpPreloadSlide[$irpPlay["Slide"] + 1],
+      If[irpNow[] - Lookup[$irpPlay, "ShowSince", 0.] > 45,
+        $irpPlay["Shown"] = True; irpMessage["スライド画像を取り込めませんでした"]]];
+    Null];
+
+(* 開始待ち: スクリーンが組み上がったら k 枚目を映して止まる。読み始めるのは「開始」が押されてから
+   (2026-11-23 利用者: スクリーンを良い位置に置く時間が要るので、既定では自動で読み始めない)。
+   待っている間も、ローカルの声の音声は先に用意しておく (irpSynthAhead) *)
+irpStandby[k_Integer] := (
+  $irpPlay = Join[$irpPlay, <|"Status" -> "Ready", "Slide" -> k, "Phase" -> None, "Route" -> None,
+    "Shown" -> False, "ShowSince" -> irpNow[], "Hold" -> False, "Played" -> 0., "Message" -> ""|>];
+  Quiet[If[Length[DownValues[SourceVault`SourceVaultTalkQASetSlide]] > 0, SourceVault`SourceVaultTalkQASetSlide[k]]];
+  irpNote["Ready", <|"Title" -> $irpPlay["Title"], "Slide" -> k|>];
+  irpShowTick[];
+  Null);
+
+(* スクリーンが組み上がった: すぐ読み始める ("AutoStart" -> True) か、開始待ちで止まる (既定) *)
+irpRigReady[] :=
+  If[TrueQ[Lookup[$irpPlay, "AutoStart", False]], irpBeginSlide[$irpPlay["First"]], irpStandby[$irpPlay["Slide"]]];
+
+(* 枚を移る。発表中は、移った枚を読み始める。一時停止中・停止中・終了後は、映すだけで読まない
+   (2026-11-23 利用者: 一時停止中に「前へ」「次へ」を押すと再生が始まってしまっていた。停止中は何も起きなかった) *)
 irpGoTo[k_Integer] :=
-  If[irpActiveQ[] && $irpPlay["First"] <= k <= $irpPlay["Last"],
-    irpStopAudio[];
-    irpBeginSlide[k]];
+  Which[
+    !(irpDeckLoadedQ[] && $irpPlay["First"] <= k <= $irpPlay["Last"]), Null,
+    $irpPlay["Status"] === "Playing" || ($irpPlay["Status"] === "Starting" && TrueQ[Lookup[$irpPlay, "AutoStart", False]]),
+      irpStopAudio[]; irpBeginSlide[k],
+    True, irpShowOnly[k]];
 
 irpButton[key_String] :=
   Module[{titles, r},
@@ -1434,16 +1832,22 @@ irpButton[key_String] :=
           $irpDeckIndex = Mod[$irpDeckIndex - 1 + If[key === "DeckNext", 1, -1], Length[titles]] + 1],
       "Play",
         Which[
-          $irpPlay["Status"] === "Paused", irpResume[],
-          $irpPlay["Status"] === "Playing" || $irpPlay["Status"] === "Starting", Null,
+          (* 開始待ち・一時停止中: 映っている枚から読み始める *)
+          MemberQ[{"Paused", "Ready"}, $irpPlay["Status"]], irpResume[],
+          (* スクリーンを組み立てている途中に押された: 組み上がったらすぐ読み始める *)
+          $irpPlay["Status"] === "Starting", $irpPlay["AutoStart"] = True,
+          $irpPlay["Status"] === "Playing", Null,
+          (* 止めたあと・終わったあと: 選んである発表を 1 枚目から読み始める (スクリーンはもう置いてある) *)
           StringQ[irpSelectedTitle[]],
-            r = irpStartRequest[irpSelectedTitle[], <||>];
+            r = irpStartRequest[irpSelectedTitle[], <|"AutoStart" -> True|>];
             If[FailureQ[r], irpMessage["始められません: " <> irpFailText[r]]],
           True, irpMessage["登録されている発表がありません"]],
       "Pause", If[$irpPlay["Status"] === "Paused", irpResume[], irpPause[]],
       "Stop", irpHalt["発表を止めました"],
       "Prev", irpGoTo[$irpPlay["Slide"] - 1],
       "Next", irpGoTo[$irpPlay["Slide"] + 1],
+      "Smaller", irpResize[-1],
+      "Larger", irpResize[1],
       "Voice", ResoniteRealtime`ResonitePresentationCycleVoice[],
       "Answer",
         If[TrueQ[$irpAnswering],
@@ -1489,9 +1893,14 @@ irpStatusLine[] :=
             " 説明中" <> Switch[p["Route"], "World", " (スクリーンの音声)", "Live", " (音声ブリッジ)", _, ""]],
           "Question", pos <> If[TrueQ[$irpAnswering], " 質問をどうぞ", " 次へ"],
           _, pos],
+      "Ready", pos <> " 開始待ち" <> If[irpSynthBusyQ[], " (音声を用意しています)", ""] <> "
+スクリーンの位置を決めて「開始」を押してください",
       "Paused", pos <> " 一時停止中",
-      "Finished", "発表が終わりました (" <> p["Title"] <> ")",
-      _, If[StringQ[p["Message"]] && p["Message"] =!= "", p["Message"], "待機中"]]];
+      "Finished", "発表が終わりました (" <> p["Title"] <> ")" <> If[p["Slide"] =!= p["Last"], "  " <> pos, ""],
+      (* 止めたあとも「前へ」「次へ」でスライドは送れる: いまの枚を出しておく *)
+      _, If[irpDeckLoadedQ[] && irpRigBuiltQ[],
+        pos <> " 停止中" <> If[StringQ[p["Message"]] && p["Message"] =!= "", " (" <> p["Message"] <> ")", ""],
+        If[StringQ[p["Message"]] && p["Message"] =!= "", p["Message"], "待機中"]]]];
 
 irpRefreshLabel[] :=
   Module[{line = irpStatusLine[], sel = irpSelectedTitle[], msg},
@@ -1501,6 +1910,7 @@ irpRefreshLabel[] :=
       If[StringQ[sel], sel, "(登録なし)"]]];
     irpSetText["VoiceText", "声: " <> irpVoiceLabel[]];
     irpSetText["AnswerText", "音声応答: " <> If[TrueQ[$irpAnswering], "on", "off"]];
+    irpSetText["ScaleText", irpScaleLabel[]];
     irpSetText["StatusText", line <> msg];
     With[{label = line <> "  |  声: " <> irpVoiceLabel[] <> "  |  音声応答: " <> If[TrueQ[$irpAnswering], "on", "off"]},
       If[label =!= $irpLabel, $irpLabel = label]];
@@ -1519,6 +1929,7 @@ irpTick[] :=
       CheckAbort[
         irpPumpImports[];
         irpSynthTick[];
+        irpVoiceProbeTick[];
         If[irpLinkQ[], irpRigTick[]];
         irpRunActions[];
         st = If[TrueQ[$irpAnswering] || TrueQ[$irpBridgeOwned] || $irpPlay["Route"] === "Live", irpBridgeStatus[], <||>];
@@ -1532,7 +1943,7 @@ irpTick[] :=
             "Starting",
               (* スクリーンが組み上がったら 1 枚目へ *)
               Which[
-                irpRigBuiltQ[], irpBeginSlide[$irpPlay["First"]],
+                irpRigBuiltQ[], irpRigReady[],
                 !irpRigQ[], irpHalt["スクリーンを作れませんでした"],
                 irpNow[] - $irpPlay["Since"] > 40, irpHalt["スクリーンの準備が終わりませんでした"],
                 True, Null],
@@ -1550,6 +1961,8 @@ irpTick[] :=
                     If[MemberQ[{"Narrating", "Question"}, $irpPlay["Phase"]],
                       irpPreloadClip[r["File"]],
                       irpEnsureImport["Audio", r["File"]]]]]],
+            (* 一時停止中・停止中・終了後に送った枚: 画像の取り込みが済んだら映す (読まない) *)
+            "Ready" | "Paused" | "Idle" | "Finished", irpShowTick[],
             _, Null];
           irpSynthAhead[];
           irpRefreshLabel[]],
@@ -1581,13 +1994,30 @@ irpEnsureLink[] :=
   Which[
     irpLinkQ[], True,
     irpTaskContextQ[], False,
-    True, StringQ[Quiet @ Check[ResoniteRealtime`ResoniteRealtimeLinkConnect[Automatic, "Quiet" -> True], $Failed]]];
+    True, StringQ[Quiet[ResoniteRealtime`ResoniteRealtimeLinkConnect[Automatic, "Quiet" -> True]]]];
 
 ResoniteRealtime`ResonitePresenterStatus[] :=
   If[!irpRigQ[], <|"Phase" -> None|>,
     Join[KeyTake[$irpRig, {"Phase", "Root", "Screen", "Speaker", "PanelRoot", "Size"}],
+      irpScaleInfo[],
       <|"Buttons" -> Keys[Lookup[$irpRig, "Buttons", <||>]], "Unwired" -> Length[Lookup[$irpRig, "Wire", {}]],
         "Task" -> $irpState["Task"]|>]];
+
+irpScaleInfo[] :=
+  With[{i = irpScaleIndex[], steps = irpScales[], size = If[irpRigQ[], Lookup[$irpRig, "Size", None], None]},
+    <|"Step" -> i, "Steps" -> Length[steps], "Scale" -> steps[[i]],
+      "Width" -> If[ListQ[size], steps[[i]]*First[size], None]|>];
+
+ResoniteRealtime`ResonitePresenterResize[spec_] :=
+  Module[{i},
+    If[!irpRigBuiltQ[],
+      Return[irpFail["PresenterNotBuilt", "スクリーンがありません。ResonitePresenter[] か ResonitePresentationStart[...] で置いてください。"]]];
+    i = Switch[spec,
+      "Larger", irpScaleIndex[] + 1, "Smaller", irpScaleIndex[] - 1, "Reset", irpScaleHome[], _Integer, spec, _, None];
+    If[!IntegerQ[i],
+      Return[irpFail["InvalidPresenterSize", "指定は \"Larger\" | \"Smaller\" | \"Reset\" | 段の番号 (1〜" <> ToString[Length[irpScales[]]] <> ") です。"]]];
+    irpSetScale[i];
+    irpScaleInfo[]];
 
 ResoniteRealtime`ResonitePresenter[opts : OptionsPattern[]] :=
   Module[{o = irpRigOptions[opts], wait},
@@ -1598,6 +2028,7 @@ ResoniteRealtime`ResonitePresenter[opts : OptionsPattern[]] :=
     If[irpRigQ[] && TrueQ[o["Rebuild"]], ResoniteRealtime`ResonitePresenterRemove[]];
     If[!irpRigQ[], irpRigStart[o]];
     irpEnsureTask[];
+    irpWarmVoices[];
     wait = Replace[o["Wait"], Automatic :> !irpTaskContextQ[]];
     If[TrueQ[wait], irpWaitFor[(!irpRigQ[] || $irpRig["Phase"] === "Ready") &, 25]];
     If[!irpRigQ[], Return[irpFail["PresenterBuildFailed", "スクリーンを組み立てられませんでした (ResonitePresentationLog[] に記録)。"]]];
@@ -1615,7 +2046,7 @@ ResoniteRealtime`ResonitePresenterRemove[] :=
     r];
 
 Options[ResoniteRealtime`ResonitePresentationStart] = {
-  "Voice" -> Automatic, "StartSlide" -> Automatic, "EndSlide" -> Automatic, "Presenter" -> {}};
+  "Voice" -> Automatic, "StartSlide" -> Automatic, "EndSlide" -> Automatic, "Presenter" -> {}, "AutoStart" -> False};
 
 ResoniteRealtime`ResonitePresentationStart[opts : OptionsPattern[]] :=
   With[{t = irpSelectedTitle[]},
@@ -1629,10 +2060,12 @@ ResoniteRealtime`ResonitePresentationStart[target_String, opts : OptionsPattern[
       Return[irpFail["NotConnected",
         "ResoniteLink に繋がっていません (Resonite でホストして Enable ResoniteLink)。ResoniteRealtimeLinkConnect[] を先に実行してください。"]]];
     o = Association @ Map[# -> OptionValue[ResoniteRealtime`ResonitePresentationStart, {opts}, #] &,
-      {"Voice", "StartSlide", "EndSlide", "Presenter"}];
+      {"Voice", "StartSlide", "EndSlide", "Presenter", "AutoStart"}];
+    irpWarmVoices[];
     r = irpStartRequest[target, o];
     If[FailureQ[r], Return[r]];
-    r];
+    If[TrueQ[r["AutoStart"]], r,
+      Append[r, "Next" -> "スクリーンの位置を決めてから、操作パネルの「開始」か ResonitePresentationControl[\"Start\"] で読み始めます。"]]];
 
 Options[ResoniteRealtime`ResonitePresentationPrepare] = {"Voice" -> Automatic, "StartSlide" -> Automatic, "EndSlide" -> Automatic};
 
@@ -1667,7 +2100,7 @@ ResoniteRealtime`ResonitePresentationPrepare[target_String, opts : OptionsPatter
 ResoniteRealtime`ResonitePresentationControl[action_] :=
   Module[{a},
     a = Switch[action,
-      "Pause", <|"Action" -> "Pause"|>, "Resume", <|"Action" -> "Resume"|>, "Toggle", <|"Action" -> "Toggle"|>,
+      "Pause", <|"Action" -> "Pause"|>, "Resume" | "Start", <|"Action" -> "Resume"|>, "Toggle", <|"Action" -> "Toggle"|>,
       "Stop", <|"Action" -> "Stop"|>,
       "Next", <|"Action" -> "GoTo", "Slide" -> $irpPlay["Slide"] + 1|>,
       "Previous", <|"Action" -> "GoTo", "Slide" -> $irpPlay["Slide"] - 1|>,
@@ -1677,7 +2110,7 @@ ResoniteRealtime`ResonitePresentationControl[action_] :=
       _, None];
     If[a === None,
       Return[irpFail["InvalidPresentationControl",
-        "action は \"Pause\" | \"Resume\" | \"Toggle\" | \"Stop\" | \"Next\" | \"Previous\" | \"First\" | \"Last\" | 番号 です。"]]];
+        "action は \"Start\" | \"Pause\" | \"Resume\" | \"Toggle\" | \"Stop\" | \"Next\" | \"Previous\" | \"First\" | \"Last\" | 番号 です。"]]];
     irpEnqueue[a];
     irpEnsureTask[];
     (* ノートブックから呼んだときは、監視タスクが受け取るのを少し待ってから状態を返す *)
@@ -1711,19 +2144,31 @@ ResoniteRealtime`ResonitePresentationPanel[] :=
         Dynamic[Style[ResoniteRealtime`Private`$irpLabel, FontSize -> 12],
           TrackedSymbols :> {ResoniteRealtime`Private`$irpLabel}],
         Row[{
-          ActionMenu["発表を始める",
+          (* 選ぶとスクリーンを置いて最初の枚を映し、開始待ちで止まる。読み始めるのは「開始」 *)
+          ActionMenu["発表を選ぶ",
             Map[With[{t = #}, t :> ResoniteRealtime`ResonitePresentationStart[t]] &, titles], Sequence @@ bs],
           Spacer[4],
+          Button["開始", ResoniteRealtime`ResonitePresentationControl["Start"], Sequence @@ bs], Spacer[4],
           Button["一時停止/再開", ResoniteRealtime`ResonitePresentationControl["Toggle"], Sequence @@ bs], Spacer[4],
           Button["停止", ResoniteRealtime`ResonitePresentationControl["Stop"], Sequence @@ bs], Spacer[4],
           Button["前へ", ResoniteRealtime`ResonitePresentationControl["Previous"], Sequence @@ bs], Spacer[4],
           Button["次へ", ResoniteRealtime`ResonitePresentationControl["Next"], Sequence @@ bs]}],
         Row[{
-          ActionMenu["声を選ぶ",
-            Map[With[{v = #}, irpVoiceShort[v] :> ResoniteRealtime`ResonitePresentationSetVoice[v]] &, voices], Sequence @@ bs],
+          (* 声の一覧は、ローカルの声のエンジンが動き出すと増える。一覧の変数 1 つを追うだけ (ポーリングはしない) *)
+          Dynamic[
+            ActionMenu["声を選ぶ",
+              Join[
+                Map[With[{v = #}, ResoniteRealtime`Private`irpVoiceShort[v] :> ResoniteRealtime`ResonitePresentationSetVoice[v]] &,
+                  ResoniteRealtime`Private`$irpVoiceMenu],
+                If[ResoniteRealtime`Private`irpVoiceLayerQ[] && !ResoniteRealtime`Private`irpAivisListedQ[],
+                  {"ローカルの声を起動 (AivisSpeech)" :> ResoniteRealtime`Private`irpWakeLocalVoices[True]}, {}]],
+              Sequence @@ bs],
+            TrackedSymbols :> {ResoniteRealtime`Private`$irpVoiceMenu}],
           Spacer[4],
           Button["音声応答 on/off", ResoniteRealtime`ResonitePresentationVoiceControl[], Sequence @@ bs], Spacer[4],
           Button["スクリーンを置く", ResoniteRealtime`ResonitePresenter[], Sequence @@ bs], Spacer[4],
+          Button["縮小", ResoniteRealtime`ResonitePresenterResize["Smaller"], Sequence @@ bs], Spacer[4],
+          Button["拡大", ResoniteRealtime`ResonitePresenterResize["Larger"], Sequence @@ bs], Spacer[4],
           Button["片付ける", ResoniteRealtime`ResonitePresenterRemove[], Sequence @@ bs]}]},
         Spacings -> 0.6],
       Background -> GrayLevel[0.97]]];
